@@ -3,12 +3,14 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
+import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/organization/presentation/label_manager_screen.dart';
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-// import 'package:open_file_plus/open_file_plus.dart';
+import 'package:open_filex/open_filex.dart';
 
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
@@ -23,6 +25,13 @@ class _ItemListScreenState extends State<ItemListScreen> {
   String _searchQuery = '';
   Label? _selectedLabel;
   bool _isHistoryMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize share service when the main screen is ready
+    GetIt.instance<ShareService>().init();
+  }
 
   @override
   void dispose() {
@@ -45,6 +54,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
       return database.searchItems(_searchQuery);
     }
     if (_isHistoryMode) {
+      if (_selectedLabel != null) {
+        return database.watchRecentlyOpenedByLabel(_selectedLabel!.id, 20);
+      }
       return database.watchRecentlyOpened(20);
     }
     if (_selectedLabel != null) {
@@ -106,55 +118,153 @@ class _ItemListScreenState extends State<ItemListScreen> {
         ],
       ),
       drawer: _buildDrawer(context, database),
-      body: StreamBuilder<List<MnemataItem>>(
-        stream: _getStream(database),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildQuickFilterBar(context, database),
+            Expanded(
+              child: StreamBuilder<List<MnemataItem>>(
+                stream: _getStream(database),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text('Error: ${snapshot.error}'),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final items = snapshot.data ?? [];
+
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 64,
+                            color: Theme.of(context).disabledColor,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No items found.',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ReorderableListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: items.length,
+                    buildDefaultDragHandles: false,
+                    onReorder: (oldIndex, newIndex) async {
+                      if (oldIndex < newIndex) {
+                        newIndex -= 1;
+                      }
+                      final List<MnemataItem> updatedList = List.from(items);
+                      final MnemataItem item = updatedList.removeAt(oldIndex);
+                      updatedList.insert(newIndex, item);
+
+                      for (int i = 0; i < updatedList.length; i++) {
+                        await database.updateItemSortOrder(updatedList[i].id, i);
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _ItemTile(
+                        key: ValueKey(item.id),
+                        item: item,
+                        index: index,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickFilterBar(BuildContext context, AppDatabase database) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      color: Theme.of(context).colorScheme.surface,
+      child: StreamBuilder<List<Label>>(
+        stream: database.watchAllLabels(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                ],
+          final labels = snapshot.data ?? [];
+          return ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: const Text('All'),
+                  selected: _selectedLabel == null && !_isHistoryMode,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedLabel = null;
+                        _isHistoryMode = false;
+                      });
+                    }
+                  },
+                ),
               ),
-            );
-          }
-
-          final items = snapshot.data ?? [];
-
-          if (items.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 64,
-                    color: Theme.of(context).disabledColor,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No items found.',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  avatar: const Icon(Icons.history, size: 16),
+                  label: const Text('History'),
+                  selected: _isHistoryMode,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedLabel = null;
+                        _isHistoryMode = true;
+                      });
+                    }
+                  },
+                ),
               ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _ItemTile(item: item);
-            },
+              ...labels.map((label) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    avatar: Icon(
+                      label.isFolder ? Icons.folder : Icons.label,
+                      size: 16,
+                      color: label.color != null ? Color(label.color!) : null,
+                    ),
+                    label: Text(label.name),
+                    selected: _selectedLabel?.id == label.id,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedLabel = label;
+                        });
+                      }
+                    },
+                  ),
+                );
+              }),
+            ],
           );
         },
       ),
@@ -256,8 +366,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
 class _ItemTile extends StatelessWidget {
   final MnemataItem item;
+  final int index;
 
-  const _ItemTile({required this.item});
+  const _ItemTile({super.key, required this.item, required this.index});
 
   @override
   Widget build(BuildContext context) {
@@ -270,19 +381,45 @@ class _ItemTile extends StatelessWidget {
     return Slidable(
       key: ValueKey(item.id),
       startActionPane: ActionPane(
-        motion: const ScrollMotion(),
+        motion: const StretchMotion(),
+        dismissible: DismissiblePane(
+          onDismissed: () {},
+          confirmDismiss: () async {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+            );
+            return false;
+          },
+        ),
         children: [
           SlidableAction(
-            onPressed: (context) => database.deleteItem(item.id),
-            backgroundColor: Colors.red,
+            onPressed: (context) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+              );
+            },
+            backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
-            icon: Icons.delete,
-            label: 'Delete',
+            icon: Icons.edit,
+            label: 'Edit',
           ),
         ],
       ),
       endActionPane: ActionPane(
-        motion: const ScrollMotion(),
+        motion: const StretchMotion(),
+        dismissible: DismissiblePane(
+          onDismissed: () {},
+          confirmDismiss: () async {
+            if (item.url != null) {
+              await Share.share(item.url!, subject: item.title);
+            } else if (item.title != null) {
+              await Share.share(item.title!);
+            }
+            return false;
+          },
+        ),
         children: [
           SlidableAction(
             onPressed: (context) {
@@ -304,44 +441,97 @@ class _ItemTile extends StatelessWidget {
         elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Icon(
-            isUrl ? Icons.link : Icons.file_present,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          leading: item.thumbnailUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    item.thumbnailUrl!,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      child: Icon(
+                        isUrl ? Icons.link : Icons.file_present,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                )
+              : CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(
+                    isUrl ? Icons.link : Icons.file_present,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+          title: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-        ),
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (subtitle.isNotEmpty)
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (subtitle.isNotEmpty)
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 4),
               Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                dateStr,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            const SizedBox(height: 4),
-            Text(
-              dateStr,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+              const SizedBox(height: 4),
+              StreamBuilder<List<Label>>(
+                stream: database.watchLabelsForItem(item.id),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Row(
+                    children: snapshot.data!.map((label) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: label.color != null ? Color(label.color!) : (label.isFolder ? Colors.amber : Colors.blue),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.label_outline),
+                onPressed: () => LabelSelectorSheet.show(context, item),
+              ),
+              ReorderableDragStartListener(
+                index: index,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Icon(Icons.drag_handle, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+          onTap: () => _handleOpen(context),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.label_outline),
-          onPressed: () => LabelSelectorSheet.show(context, item),
-        ),
-        onTap: () => _handleOpen(context),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _handleOpen(BuildContext context) async {
     final database = GetIt.instance<AppDatabase>();
@@ -367,11 +557,10 @@ class _ItemTile extends StatelessWidget {
           }
         }
       } else if (item.type == 'file' && item.filePath != null) {
-        // final result = await OpenFile.open(item.filePath);
-        // if (result.type != ResultType.done) {
-        //   throw Exception('Could not open file: ${result.message}');
-        // }
-        throw Exception('Opening files is temporarily disabled in this build.');
+        final result = await OpenFilex.open(item.filePath!);
+        if (result.type != ResultType.done) {
+          throw Exception('Could not open file: ${result.message}');
+        }
       } else {
         throw Exception('Unknown item type or missing path/URL');
       }

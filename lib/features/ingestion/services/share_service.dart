@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:drift/drift.dart';
+import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
+import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -10,9 +12,11 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 class ShareService {
   final AppDatabase _database;
   final ExtractionService _extractionService;
+  final PdfExtractionService _pdfExtractionService;
+  final GlobalKey<NavigatorState> _navigatorKey;
   StreamSubscription? _intentDataStreamSubscription;
 
-  ShareService(this._database, this._extractionService);
+  ShareService(this._database, this._extractionService, this._pdfExtractionService, this._navigatorKey);
 
   void init() {
     // For sharing while the app is in memory
@@ -46,36 +50,23 @@ class ShareService {
 
   Future<void> handleUrl(String? url) async {
     if (url == null || url.isEmpty) return;
-
-    // Basic URL validation/cleaning could be added here
     final trimmedUrl = url.trim();
 
-    // Duplicate check
-    final existing = await (_database.select(_database.mnemataItems)
-          ..where((t) => t.url.equals(trimmedUrl)))
-        .getSingleOrNull();
-
-    if (existing != null) return;
-
-    final id = await _database.insertItem(MnemataItemsCompanion.insert(
-      url: Value(trimmedUrl),
-      type: 'url',
-      createdAt: DateTime.now(),
-    ));
-
-    // Trigger extraction asynchronously
-    unawaited(processUrl(id, trimmedUrl));
-  }
-
-  Future<void> processUrl(int id, String url) async {
-    try {
-      final result = await _extractionService.extractContent(url);
-      if (result != null) {
-        await _database.updateItemContent(id, result.content, result.title);
-      }
-    } catch (e) {
-      print("Error processing URL extraction: $e");
-    }
+    // Perform extraction first
+    final result = await _extractionService.extractContent(trimmedUrl);
+    
+    // Navigate to summary screen
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => IngestionSummaryScreen(
+          type: 'url',
+          url: trimmedUrl,
+          title: result?.title,
+          content: result?.content,
+          thumbnailUrl: result?.thumbnailUrl,
+        ),
+      ),
+    );
   }
 
   Future<void> handleFile(SharedMediaFile sharedFile) async {
@@ -86,21 +77,24 @@ class ShareService {
     final fileName = p.basename(sharedFile.path);
     final newPath = p.join(appDir.path, fileName);
 
-    // Duplicate check based on path (simple check)
-    final existing = await (_database.select(_database.mnemataItems)
-          ..where((t) => t.filePath.equals(newPath)))
-        .getSingleOrNull();
-
-    if (existing != null) return;
-
     // Copy to permanent storage
     await file.copy(newPath);
 
-    await _database.insertItem(MnemataItemsCompanion.insert(
-      title: Value(fileName),
-      filePath: Value(newPath),
-      type: 'file',
-      createdAt: DateTime.now(),
-    ));
+    String? extractedText;
+    if (fileName.toLowerCase().endsWith('.pdf')) {
+      extractedText = await _pdfExtractionService.extractText(newPath);
+    }
+
+    // Navigate to summary screen
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => IngestionSummaryScreen(
+          type: 'file',
+          filePath: newPath,
+          title: fileName,
+          content: extractedText,
+        ),
+      ),
+    );
   }
 }

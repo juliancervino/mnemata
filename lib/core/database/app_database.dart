@@ -11,7 +11,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -29,6 +29,12 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(labels);
           await m.createTable(itemLabels);
         }
+        if (from < 4) {
+          await m.addColumn(mnemataItems, mnemataItems.thumbnailUrl);
+        }
+        if (from < 5) {
+          await m.addColumn(mnemataItems, mnemataItems.sortOrder);
+        }
       },
     );
   }
@@ -39,7 +45,10 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<MnemataItem>> watchAllItems() {
     return (select(mnemataItems)
-          ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
         .watch();
   }
 
@@ -51,6 +60,19 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<MnemataItem>> watchRecentlyOpenedByLabel(int labelId, int limit) {
+    final query = select(mnemataItems).join([
+      innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
+    ])
+      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.lastOpenedAt.isNotNull())
+      ..orderBy([OrderingTerm(expression: mnemataItems.lastOpenedAt, mode: OrderingMode.desc)])
+      ..limit(limit);
+
+    return query.watch().map((rows) {
+      return rows.map((row) => row.readTable(mnemataItems)).toList();
+    });
+  }
+
   Future<int> insertItem(MnemataItemsCompanion item) {
     return into(mnemataItems).insert(item);
   }
@@ -59,11 +81,12 @@ class AppDatabase extends _$AppDatabase {
     return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
   }
 
-  Future<void> updateItemContent(int id, String content, String? title) {
+  Future<void> updateItemContent(int id, String content, String? title, String? thumbnailUrl) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
         content: Value(content),
         title: title != null ? Value(title) : const Value.absent(),
+        thumbnailUrl: thumbnailUrl != null ? Value(thumbnailUrl) : const Value.absent(),
       ),
     );
   }
@@ -72,6 +95,23 @@ class AppDatabase extends _$AppDatabase {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
         lastOpenedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateItemDetails(int id, String title, String? url) {
+    return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
+      MnemataItemsCompanion(
+        title: Value(title),
+        url: url != null ? Value(url) : const Value.absent(),
+      ),
+    );
+  }
+
+  Future<void> updateItemSortOrder(int id, int newOrder) {
+    return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
+      MnemataItemsCompanion(
+        sortOrder: Value(newOrder),
       ),
     );
   }
@@ -98,6 +138,10 @@ class AppDatabase extends _$AppDatabase {
     return (delete(itemLabels)
           ..where((t) => t.itemId.equals(itemId) & t.labelId.equals(labelId)))
         .go();
+  }
+
+  Future<int> clearLabelsForItem(int itemId) {
+    return (delete(itemLabels)..where((t) => t.itemId.equals(itemId))).go();
   }
 
   Stream<List<Label>> watchLabelsForItem(int itemId) {

@@ -47,6 +47,11 @@ dependencies:
   readability: ^0.2.2
   flutter_slidable: ^3.0.1
   share_plus: ^10.1.2
+  metadata_fetch: ^0.4.2
+  favicon: any
+  open_filex: ^4.7.0
+  syncfusion_flutter_pdf: ^33.1.44
+  flutter_colorpicker: ^1.1.0
 
 dev_dependencies:
   flutter_test:

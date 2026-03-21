@@ -9,6 +9,8 @@ class MnemataItems extends Table {
   TextColumn get type => text()(); // 'url' or 'file'
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get lastOpenedAt => dateTime().nullable()();
+  TextColumn get thumbnailUrl => text().nullable()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 }
 
 class Labels extends Table {
