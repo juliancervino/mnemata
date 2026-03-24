@@ -62,7 +62,7 @@
 **Success Criteria**:
   1. Sharing a link/file triggers a summary screen with editable title.
   - [x] **Phase 7: Refined Control & Personalization** - Manual reordering, label customization, and improved gestures.
-  - [ ] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
+  - [x] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
 
   ## Phase Details
   ...
@@ -77,9 +77,9 @@
     4. Multiple tags can be used to filter the list (AND logic).
     5. Content view respects system navigation bars and shows tags.
   **Plans**: 3 plans
-  - [ ] 08-01-PLAN — Structural Simplification & Ingestion Robustness
-  - [ ] 08-02-PLAN — Advanced Organization & Interaction
-  - [ ] 08-03-PLAN — Visual Polish & Documentation
+  - [x] 08-01-PLAN — Structural Simplification & Ingestion Robustness
+  - [x] 08-02-PLAN — Advanced Organization & Interaction
+  - [x] 08-03-PLAN — Visual Polish & Documentation
 
   ## Progress Table
 
@@ -92,5 +92,4 @@
   | 5. File Intelligence | 1/1 | Completed | 2026-03-21 |
   | 6. Guided Ingestion | 1/1 | Completed | 2026-03-21 |
   | 7. Refined Control | 3/3 | Completed | 2026-03-21 |
-  | 8. Refinement & Advanced | 0/3 | In Progress | - |
-
+  | 8. Refinement & Advanced | 3/3 | Completed | 2026-03-24 |
