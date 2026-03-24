@@ -8,7 +8,7 @@
 - [x] **Phase 4: Visual Polish & Quick Discovery** - Representative images and quick tag filtering.
 - [x] **Phase 5: File Intelligence** - PDF indexing and native file opening.
 - [x] **Phase 6: Guided Ingestion** - Shared content editor and summary.
-- [ ] **Phase 7: Refined Control & Personalization** - Manual reordering, label customization, and improved gestures.
+- [x] **Phase 7: Refined Control & Personalization** - Manual reordering, label customization, and improved gestures.
 
 ## Phase Details
 
@@ -61,29 +61,36 @@
 **Requirements**: ING-06
 **Success Criteria**:
   1. Sharing a link/file triggers a summary screen with editable title.
-  2. Tags can be assigned to the item directly from the ingestion summary.
-**Plans**: 1 plan
-- [x] 06-01-PLAN — Guided Ingestion flow
+  - [x] **Phase 7: Refined Control & Personalization** - Manual reordering, label customization, and improved gestures.
+  - [ ] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
 
-### Phase 7: Refined Control & Personalization
-**Goal**: Provide users with deeper control over how their content is organized and interacted with.
-**Depends on**: Phase 3, Phase 4, Phase 6
-**Requirements**: ORG-07, ORG-08, ORG-09, UX-01, UX-02
-**Success Criteria**:
-  1. Users can select and change colors for labels and rename them.
-  2. The main list supports manual reordering via drag-and-drop.
-  3. Swipe actions (Edit/Share) trigger directly when swiped past a threshold.
-  4. Swiping left opens a comprehensive item editor.
-**Plans**: 3 plans
+  ## Phase Details
+  ...
+  ### Phase 8: Refinement & Advanced Features
+  **Goal**: Address technical debt (cold starts), simplify organization (Tags only), and enhance user productivity (multi-tag filters).
+  **Depends on**: Phase 7
+  **Requirements**: Various UI/UX and Ingestion refinements.
+  **Success Criteria**:
+    1. No "Folder" distinction exists; all labels are tags.
+    2. Cold start sharing works reliably.
+    3. URLs can be extracted from shared text.
+    4. Multiple tags can be used to filter the list (AND logic).
+    5. Content view respects system navigation bars and shows tags.
+  **Plans**: 3 plans
+  - [ ] 08-01-PLAN — Structural Simplification & Ingestion Robustness
+  - [ ] 08-02-PLAN — Advanced Organization & Interaction
+  - [ ] 08-03-PLAN — Visual Polish & Documentation
 
-## Progress Table
+  ## Progress Table
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation & Ingestion | 3/3 | Completed | 2026-03-20 |
-| 2. The Reflective Loop | 3/3 | Completed | 2026-03-21 |
-| 3. Organization & Continuity | 3/3 | Completed | 2026-03-21 |
-| 4. Visual Polish | 2/2 | Completed | 2026-03-21 |
-| 5. File Intelligence | 1/1 | Completed | 2026-03-21 |
-| 6. Guided Ingestion | 1/1 | Completed | 2026-03-21 |
-| 7. Refined Control | 0/3 | Not started | - |
+  | Phase | Plans Complete | Status | Completed |
+  |-------|----------------|--------|-----------|
+  | 1. Foundation & Ingestion | 3/3 | Completed | 2026-03-20 |
+  | 2. The Reflective Loop | 3/3 | Completed | 2026-03-21 |
+  | 3. Organization & Continuity | 3/3 | Completed | 2026-03-21 |
+  | 4. Visual Polish | 2/2 | Completed | 2026-03-21 |
+  | 5. File Intelligence | 1/1 | Completed | 2026-03-21 |
+  | 6. Guided Ingestion | 1/1 | Completed | 2026-03-21 |
+  | 7. Refined Control | 3/3 | Completed | 2026-03-21 |
+  | 8. Refinement & Advanced | 0/3 | In Progress | - |
+

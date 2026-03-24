@@ -4,47 +4,52 @@
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: Project Maintenance & Refinement.
+**Current Focus**: Refinement & Advanced Features.
 
 ## Current Position
 
-- **Phase**: 03-organization-continuity
-- **Plan**: 03-03
-- **Status**: Gestures & History Complete
-- **Progress**: [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] 100%
+- **Phase**: 08-refinement-advanced
+- **Plan**: 08-01
+- **Status**: Structural Simplification & Ingestion Robustness
+- **Progress**: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 - **Velocity**: Normal
-- **Requirement Coverage**: 100% (10/10 v1 requirements mapped)
-- **Phase Completion**: 3/3 (Plans within Phase 3: 3/3 completed)
+- **Requirement Coverage**: 100% (v1) + New refinement tasks mapped.
+- **Phase Completion**: 7/8 (Phase 8 in progress)
 
 ## Accumulated Context
 
 ### Key Decisions
 - **Cross-platform**: iOS, Android, Web (Flutter selected)
-- **Database**: Drift (SQLite) with reactive streams
-- **Persistence**: Using `drift_flutter` for modern async initialization
-- **Service Locator**: `get_it` used for DI
-- **Native**: Android `singleTask` and intent filters configured; iOS `Info.plist` updated
-- **UI Architecture**: Feature-first structure with navigation drawer and bottom sheets.
-- **Search**: SQLite FTS5 with porter stemming and triggers for synchronization.
-- **Extraction**: Using `readability` package (v0.2.2) via FFI. Wrapper implemented for testability.
-- **Reader UI**: Using `flutter_widget_from_html` for clean content rendering.
-- **Organization**: Folders and Tags implemented as Labels with hierarchical support.
-- **Gestures**: Slidable list items for Share and Delete actions.
+- **Database**: Drift (SQLite) with reactive streams. Schema version 5.
+- **Organization**: Simplifying model by removing "Folders". Only "Tags" (Labels) will remain.
+- **Ingestion**: Moving `ShareService` initialization to a more central point to fix cold start issues.
+- **Filtering**: Implementing "AND" logic for multi-tag selection.
+- **UI**: Standardizing tag colors and fixing `SafeArea` overlaps in reader/summary screens.
 
 ### Completed Milestones
-- [x] Project Initialization
-- [x] Initial Research (FEATURES.md)
-- [x] Project Definition (PROJECT.md)
-- [x] Phase 1: Foundation & Ingestion (01-01, 01-02, 01-03)
-- [x] Phase 2: The Reflective Loop (02-01, 02-02, 02-03)
-- [x] Phase 3: Organization & Continuity (03-01, 03-02, 03-03)
+- [x] Phase 1: Foundation & Ingestion
+- [x] Phase 2: The Reflective Loop
+- [x] Phase 3: Organization & Continuity
+- [x] Phase 4: Visual Polish & Quick Discovery
+- [x] Phase 5: File Intelligence
+- [x] Phase 6: Guided Ingestion
+- [x] Phase 7: Refined Control & Personalization
 
 ### Todos
-- [ ] Finalize UI styling and polish.
-- [ ] Add more unit and widget tests for Phase 3 features.
+- [ ] Remove Folders (Task 5)
+- [ ] Fix Cold Start Sharing (Task 2)
+- [ ] URL Extraction from Shared Text (Task 9)
+- [ ] Manual URL Addition (Task 8)
+- [ ] Multi-tag "AND" Filtering (Task 6)
+- [ ] Create Tags During Ingestion/Editing (Task 7)
+- [ ] Slidable Auto-close (Task 1)
+- [ ] Tag Color Consistency (Task 4)
+- [ ] SafeArea/Padding Fixes (Task 10)
+- [ ] Tags in Reader View (Task 11)
+- [ ] Comprehensive README (Task 3)
 
 ### Blockers
 - None
@@ -52,10 +57,9 @@
 ## Session Continuity
 
 ### Last Session Summary
-- Implemented `Slidable` list items for Share (left) and Delete (right) actions.
-- Integrated `share_plus` for native content sharing.
-- Implemented "Recently Opened" (History) view in the navigation drawer.
-- Completed all v1 requirements (ING, CON, ORG).
+- Analyzed 11 new tasks provided by the user.
+- Formulated Phase 8 plan consisting of 3 sub-plans.
+- Updated ROADMAP.md and STATE.md to reflect the new direction.
 
 ### Next Session Guidance
-- Perform final project review and any requested UI/UX refinements.
+- Start with Plan 08-01: Remove folders and fix cold start/ingestion logic.
