@@ -26,6 +26,9 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   setupLocator();
   
+  // Initialize share service as early as possible
+  getIt<ShareService>().init();
+  
   runApp(const MyApp());
 }
 

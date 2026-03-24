@@ -23,14 +23,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   String _searchQuery = '';
-  Label? _selectedLabel;
+  final Set<int> _selectedLabelIds = {};
   bool _isHistoryMode = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize share service when the main screen is ready
-    GetIt.instance<ShareService>().init();
   }
 
   @override
@@ -39,11 +37,45 @@ class _ItemListScreenState extends State<ItemListScreen> {
     super.dispose();
   }
 
+  void _showAddUrlDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add URL'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'https://example.com',
+          ),
+          autofocus: true,
+          keyboardType: TextInputType.url,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              final url = controller.text.trim();
+              if (url.isNotEmpty) {
+                GetIt.instance<ShareService>().handleUrl(url);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('ADD'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _updateSearch(String query) {
     setState(() {
       _searchQuery = query;
       if (query.isNotEmpty) {
-        _selectedLabel = null;
+        _selectedLabelIds.clear();
         _isHistoryMode = false;
       }
     });
@@ -54,20 +86,24 @@ class _ItemListScreenState extends State<ItemListScreen> {
       return database.searchItems(_searchQuery);
     }
     if (_isHistoryMode) {
-      if (_selectedLabel != null) {
-        return database.watchRecentlyOpenedByLabel(_selectedLabel!.id, 20);
+      if (_selectedLabelIds.isNotEmpty) {
+        // For history, we'll just filter by the first selected label for simplicity if multiple are selected,
+        // or we could implement watchRecentlyOpenedByMultipleLabels.
+        // Let's stick to the first one for now as per v1 logic but with multi-select capability.
+        return database.watchRecentlyOpenedByLabel(_selectedLabelIds.first, 20);
       }
       return database.watchRecentlyOpened(20);
     }
-    if (_selectedLabel != null) {
-      return database.watchItemsByLabel(_selectedLabel!.id);
+    if (_selectedLabelIds.isNotEmpty) {
+      return database.watchItemsByMultipleLabels(_selectedLabelIds.toList());
     }
     return database.watchAllItems();
   }
 
   String _getTitle() {
     if (_isHistoryMode) return 'Recently Opened';
-    return _selectedLabel?.name ?? 'Mnemata';
+    if (_selectedLabelIds.isEmpty) return 'Mnemata';
+    return '${_selectedLabelIds.length} Tags Selected';
   }
 
   @override
@@ -92,7 +128,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         actions: [
           if (!_isSearching)
             IconButton(
-              icon: const Icon(Icons.folder_open),
+              icon: const Icon(Icons.label),
               tooltip: 'Manage Labels',
               onPressed: () {
                 Navigator.push(
@@ -118,6 +154,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
         ],
       ),
       drawer: _buildDrawer(context, database),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddUrlDialog(context),
+        child: const Icon(Icons.add_link),
+        tooltip: 'Add URL',
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -216,11 +257,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   label: const Text('All'),
-                  selected: _selectedLabel == null && !_isHistoryMode,
+                  selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
                   onSelected: (selected) {
                     if (selected) {
                       setState(() {
-                        _selectedLabel = null;
+                        _selectedLabelIds.clear();
                         _isHistoryMode = false;
                       });
                     }
@@ -236,7 +277,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   onSelected: (selected) {
                     if (selected) {
                       setState(() {
-                        _selectedLabel = null;
+                        _selectedLabelIds.clear();
                         _isHistoryMode = true;
                       });
                     }
@@ -246,20 +287,23 @@ class _ItemListScreenState extends State<ItemListScreen> {
               ...labels.map((label) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
+                  child: FilterChip(
                     avatar: Icon(
-                      label.isFolder ? Icons.folder : Icons.label,
+                      Icons.label,
                       size: 16,
                       color: label.color != null ? Color(label.color!) : null,
                     ),
                     label: Text(label.name),
-                    selected: _selectedLabel?.id == label.id,
+                    selected: _selectedLabelIds.contains(label.id),
                     onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedLabel = label;
-                        });
-                      }
+                      setState(() {
+                        if (selected) {
+                          _selectedLabelIds.add(label.id);
+                          _isHistoryMode = false;
+                        } else {
+                          _selectedLabelIds.remove(label.id);
+                        }
+                      });
                     },
                   ),
                 );
@@ -289,10 +333,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
           ListTile(
             leading: const Icon(Icons.all_inbox),
             title: const Text('All Items'),
-            selected: _selectedLabel == null && !_isHistoryMode,
+            selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
             onTap: () {
               setState(() {
-                _selectedLabel = null;
+                _selectedLabelIds.clear();
                 _isHistoryMode = false;
               });
               Navigator.pop(context);
@@ -304,7 +348,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
             selected: _isHistoryMode,
             onTap: () {
               setState(() {
-                _selectedLabel = null;
+                _selectedLabelIds.clear();
                 _isHistoryMode = true;
               });
               Navigator.pop(context);
@@ -318,26 +362,15 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 if (!snapshot.hasData) return const SizedBox.shrink();
 
                 final labels = snapshot.data!;
-                final folders = labels.where((l) => l.isFolder).toList();
-                final tags = labels.where((l) => !l.isFolder).toList();
 
                 return ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    if (folders.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text('Folders', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      ...folders.map((f) => _buildLabelTile(context, f)),
-                    ],
-                    if (tags.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      ...tags.map((t) => _buildLabelTile(context, t)),
-                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    ...labels.map((l) => _buildLabelTile(context, l)),
                   ],
                 );
               },
@@ -349,16 +382,24 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Widget _buildLabelTile(BuildContext context, Label label) {
+    final isSelected = _selectedLabelIds.contains(label.id);
     return ListTile(
       leading: Icon(
-        label.isFolder ? Icons.folder : Icons.label,
-        color: label.isFolder ? Colors.amber : Colors.blue,
+        Icons.label,
+        color: label.color != null ? Color(label.color!) : Colors.blue,
       ),
       title: Text(label.name),
-      selected: _selectedLabel?.id == label.id,
+      selected: isSelected,
+      trailing: isSelected ? const Icon(Icons.check, size: 16) : null,
       onTap: () {
-        setState(() => _selectedLabel = label);
-        Navigator.pop(context);
+        setState(() {
+          if (isSelected) {
+            _selectedLabelIds.remove(label.id);
+          } else {
+            _selectedLabelIds.add(label.id);
+            _isHistoryMode = false;
+          }
+        });
       },
     );
   }
@@ -395,6 +436,7 @@ class _ItemTile extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (context) {
+              Slidable.of(context)?.close();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
@@ -423,6 +465,7 @@ class _ItemTile extends StatelessWidget {
         children: [
           SlidableAction(
             onPressed: (context) {
+              Slidable.of(context)?.close();
               if (item.url != null) {
                 Share.share(item.url!, subject: item.title);
               } else if (item.title != null) {

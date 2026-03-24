@@ -167,6 +167,23 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Stream<List<MnemataItem>> watchItemsByMultipleLabels(List<int> labelIds) {
+    if (labelIds.isEmpty) return watchAllItems();
+    if (labelIds.length == 1) return watchItemsByLabel(labelIds.first);
+
+    // SQL for "AND" logic: items that have all selected labels
+    final query = customSelect(
+      'SELECT i.* FROM mnemata_items i '
+      'WHERE (SELECT COUNT(*) FROM item_labels il WHERE il.item_id = i.id AND il.label_id IN (${labelIds.join(',')})) = ${labelIds.length} '
+      'ORDER BY i.sort_order ASC, i.created_at DESC',
+      readsFrom: {mnemataItems, itemLabels},
+    );
+
+    return query.watch().map((rows) {
+      return rows.map((row) => mnemataItems.map(row.data)).toList();
+    });
+  }
+
   Stream<List<MnemataItem>> searchItems(String query) {
     return customSelect(
       'SELECT i.* FROM mnemata_items i '

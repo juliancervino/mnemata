@@ -31,51 +31,74 @@ class ReaderScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: item.content != null && item.content!.isNotEmpty
-          ? SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (item.title != null) ...[
-                    Text(
-                      item.title!,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+      body: SafeArea(
+        child: item.content != null && item.content!.isNotEmpty
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (item.title != null) ...[
+                      Text(
+                        item.title!,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    StreamBuilder<List<Label>>(
+                      stream: database.watchLabelsForItem(item.id),
+                      builder: (context, snapshot) {
+                        final labels = snapshot.data ?? [];
+                        if (labels.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: labels.map((label) => Chip(
+                              label: Text(label.name, style: const TextStyle(fontSize: 12)),
+                              backgroundColor: label.color != null ? Color(label.color!).withOpacity(0.2) : null,
+                              side: BorderSide(color: label.color != null ? Color(label.color!) : Colors.blue),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                            )).toList(),
                           ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (item.url != null) ...[
-                    Text(
-                      Uri.parse(item.url!).host,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
+                    if (item.url != null) ...[
+                      Text(
+                        Uri.parse(item.url!).host,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const Divider(),
                     const SizedBox(height: 16),
+                    HtmlWidget(
+                      item.content!,
+                      textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            height: 1.6,
+                          ),
+                      onTapUrl: (url) async {
+                        await database.updateLastOpenedAt(item.id);
+                        final uri = Uri.parse(url);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          return true;
+                        }
+                        return false;
+                      },
+                    ),
+                    const SizedBox(height: 32), // Extra space at bottom
                   ],
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  HtmlWidget(
-                    item.content!,
-                    textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          height: 1.6,
-                        ),
-                    onTapUrl: (url) async {
-                      await database.updateLastOpenedAt(item.id);
-                      final uri = Uri.parse(url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        return true;
-                      }
-                      return false;
-                    },
-                  ),
-                ],
-              ),
-            )
-          : Center(
+                ),
+              )
+            : Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -98,6 +121,7 @@ class ReaderScreen extends StatelessWidget {
                 ],
               ),
             ),
+      ),
     );
   }
 }

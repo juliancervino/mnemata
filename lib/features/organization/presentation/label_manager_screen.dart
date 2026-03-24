@@ -60,7 +60,7 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
 
   void _editLabel(Label label) {
     final nameController = TextEditingController(text: label.name);
-    Color editColor = label.color != null ? Color(label.color!) : (label.isFolder ? Colors.amber : Colors.blue);
+    Color editColor = label.color != null ? Color(label.color!) : Colors.blue;
 
     showDialog(
       context: context,
@@ -142,19 +142,9 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                   child: TextField(
                     controller: _nameController,
                     decoration: const InputDecoration(
-                      hintText: 'New Label/Folder Name',
+                      hintText: 'New Tag Name',
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  children: [
-                    const Text('Folder?', style: TextStyle(fontSize: 10)),
-                    Switch(
-                      value: _isFolder,
-                      onChanged: (v) => setState(() => _isFolder = v),
-                    ),
-                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
@@ -174,18 +164,18 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
 
                 final labels = snapshot.data!;
                 if (labels.isEmpty) {
-                  return const Center(child: Text('No labels created yet.'));
+                  return const Center(child: Text('No tags created yet.'));
                 }
 
                 return ListView.builder(
                   itemCount: labels.length,
                   itemBuilder: (context, index) {
                     final label = labels[index];
-                    final color = label.color != null ? Color(label.color!) : (label.isFolder ? Colors.amber : Colors.blue);
+                    final color = label.color != null ? Color(label.color!) : Colors.blue;
                     
                     return ListTile(
                       leading: Icon(
-                        label.isFolder ? Icons.folder : Icons.label,
+                        Icons.label,
                         color: color,
                       ),
                       title: Text(label.name),

@@ -48,9 +48,19 @@ class ShareService {
     }
   }
 
-  Future<void> handleUrl(String? url) async {
-    if (url == null || url.isEmpty) return;
-    final trimmedUrl = url.trim();
+  Future<void> handleUrl(String? text) async {
+    if (text == null || text.isEmpty) return;
+    
+    // Regex to find the first URL in the text
+    final urlRegex = RegExp(
+      r'https?://[^\s]+',
+      caseSensitive: false,
+    );
+    
+    final match = urlRegex.firstMatch(text);
+    if (match == null) return;
+    
+    final trimmedUrl = match.group(0)!.trim();
 
     // Perform extraction first
     final result = await _extractionService.extractContent(trimmedUrl);

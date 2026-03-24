@@ -61,8 +61,8 @@ class LabelSelectorSheet extends StatelessWidget {
                         return CheckboxListTile(
                           title: Text(label.name),
                           secondary: Icon(
-                            label.isFolder ? Icons.folder : Icons.label,
-                            color: label.isFolder ? Colors.amber : Colors.blue,
+                            Icons.label,
+                            color: label.color != null ? Color(label.color!) : Colors.blue,
                           ),
                           value: isAssigned,
                           onChanged: (bool? value) {

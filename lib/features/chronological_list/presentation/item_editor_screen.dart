@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get_it/get_it.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
 
 class ItemEditorScreen extends StatefulWidget {
@@ -96,6 +98,79 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     }
   }
 
+  void _pickColor(BuildContext context, Color initialColor, Function(Color) onColorChanged) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pick a color'),
+        content: SingleChildScrollView(
+          child: BlockPicker(
+            pickerColor: initialColor,
+            onColorChanged: (color) {
+              onColorChanged(color);
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddTagDialog(BuildContext context, AppDatabase database) {
+    final nameController = TextEditingController();
+    Color selectedColor = Colors.blue;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add New Tag'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Tag Name'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('Color'),
+                trailing: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: selectedColor),
+                ),
+                onTap: () => _pickColor(context, selectedColor, (color) {
+                  setDialogState(() => selectedColor = color);
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            TextButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  final id = await database.insertLabel(LabelsCompanion.insert(
+                    name: name,
+                    color: drift.Value(selectedColor.value),
+                  ));
+                  setState(() {
+                    _selectedLabelIds.add(id);
+                  });
+                  if (context.mounted) Navigator.pop(context);
+                }
+              },
+              child: const Text('ADD'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
@@ -141,9 +216,19 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                 enabled: widget.item.type == 'url',
               ),
               const SizedBox(height: 24),
-              Text(
-                'Labels',
-                style: Theme.of(context).textTheme.titleMedium,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Labels',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showAddTagDialog(context, database),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Tag'),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               StreamBuilder<List<Label>>(
@@ -161,9 +246,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                         label: Text(label.name),
                         selected: isSelected,
                         avatar: Icon(
-                          label.isFolder ? Icons.folder : Icons.label,
+                          Icons.label,
                           size: 16,
-                          color: label.color != null ? Color(label.color!) : null,
+                          color: label.color != null ? Color(label.color!) : Colors.blue,
                         ),
                         onSelected: (selected) {
                           setState(() {
