@@ -1,30 +1,40 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:get_it/get_it.dart';
 import 'package:mnemata/main.dart';
+import 'package:mnemata/core/database/app_database.dart';
+import 'package:drift/native.dart';
+import 'dart:ffi';
+import 'dart:io';
+import 'package:sqlite3/open.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  setUpAll(() {
+    if (Platform.isLinux) {
+      open.overrideFor(OperatingSystem.linux, () => DynamicLibrary.open('libsqlite3.so.0'));
+    }
+  });
+
+  setUp(() async {
+    await GetIt.instance.reset();
+    // We need to register the database for the test to work
+    GetIt.instance.registerSingleton<AppDatabase>(AppDatabase.forTesting(NativeDatabase.memory()));
+  });
+
+  testWidgets('Mnemata app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
+    // We need to call setupLocator or manually register what MyApp needs.
+    // main.dart has setupLocator() but it registers real database.
+    // Let's just mock the essentials.
+    
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the app title is shown.
+    expect(find.text('Mnemata'), findsOneWidget);
+    
+    // Clear any pending timers
+    await tester.pumpWidget(Container());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

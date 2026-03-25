@@ -36,9 +36,14 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 ...
-| ORG-06 | Phase 4 | Completed |
-| ORG-07 | Phase 7 | Pending |
-| ORG-08 | Phase 7 | Pending |
-| ORG-09 | Phase 7 | Pending |
-| UX-01 | Phase 7 | Pending |
-| UX-02 | Phase 7 | Pending |
+| ORG-07 | Phase 7 | Completed |
+| ORG-08 | Phase 7 | Completed |
+| ORG-09 | Phase 7 | Completed |
+| UX-01 | Phase 7 | Completed |
+| UX-02 | Phase 7 | Completed |
+| ING-06 | Phase 6 | Completed |
+| ING-07 | Phase 8 | Completed |
+| ORG-10 | Phase 8 | Completed |
+| UX-03 | Phase 8 | Completed |
+| CON-06 | Phase 8 | Completed |
+| INF-01 | Phase 8 | Completed |

@@ -9,7 +9,6 @@ import 'package:mnemata/features/organization/presentation/label_manager_screen.
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
 
 class ItemListScreen extends StatefulWidget {
@@ -123,8 +122,23 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 style: const TextStyle(color: Colors.black),
                 onChanged: _updateSearch,
               )
-            : Text(_getTitle()),
-        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+            : Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/mnemata.jpg',
+                      height: 32,
+                      width: 32,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(_getTitle()),
+                ],
+              ),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
           if (!_isSearching)
             IconButton(
@@ -321,12 +335,31 @@ class _ItemListScreenState extends State<ItemListScreen> {
         children: [
           DrawerHeader(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            child: const Center(
-              child: Text(
-                'Mnemata',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/mnemata.jpg',
+                      height: 64,
+                      width: 64,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Mnemata',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -425,11 +458,16 @@ class _ItemTile extends StatelessWidget {
         motion: const StretchMotion(),
         dismissible: DismissiblePane(
           onDismissed: () {},
+          closeOnCancel: true,
           confirmDismiss: () async {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
-            );
+            Future.microtask(() {
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+                );
+              }
+            });
             return false;
           },
         ),
@@ -437,15 +475,20 @@ class _ItemTile extends StatelessWidget {
           SlidableAction(
             onPressed: (context) {
               Slidable.of(context)?.close();
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
-              );
+              Future.microtask(() {
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+                  );
+                }
+              });
             },
             backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
             icon: Icons.edit,
             label: 'Edit',
+            autoClose: false,
           ),
         ],
       ),
@@ -453,12 +496,15 @@ class _ItemTile extends StatelessWidget {
         motion: const StretchMotion(),
         dismissible: DismissiblePane(
           onDismissed: () {},
+          closeOnCancel: true,
           confirmDismiss: () async {
-            if (item.url != null) {
-              await Share.share(item.url!, subject: item.title);
-            } else if (item.title != null) {
-              await Share.share(item.title!);
-            }
+            Future.microtask(() async {
+              if (item.url != null) {
+                await Share.share(item.url!, subject: item.title);
+              } else if (item.title != null) {
+                await Share.share(item.title!);
+              }
+            });
             return false;
           },
         ),
@@ -466,16 +512,19 @@ class _ItemTile extends StatelessWidget {
           SlidableAction(
             onPressed: (context) {
               Slidable.of(context)?.close();
-              if (item.url != null) {
-                Share.share(item.url!, subject: item.title);
-              } else if (item.title != null) {
-                Share.share(item.title!);
-              }
+              Future.microtask(() async {
+                if (item.url != null) {
+                  await Share.share(item.url!, subject: item.title);
+                } else if (item.title != null) {
+                  await Share.share(item.title!);
+                }
+              });
             },
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
             icon: Icons.share,
             label: 'Share',
+            autoClose: false,
           ),
         ],
       ),
@@ -582,22 +631,13 @@ class _ItemTile extends StatelessWidget {
 
     try {
       if (item.type == 'url' && item.url != null) {
-        if (item.content != null && item.content!.isNotEmpty) {
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ReaderScreen(item: item),
-              ),
-            );
-          }
-        } else {
-          final uri = Uri.parse(item.url!);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
-            throw Exception('Could not launch ${item.url}');
-          }
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReaderScreen(item: item),
+            ),
+          );
         }
       } else if (item.type == 'file' && item.filePath != null) {
         final result = await OpenFilex.open(item.filePath!);

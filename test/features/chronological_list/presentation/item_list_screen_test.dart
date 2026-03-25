@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
+import 'package:mnemata/features/ingestion/services/share_service.dart';
+import 'package:mnemata/features/ingestion/services/extraction_service.dart';
+import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:drift/native.dart';
 import 'package:drift/drift.dart';
 import 'dart:ffi';
@@ -23,6 +26,21 @@ void main() {
     await getIt.reset();
     database = AppDatabase.forTesting(NativeDatabase.memory());
     getIt.registerSingleton<AppDatabase>(database);
+    
+    // Register other dependencies for completeness
+    final extractionService = ExtractionService();
+    final pdfExtractionService = PdfExtractionService();
+    final navigatorKey = GlobalKey<NavigatorState>();
+    
+    getIt.registerSingleton<ExtractionService>(extractionService);
+    getIt.registerSingleton<PdfExtractionService>(pdfExtractionService);
+    getIt.registerSingleton<GlobalKey<NavigatorState>>(navigatorKey);
+    getIt.registerSingleton<ShareService>(ShareService(
+      database,
+      extractionService,
+      pdfExtractionService,
+      navigatorKey,
+    ));
   });
 
   tearDown(() async {
@@ -33,7 +51,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('No items saved yet.'), findsOneWidget);
+    expect(find.text('No items found.'), findsOneWidget);
     
     // Clear any pending timers
     await tester.pumpWidget(Container());
@@ -69,12 +87,11 @@ void main() {
     // Type "Apple"
     await tester.enterText(find.byType(TextField), 'Apple');
     // We need to wait for the stream to update. 
-    // Drift's search might take a moment to propagate through the trigger.
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
     // Use a more specific finder to avoid matching the TextField content
-    expect(find.descendant(of: find.byType(ListView), matching: find.text('Apple')), findsOneWidget);
+    expect(find.descendant(of: find.byType(ReorderableListView), matching: find.text('Apple')), findsOneWidget);
     expect(find.text('Banana'), findsNothing);
 
     // Clear search

@@ -16,6 +16,8 @@ class ReaderScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(item.title ?? 'Article'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
           if (item.url != null)
             IconButton(

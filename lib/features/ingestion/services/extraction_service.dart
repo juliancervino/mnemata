@@ -21,6 +21,7 @@ class ExtractionService {
       final metadata = await MetadataFetch.extract(url);
       String? title = metadata?.title;
       String? thumbnailUrl = metadata?.image;
+      String? description = metadata?.description;
 
       // Filter out common useless titles like "www"
       if (title != null && (title.toLowerCase() == 'www' || title.toLowerCase() == 'www.')) {
@@ -48,10 +49,15 @@ class ExtractionService {
       // 4. Extract main content using readability
       final result = await _wrapper.parse(url);
       if (result == null && title == null) return null;
+
+      String? finalContent = result?.content;
+      if (finalContent == null || finalContent.isEmpty) {
+        finalContent = description;
+      }
       
       return (
         title: title ?? result?.title ?? '',
-        content: result?.content ?? '',
+        content: finalContent ?? '',
         thumbnailUrl: thumbnailUrl,
       );
     } catch (e) {

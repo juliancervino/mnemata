@@ -78,7 +78,7 @@ void main() {
       createdAt: now,
     ));
 
-    await database.updateItemContent(id, 'Updated Content', 'Updated Title');
+    await database.updateItemContent(id, 'Updated Content', 'Updated Title', null);
 
     final items = await database.watchAllItems().first;
     expect(items.length, 1);
