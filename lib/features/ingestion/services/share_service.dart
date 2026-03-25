@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
@@ -109,6 +110,16 @@ class ShareService {
     if (match == null) return;
 
     final trimmedUrl = match.group(0)!.trim();
+
+    if (_isArchiveUrl(trimmedUrl)) {
+      if (requestId != _latestRequestId) return;
+      await _pushSummaryWhenNavigatorReady(
+        requestId,
+        (context) => ArchiveScraperScreen(url: trimmedUrl),
+      );
+      return;
+    }
+
     final result = await _extractionService.extractContent(trimmedUrl);
 
     if (requestId != _latestRequestId) return;
@@ -178,5 +189,25 @@ class ShareService {
     }
 
     debugPrint('ShareService: navigator not ready, skipping share navigation.');
+  }
+
+  bool _isArchiveUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final archiveDomains = [
+        'archive.ph',
+        'archive.today',
+        'archive.is',
+        'archive.li',
+        'archive.vn',
+        'archive.fo',
+        'archive.md',
+        'archive.moe'
+      ];
+      return archiveDomains
+          .any((domain) => uri.host == domain || uri.host.endsWith('.$domain'));
+    } catch (_) {
+      return false;
+    }
   }
 }
