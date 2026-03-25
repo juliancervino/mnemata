@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
@@ -10,76 +11,121 @@ import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 class ShareService {
-  final AppDatabase _database;
   final ExtractionService _extractionService;
   final PdfExtractionService _pdfExtractionService;
   final GlobalKey<NavigatorState> _navigatorKey;
   StreamSubscription? _intentDataStreamSubscription;
 
-  ShareService(this._database, this._extractionService, this._pdfExtractionService, this._navigatorKey);
+  bool _isInitialized = false;
+  int _latestRequestId = 0;
+  String? _lastProcessedPayloadKey;
+  DateTime? _lastProcessedAt;
+
+  ShareService(
+    AppDatabase database,
+    this._extractionService,
+    this._pdfExtractionService,
+    this._navigatorKey,
+  ) {
+    database.hashCode;
+  }
 
   void init() {
-    // For sharing while the app is in memory
-    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream()
-        .listen((List<SharedMediaFile> value) {
-      _handleSharedMedia(value);
-    }, onError: (err) {
-      print("getMediaStream error: $err");
-    });
+    if (_isInitialized) return;
+    _isInitialized = true;
 
-    // For sharing while the app is closed
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
-      _handleSharedMedia(value);
-      ReceiveSharingIntent.instance.reset();
+    _intentDataStreamSubscription =
+        ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> value) async {
+        await _handleSharedMedia(value);
+        ReceiveSharingIntent.instance.reset();
+      },
+      onError: (Object err) {
+        debugPrint('getMediaStream error: $err');
+      },
+    );
+
+    ReceiveSharingIntent.instance.getInitialMedia().then(
+      (List<SharedMediaFile> value) async {
+        await _handleSharedMedia(value);
+        ReceiveSharingIntent.instance.reset();
+      },
+    ).catchError((Object err) {
+      debugPrint('getInitialMedia error: $err');
     });
   }
 
   void dispose() {
     _intentDataStreamSubscription?.cancel();
+    _isInitialized = false;
   }
 
   Future<void> _handleSharedMedia(List<SharedMediaFile> files) async {
+    if (files.isEmpty) return;
+
+    final int requestId = ++_latestRequestId;
+
     for (final file in files) {
+      if (requestId != _latestRequestId) return;
+
+      final String payloadKey = '${file.type.name}:${file.path}';
+      final DateTime now = DateTime.now();
+      if (_lastProcessedPayloadKey == payloadKey &&
+          _lastProcessedAt != null &&
+          now.difference(_lastProcessedAt!) < const Duration(seconds: 2)) {
+        continue;
+      }
+
+      _lastProcessedPayloadKey = payloadKey;
+      _lastProcessedAt = now;
+
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
-        await handleUrl(file.path);
+        await _handleUrl(file.path, requestId);
       } else {
-        await handleFile(file);
+        await _handleFile(file, requestId);
       }
     }
   }
 
   Future<void> handleUrl(String? text) async {
+    final int requestId = ++_latestRequestId;
+    await _handleUrl(text, requestId);
+  }
+
+  Future<void> handleFile(SharedMediaFile sharedFile) async {
+    final int requestId = ++_latestRequestId;
+    await _handleFile(sharedFile, requestId);
+  }
+
+  Future<void> _handleUrl(String? text, int requestId) async {
     if (text == null || text.isEmpty) return;
-    
-    // Regex to find the first URL in the text
+
     final urlRegex = RegExp(
       r'https?://[^\s]+',
       caseSensitive: false,
     );
-    
+
     final match = urlRegex.firstMatch(text);
     if (match == null) return;
-    
-    final trimmedUrl = match.group(0)!.trim();
 
-    // Perform extraction first
+    final trimmedUrl = match.group(0)!.trim();
     final result = await _extractionService.extractContent(trimmedUrl);
-    
-    // Navigate to summary screen
-    _navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (context) => IngestionSummaryScreen(
-          type: 'url',
-          url: trimmedUrl,
-          title: result?.title,
-          content: result?.content,
-          thumbnailUrl: result?.thumbnailUrl,
-        ),
+
+    if (requestId != _latestRequestId) return;
+
+    await _pushSummaryWhenNavigatorReady(
+      requestId,
+      (context) => IngestionSummaryScreen(
+        type: 'url',
+        url: trimmedUrl,
+        title: result?.title,
+        content: result?.content,
+        thumbnailUrl: result?.thumbnailUrl,
       ),
     );
   }
 
-  Future<void> handleFile(SharedMediaFile sharedFile) async {
+  Future<void> _handleFile(SharedMediaFile sharedFile, int requestId) async {
     final file = File(sharedFile.path);
     if (!await file.exists()) return;
 
@@ -87,7 +133,6 @@ class ShareService {
     final fileName = p.basename(sharedFile.path);
     final newPath = p.join(appDir.path, fileName);
 
-    // Copy to permanent storage
     await file.copy(newPath);
 
     String? extractedText;
@@ -95,16 +140,43 @@ class ShareService {
       extractedText = await _pdfExtractionService.extractText(newPath);
     }
 
-    // Navigate to summary screen
-    _navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (context) => IngestionSummaryScreen(
-          type: 'file',
-          filePath: newPath,
-          title: fileName,
-          content: extractedText,
-        ),
+    if (requestId != _latestRequestId) return;
+
+    await _pushSummaryWhenNavigatorReady(
+      requestId,
+      (context) => IngestionSummaryScreen(
+        type: 'file',
+        filePath: newPath,
+        title: fileName,
+        content: extractedText,
       ),
     );
+  }
+
+  Future<void> _pushSummaryWhenNavigatorReady(
+    int requestId,
+    WidgetBuilder builder,
+  ) async {
+    const int maxAttempts = 20;
+
+    for (int attempt = 0; attempt < maxAttempts; attempt++) {
+      if (requestId != _latestRequestId) return;
+
+      final navigator = _navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.push(MaterialPageRoute(builder: builder));
+        return;
+      }
+
+      final completer = Completer<void>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      });
+      await completer.future;
+    }
+
+    debugPrint('ShareService: navigator not ready, skipping share navigation.');
   }
 }
