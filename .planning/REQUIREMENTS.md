@@ -47,3 +47,42 @@
 | UX-03 | Phase 8 | Completed |
 | CON-06 | Phase 8 | Completed |
 | INF-01 | Phase 8 | Completed |
+
+## v2: Optimization & Portability
+
+### Configuration & Utilities (CFG)
+- **CFG-01**: "About" screen with app version, licenses, and project mission.
+- **CFG-02**: Delete item directly from the Reader View action menu.
+- **CFG-03**: Centralized Settings/Options menu to toggle app behaviors.
+- **CFG-04**: Automated tagging for incoming items based on domain/hostname (e.g., `medium.com`).
+- **CFG-05**: Automated tagging for incoming items based on capture year (e.g., `2026`).
+
+### Productivity & Bulk Actions (PRO)
+- **PRO-01**: Multi-selection mode in the main list (long-press to activate).
+- **PRO-02**: Bulk "Assign Tag" operation for selected items.
+- **PRO-03**: Bulk "Delete" operation for selected items.
+- **PRO-04**: Bulk "Share" operation (concatenated URLs or file list).
+- **PRO-05**: UI optimization for list tiles: maximize title visibility (>80% width) and include domain origin tag.
+
+### Portability & Intelligence (POR)
+- **POR-01**: Full database and file backup to user's Google Drive.
+- **POR-02**: Periodic automated backup to cloud storage.
+- **POR-03**: Research and prototype browser extension for cross-platform ingestion.
+- **POR-04**: Generative AI summarization for extracted article content.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CFG-01 | Phase 9 | Planned |
+| CFG-02 | Phase 9 | Planned |
+| CFG-03 | Phase 9 | Planned |
+| CFG-04 | Phase 9 | Planned |
+| CFG-05 | Phase 9 | Planned |
+| PRO-01 | Phase 10 | Planned |
+| PRO-02 | Phase 10 | Planned |
+| PRO-03 | Phase 10 | Planned |
+| PRO-04 | Phase 10 | Planned |
+| PRO-05 | Phase 10 | Planned |
+| POR-01 | Phase 11 | Planned |
+| POR-02 | Phase 11 | Planned |
+| POR-03 | Phase 11 | Planned |
+| POR-04 | Phase 12 | Research |

@@ -14,20 +14,24 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — ship to validate)
+- [x] Save URLs and copy received documents (PDFs, images) to local secure storage.
+- [x] Extract content from URLs (clean reader) and PDFs (indexed search).
+- [x] Native integration via Share Intents.
+- [x] Full-text search across items and content.
+- [x] Unified "Tags" organization model with multi-tag filtering.
+- [x] Swipe gestures for Share/Edit and drag-and-drop reordering.
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Save URLs and copy received documents (PDFs, images) to local secure storage.
-- [ ] Organize items in a hierarchical tree structure (items can be in root, folders, or subfolders).
-- [ ] Assign multiple tags to items and filter/group by tags (many-to-many relationship).
-- [ ] Native integration (iOS/Android) as a Share Intent target to receive URLs from browsers and files from other apps.
-- [ ] Extract content from URLs (title and main content), removing ads and clutter for offline reading.
-- [ ] Full-text search across item titles, URLs, document names, and extracted content.
-- [ ] Maintain a reading history of the last 20 accessed items.
-- [ ] Main view displaying a list of items (newest to oldest) with interactions: tap to open, swipe right to share, swipe left to edit.
+- [ ] Add "About" view and "Settings" menu for app personalization.
+- [ ] Implement auto-tagging (domain and year) for incoming content.
+- [ ] Add "Delete" action directly within the Reader View.
+- [ ] Implement multi-selection mode for bulk Tag/Delete/Share operations.
+- [ ] Optimize list UI to maximize title space and show origin domains.
+- [ ] Integrate Google Drive for full project backups.
+- [ ] Research AI-driven features (summaries, semantic search).
 
 ### Out of Scope
 
@@ -55,7 +59,9 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| — | — | — |
+| Organization Model | Removed "Folders" to simplify hierarchy; using "Tags" for everything. | Unified Tag system (Phase 8) |
+| Cloud Strategy | Google Drive for backups instead of custom cloud sync for privacy/simplicity. | Phase 11 priority |
+| Interaction | Bulk actions via long-press multi-select. | Phase 10 goal |
 
 ---
 *Last updated: March 18, 2026 after initialization*

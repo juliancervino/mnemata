@@ -4,20 +4,20 @@
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: Project Maintenance & Refinement.
+**Current Focus**: v2.0 (Optimization & Portability)
 
 ## Current Position
 
-- **Phase**: 08-refinement-advanced
-- **Plan**: 08-03
-- **Status**: Phase 8 Complete (Refinement & Advanced Features)
-- **Progress**: [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓] 100%
+- **Phase**: 09-utility-control
+- **Plan**: 09-01
+- **Status**: Starting v2.0
+- **Progress**: [░░░░░░░░░░░░░░░░░░░░] 0% (v2.0)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
-- **Requirement Coverage**: 100% (v1) + 11 new refinement tasks implemented.
-- **Phase Completion**: 8/8 (All phases completed)
+- **Requirement Coverage**: 0% (v2)
+- **Phase Completion**: 8/12 (8 completed in v1)
 
 ## Accumulated Context
 
