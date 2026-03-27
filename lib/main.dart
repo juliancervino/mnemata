@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
 
 final getIt = GetIt.instance;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void setupLocator() {
+Future<void> setupLocator() async {
   getIt.registerSingleton<GlobalKey<NavigatorState>>(navigatorKey);
   getIt.registerSingleton<AppDatabase>(AppDatabase());
   getIt.registerLazySingleton<ExtractionService>(() => ExtractionService());
   getIt.registerLazySingleton<PdfExtractionService>(() => PdfExtractionService());
+  
+  final prefs = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SettingsService>(SettingsService(prefs));
+
   getIt.registerSingleton<ShareService>(ShareService(
     getIt<AppDatabase>(),
     getIt<ExtractionService>(),
@@ -22,11 +28,12 @@ void setupLocator() {
   ));
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  setupLocator();
+  await setupLocator();
 
   runApp(const MyApp());
+
 
   // Defer share listener setup so first frame can render faster.
   WidgetsBinding.instance.addPostFrameCallback((_) {

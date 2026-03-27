@@ -9,6 +9,8 @@ import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/organization/presentation/label_manager_screen.dart';
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
+import 'package:mnemata/features/settings/presentation/settings_screen.dart';
+import 'package:mnemata/features/settings/presentation/about_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -422,6 +424,30 @@ class _ItemListScreenState extends State<ItemListScreen> {
               },
             ),
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

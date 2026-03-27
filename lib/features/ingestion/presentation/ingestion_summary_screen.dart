@@ -4,6 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 
 class IngestionSummaryScreen extends StatefulWidget {
   final String? title;
@@ -45,6 +46,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
   Future<void> _handleSave() async {
     final database = GetIt.instance<AppDatabase>();
+    final settingsService = GetIt.instance<SettingsService>();
     
     // 1. Insert the item
     final id = await database.insertItem(MnemataItemsCompanion.insert(
@@ -60,6 +62,26 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     // 2. Assign selected labels
     for (final labelId in _selectedLabelIds) {
       await database.assignLabelToItem(id, labelId);
+    }
+
+    // 3. Auto-tagging
+    if (settingsService.autoTagYear) {
+      final yearStr = DateTime.now().year.toString();
+      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.value);
+      await database.assignLabelToItem(id, yearTagId);
+    }
+
+    if (settingsService.autoTagDomain && widget.url != null) {
+      try {
+        final uri = Uri.parse(widget.url!);
+        if (uri.host.isNotEmpty) {
+          final hostStr = uri.host.replaceFirst('www.', '');
+          final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
+          await database.assignLabelToItem(id, domainTagId);
+        }
+      } catch (_) {
+        // Ignore invalid URLs
+      }
     }
 
     if (mounted) {

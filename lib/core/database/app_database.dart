@@ -140,6 +140,22 @@ class AppDatabase extends _$AppDatabase {
   Future<bool> updateLabel(LabelsCompanion label) => update(labels).replace(label);
   Future<int> deleteLabel(int id) => (delete(labels)..where((t) => t.id.equals(id))).go();
 
+  Future<Label?> getLabelByName(String name) {
+    return (select(labels)..where((t) => t.name.equals(name))).getSingleOrNull();
+  }
+
+  Future<int> getOrCreateLabel(String name, {int? color}) async {
+    final existing = await getLabelByName(name);
+    if (existing != null) {
+      return existing.id;
+    }
+    return await insertLabel(LabelsCompanion.insert(
+      name: name,
+      color: Value(color),
+      isFolder: const Value(false),
+    ));
+  }
+
   Stream<List<Label>> watchAllLabels() {
     return (select(labels)..orderBy([(t) => OrderingTerm(expression: t.name)]))
         .watch();
