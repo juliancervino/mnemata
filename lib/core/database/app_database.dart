@@ -11,13 +11,29 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
+
+  Future<void> _createPerformanceIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_item_labels_item_id ON item_labels(item_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_item_labels_label_id ON item_labels(label_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_mnemata_items_last_opened_at ON mnemata_items(last_opened_at)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_mnemata_items_sort_order ON mnemata_items(sort_order)',
+    );
+  }
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (m) async {
         await m.createAll();
+        await _createPerformanceIndexes();
       },
       onUpgrade: (m, from, to) async {
         if (from < 2) {
@@ -34,6 +50,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 5) {
           await m.addColumn(mnemataItems, mnemataItems.sortOrder);
+        }
+        if (from < 6) {
+          await _createPerformanceIndexes();
         }
       },
     );
@@ -155,6 +174,26 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Stream<Map<int, List<Label>>> watchLabelsForItems(List<int> itemIds) {
+    if (itemIds.isEmpty) {
+      return Stream.value(const {});
+    }
+
+    final query = select(labels).join([
+      innerJoin(itemLabels, itemLabels.labelId.equalsExp(labels.id)),
+    ])..where(itemLabels.itemId.isIn(itemIds));
+
+    return query.watch().map((rows) {
+      final result = <int, List<Label>>{};
+      for (final row in rows) {
+        final itemId = row.readTable(itemLabels).itemId;
+        final label = row.readTable(labels);
+        result.putIfAbsent(itemId, () => <Label>[]).add(label);
+      }
+      return result;
+    });
+  }
+
   Stream<List<MnemataItem>> watchItemsByLabel(int labelId) {
     final query = select(mnemataItems).join([
       innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
@@ -167,14 +206,29 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> updateItemsSortOrderInBatch(List<MnemataItem> orderedItems) async {
+    await batch((b) {
+      for (var i = 0; i < orderedItems.length; i++) {
+        b.update(
+          mnemataItems,
+          MnemataItemsCompanion(sortOrder: Value(i)),
+          where: (t) => t.id.equals(orderedItems[i].id),
+        );
+      }
+    });
+  }
+
   Stream<List<MnemataItem>> watchItemsByMultipleLabels(List<int> labelIds) {
     if (labelIds.isEmpty) return watchAllItems();
     if (labelIds.length == 1) return watchItemsByLabel(labelIds.first);
 
-    // SQL for "AND" logic: items that have all selected labels
+    // SQL for "AND" logic: items that have all selected labels.
     final query = customSelect(
       'SELECT i.* FROM mnemata_items i '
-      'WHERE (SELECT COUNT(*) FROM item_labels il WHERE il.item_id = i.id AND il.label_id IN (${labelIds.join(',')})) = ${labelIds.length} '
+      'INNER JOIN item_labels il ON il.item_id = i.id '
+      'WHERE il.label_id IN (${labelIds.join(',')}) '
+      'GROUP BY i.id '
+      'HAVING COUNT(DISTINCT il.label_id) = ${labelIds.length} '
       'ORDER BY i.sort_order ASC, i.created_at DESC',
       readsFrom: {mnemataItems, itemLabels},
     );

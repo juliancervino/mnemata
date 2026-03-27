@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
@@ -220,31 +221,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     );
                   }
 
-                  return ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: items.length,
-                    buildDefaultDragHandles: false,
-                    onReorder: (oldIndex, newIndex) async {
-                      if (oldIndex < newIndex) {
-                        newIndex -= 1;
-                      }
-                      final List<MnemataItem> updatedList = List.from(items);
-                      final MnemataItem item = updatedList.removeAt(oldIndex);
-                      updatedList.insert(newIndex, item);
-
-                      for (int i = 0; i < updatedList.length; i++) {
-                        await database.updateItemSortOrder(updatedList[i].id, i);
-                      }
-                    },
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return _ItemTile(
-                        key: ValueKey(item.id),
-                        item: item,
-                        index: index,
-                      );
-                    },
-                  );
+                  return _buildItemsList(database, items);
                 },
               ),
             ),
@@ -326,6 +303,42 @@ class _ItemListScreenState extends State<ItemListScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildItemsList(AppDatabase database, List<MnemataItem> items) {
+    final itemIds = items.map((e) => e.id).toList(growable: false);
+
+    return StreamBuilder<Map<int, List<Label>>>(
+      stream: database.watchLabelsForItems(itemIds),
+      builder: (context, labelsSnapshot) {
+        final labelsByItem = labelsSnapshot.data ?? const <int, List<Label>>{};
+
+        return ReorderableListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: items.length,
+          buildDefaultDragHandles: false,
+          onReorder: (oldIndex, newIndex) async {
+            if (oldIndex < newIndex) {
+              newIndex -= 1;
+            }
+            final List<MnemataItem> updatedList = List.from(items);
+            final MnemataItem item = updatedList.removeAt(oldIndex);
+            updatedList.insert(newIndex, item);
+
+            await database.updateItemsSortOrderInBatch(updatedList);
+          },
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _ItemTile(
+              key: ValueKey(item.id),
+              item: item,
+              index: index,
+              labels: labelsByItem[item.id] ?? const <Label>[],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -441,8 +454,14 @@ class _ItemListScreenState extends State<ItemListScreen> {
 class _ItemTile extends StatelessWidget {
   final MnemataItem item;
   final int index;
+  final List<Label> labels;
 
-  const _ItemTile({super.key, required this.item, required this.index});
+  const _ItemTile({
+    super.key,
+    required this.item,
+    required this.index,
+    required this.labels,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -450,8 +469,6 @@ class _ItemTile extends StatelessWidget {
     final String title = item.title ?? (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
     final String subtitle = isUrl ? (item.url ?? '') : (item.filePath ?? '');
     final String dateStr = DateFormat('MMM dd, yyyy • HH:mm').format(item.createdAt);
-    final database = GetIt.instance<AppDatabase>();
-
     return Slidable(
       key: ValueKey(item.id),
       startActionPane: ActionPane(
@@ -536,27 +553,20 @@ class _ItemTile extends StatelessWidget {
           leading: item.thumbnailUrl != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    item.thumbnailUrl!,
+                  child: CachedNetworkImage(
+                    imageUrl: item.thumbnailUrl!,
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      child: Icon(
-                        isUrl ? Icons.link : Icons.file_present,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    ),
+                    memCacheWidth: 120,
+                    memCacheHeight: 120,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                    placeholder: (context, url) => _buildThumbnailPlaceholder(context),
+                    errorWidget: (context, url, error) => _buildThumbnailFallback(context),
                   ),
                 )
-              : CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Icon(
-                    isUrl ? Icons.link : Icons.file_present,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
+              : _buildThumbnailFallback(context),
           title: Text(
             title,
             maxLines: 1,
@@ -578,29 +588,24 @@ class _ItemTile extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 4),
-              StreamBuilder<List<Label>>(
-                stream: database.watchLabelsForItem(item.id),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Row(
-                    children: snapshot.data!.map((label) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: label.color != null ? Color(label.color!) : (label.isFolder ? Colors.amber : Colors.blue),
-                          ),
+              if (labels.isNotEmpty)
+                Row(
+                  children: labels.map((label) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: label.color != null
+                              ? Color(label.color!)
+                              : (label.isFolder ? Colors.amber : Colors.blue),
                         ),
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
+                      ),
+                    );
+                  }).toList(),
+                ),
             ],
           ),
           trailing: Row(
@@ -621,6 +626,25 @@ class _ItemTile extends StatelessWidget {
           ),
           onTap: () => _handleOpen(context),
         ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnailPlaceholder(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 40,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    );
+  }
+
+  Widget _buildThumbnailFallback(BuildContext context) {
+    final isUrlItem = item.type == 'url';
+    return CircleAvatar(
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      child: Icon(
+        isUrlItem ? Icons.link : Icons.file_present,
+        color: Theme.of(context).colorScheme.onPrimaryContainer,
       ),
     );
   }
