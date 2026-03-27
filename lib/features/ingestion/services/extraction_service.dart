@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:favicon/favicon.dart' as fav;
 import 'package:http/http.dart' as http;
 import 'package:metadata_fetch/metadata_fetch.dart';
@@ -6,6 +9,35 @@ import 'package:readability/article.dart' as readability;
 
 class ReadabilityWrapper {
   Future<readability.Article?> parse(String url) => readability.parseAsync(url);
+
+  Future<readability.Article?> parseHtml(String html) async {
+    final normalizedHtml = _ensureHtmlDocument(html);
+    final dataUri = 'data:text/html;base64,${base64.encode(utf8.encode(normalizedHtml))}';
+
+    try {
+      return await parse(dataUri);
+    } catch (_) {
+      File? tempFile;
+      try {
+        final timestamp = DateTime.now().microsecondsSinceEpoch;
+        tempFile = File('${Directory.systemTemp.path}/mnemata_readability_$timestamp.html');
+        await tempFile.writeAsString(normalizedHtml, flush: true);
+        return await parse('file://${tempFile.path}');
+      } finally {
+        if (tempFile != null && await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      }
+    }
+  }
+
+  String _ensureHtmlDocument(String html) {
+    final trimmed = html.trim();
+    if (trimmed.contains(RegExp(r'<html[\s>]?', caseSensitive: false))) {
+      return trimmed;
+    }
+    return '<!doctype html><html><body>$trimmed</body></html>';
+  }
 }
 
 class ExtractionService {

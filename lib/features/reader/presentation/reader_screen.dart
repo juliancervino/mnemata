@@ -24,11 +24,7 @@ class ReaderScreen extends StatelessWidget {
               icon: const Icon(Icons.open_in_new),
               tooltip: 'Open in Browser',
               onPressed: () async {
-                await database.updateLastOpenedAt(item.id);
-                final uri = Uri.parse(item.url!);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
+                await _openItemUrl(context, database);
               },
             ),
         ],
@@ -72,7 +68,7 @@ class ReaderScreen extends StatelessWidget {
                     ),
                     if (item.url != null) ...[
                       Text(
-                        Uri.parse(item.url!).host,
+                        _safeHost(item.url!),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -111,11 +107,7 @@ class ReaderScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () async {
-                        await database.updateLastOpenedAt(item.id);
-                        final uri = Uri.parse(item.url!);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
+                        await _openItemUrl(context, database);
                       },
                       child: const Text('Open in Browser'),
                     ),
@@ -125,5 +117,51 @@ class ReaderScreen extends StatelessWidget {
             ),
       ),
     );
+  }
+
+  String _safeHost(String rawUrl) {
+    final uri = _parseLaunchableUri(rawUrl);
+    if (uri == null || uri.host.isEmpty) {
+      return rawUrl;
+    }
+    return uri.host;
+  }
+
+  Uri? _parseLaunchableUri(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return null;
+
+    final direct = Uri.tryParse(trimmed);
+    if (direct != null && direct.hasScheme) {
+      return direct;
+    }
+
+    final withHttps = Uri.tryParse('https://$trimmed');
+    return withHttps;
+  }
+
+  Future<void> _openItemUrl(BuildContext context, AppDatabase database) async {
+    final rawUrl = item.url;
+    if (rawUrl == null || rawUrl.trim().isEmpty) {
+      return;
+    }
+
+    final uri = _parseLaunchableUri(rawUrl);
+    if (uri == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid URL')),
+        );
+      }
+      return;
+    }
+
+    await database.updateLastOpenedAt(item.id);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open in browser')),
+      );
+    }
   }
 }
