@@ -21,6 +21,7 @@ class ShareService {
   int _latestRequestId = 0;
   String? _lastProcessedPayloadKey;
   DateTime? _lastProcessedAt;
+  static const Duration _dedupeWindow = Duration(seconds: 10);
 
   ShareService(
     AppDatabase database,
@@ -38,8 +39,11 @@ class ShareService {
     _intentDataStreamSubscription =
         ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> value) async {
-        await _handleSharedMedia(value);
-        ReceiveSharingIntent.instance.reset();
+        try {
+          await _handleSharedMedia(value);
+        } finally {
+          ReceiveSharingIntent.instance.reset();
+        }
       },
       onError: (Object err) {
         debugPrint('getMediaStream error: $err');
@@ -48,8 +52,11 @@ class ShareService {
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
       (List<SharedMediaFile> value) async {
-        await _handleSharedMedia(value);
-        ReceiveSharingIntent.instance.reset();
+        try {
+          await _handleSharedMedia(value);
+        } finally {
+          ReceiveSharingIntent.instance.reset();
+        }
       },
     ).catchError((Object err) {
       debugPrint('getInitialMedia error: $err');
@@ -69,11 +76,11 @@ class ShareService {
     for (final file in files) {
       if (requestId != _latestRequestId) return;
 
-      final String payloadKey = '${file.type.name}:${file.path}';
+      final String payloadKey = _buildPayloadKey(file);
       final DateTime now = DateTime.now();
       if (_lastProcessedPayloadKey == payloadKey &&
           _lastProcessedAt != null &&
-          now.difference(_lastProcessedAt!) < const Duration(seconds: 2)) {
+          now.difference(_lastProcessedAt!) < _dedupeWindow) {
         continue;
       }
 
@@ -209,5 +216,40 @@ class ShareService {
     } catch (_) {
       return false;
     }
+  }
+
+  String _buildPayloadKey(SharedMediaFile file) {
+    if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
+      final extracted = _extractFirstUrl(file.path);
+      if (extracted != null) {
+        final normalized = _normalizeUrlKey(extracted);
+        return 'url:$normalized';
+      }
+    }
+
+    return '${file.type.name}:${file.path.trim()}';
+  }
+
+  String? _extractFirstUrl(String? text) {
+    if (text == null || text.trim().isEmpty) return null;
+
+    final urlRegex = RegExp(
+      r'https?://[^\s]+',
+      caseSensitive: false,
+    );
+
+    final match = urlRegex.firstMatch(text);
+    return match?.group(0)?.trim();
+  }
+
+  String _normalizeUrlKey(String rawUrl) {
+    final parsed = Uri.tryParse(rawUrl);
+    if (parsed == null) return rawUrl.toLowerCase();
+
+    final scheme = parsed.scheme.toLowerCase();
+    final host = parsed.host.toLowerCase();
+    final path = parsed.path.isEmpty ? '/' : parsed.path;
+    final query = parsed.hasQuery ? '?${parsed.query}' : '';
+    return '$scheme://$host$path$query';
   }
 }

@@ -32,13 +32,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupLocator();
 
+  // Start share listeners as early as possible to avoid missing first-share intents.
+  getIt<ShareService>().init();
+
   runApp(const MyApp());
-
-
-  // Defer share listener setup so first frame can render faster.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    getIt<ShareService>().init();
-  });
 }
 
 class MyApp extends StatelessWidget {
