@@ -10,11 +10,13 @@ class ArchiveExtractionResult {
   final String title;
   final String content;
   final String? thumbnailUrl;
+  final String? originalUrl;
 
   const ArchiveExtractionResult({
     required this.title,
     required this.content,
     required this.thumbnailUrl,
+    this.originalUrl,
   });
 }
 
@@ -44,6 +46,9 @@ class ArchiveContentProcessor {
     final metadata = MetadataParser.parse(document, url: sourceUrl);
     final title = metadata.title ?? 'Archive.ph Content';
     final thumbnailUrl = metadata.image;
+    
+    // Extract the original URL from the input field with name="q"
+    final originalUrl = document.querySelector('input[name="q"]')?.attributes['value'];
 
     var contentElement = document.querySelector('#CONTENT') ??
         document.querySelector('#content') ??
@@ -152,6 +157,7 @@ class ArchiveContentProcessor {
       title: finalTitle,
       content: finalContent,
       thumbnailUrl: finalThumbnailUrl,
+      originalUrl: originalUrl,
     );
   }
 

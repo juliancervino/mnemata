@@ -68,6 +68,7 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
       final finalTitle = extraction.title;
       final finalContent = extraction.content;
       final finalThumbnailUrl = extraction.thumbnailUrl;
+      final originalUrl = extraction.originalUrl;
 
       debugPrint('ArchiveScraper: Final title: $finalTitle');
       debugPrint('ArchiveScraper: Final content length: ${finalContent.length}');
@@ -78,6 +79,7 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
             builder: (context) => IngestionSummaryScreen(
               type: 'url',
               url: widget.url,
+              originalUrl: originalUrl,
               title: finalTitle,
               content: finalContent,
               thumbnailUrl: finalThumbnailUrl,

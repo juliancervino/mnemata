@@ -10,6 +10,7 @@ class IngestionSummaryScreen extends StatefulWidget {
   final String? title;
   final String? content;
   final String? url;
+  final String? originalUrl;
   final String? filePath;
   final String? thumbnailUrl;
   final String type; // 'url' or 'file'
@@ -19,6 +20,7 @@ class IngestionSummaryScreen extends StatefulWidget {
     this.title,
     this.content,
     this.url,
+    this.originalUrl,
     this.filePath,
     this.thumbnailUrl,
     required this.type,
@@ -71,16 +73,19 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
       await database.assignLabelToItem(id, yearTagId);
     }
 
-    if (settingsService.autoTagDomain && widget.url != null) {
-      try {
-        final uri = Uri.parse(widget.url!);
-        if (uri.host.isNotEmpty) {
-          final hostStr = uri.host.replaceFirst('www.', '');
-          final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
-          await database.assignLabelToItem(id, domainTagId);
+    if (settingsService.autoTagDomain) {
+      final tagUrl = widget.originalUrl ?? widget.url;
+      if (tagUrl != null) {
+        try {
+          final uri = Uri.parse(tagUrl);
+          if (uri.host.isNotEmpty) {
+            final hostStr = uri.host.replaceFirst('www.', '');
+            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
+            await database.assignLabelToItem(id, domainTagId);
+          }
+        } catch (_) {
+          // Ignore invalid URLs
         }
-      } catch (_) {
-        // Ignore invalid URLs
       }
     }
 
