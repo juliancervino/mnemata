@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
+import 'package:mnemata/features/ingestion/presentation/js_rendered_scraper_screen.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:path/path.dart' as p;
@@ -141,6 +142,15 @@ class ShareService {
 
       if (requestId != _latestRequestId) return;
 
+      if (_looksLikeJsRequiredContent(result?.content, result?.title)) {
+        _hideLoadingOverlay();
+        await _pushSummaryWhenNavigatorReady(
+          requestId,
+          (context) => JsRenderedScraperScreen(url: trimmedUrl),
+        );
+        return;
+      }
+
       await _pushSummaryWhenNavigatorReady(
         requestId,
         (context) => IngestionSummaryScreen(
@@ -242,6 +252,27 @@ class ShareService {
     } catch (_) {
       return false;
     }
+  }
+
+  bool _looksLikeJsRequiredContent(String? content, String? title) {
+    final lowerContent = (content ?? '').toLowerCase();
+    final lowerTitle = (title ?? '').toLowerCase();
+
+    const blockers = [
+      'please enable js',
+      'enable javascript',
+      'disable any ad blocker',
+      'disable your ad blocker',
+      'javascript is disabled',
+      'turn on javascript',
+    ];
+
+    final hasBlockerMessage = blockers.any((k) =>
+        lowerContent.contains(k) || lowerTitle.contains(k));
+
+    // Heuristic: blocker pages are usually short and repetitive.
+    final contentLength = (content ?? '').trim().length;
+    return hasBlockerMessage && contentLength < 2500;
   }
 
   String _buildPayloadKey(SharedMediaFile file) {
