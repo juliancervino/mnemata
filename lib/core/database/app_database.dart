@@ -96,6 +96,14 @@ class AppDatabase extends _$AppDatabase {
     return into(mnemataItems).insert(item);
   }
 
+  Future<MnemataItem?> getItemByUrl(String url) {
+    return (select(mnemataItems)..where((t) => t.url.equals(url))).getSingleOrNull();
+  }
+
+  Future<MnemataItem?> getItemByFilePath(String filePath) {
+    return (select(mnemataItems)..where((t) => t.filePath.equals(filePath))).getSingleOrNull();
+  }
+
   Future<int> deleteItem(int id) {
     return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
   }

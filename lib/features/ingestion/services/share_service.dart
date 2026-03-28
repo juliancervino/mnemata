@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 class ShareService {
+  final AppDatabase _database;
   final ExtractionService _extractionService;
   final PdfExtractionService _pdfExtractionService;
   final GlobalKey<NavigatorState> _navigatorKey;
@@ -24,13 +25,11 @@ class ShareService {
   static const Duration _dedupeWindow = Duration(seconds: 10);
 
   ShareService(
-    AppDatabase database,
+    this._database,
     this._extractionService,
     this._pdfExtractionService,
     this._navigatorKey,
-  ) {
-    database.hashCode;
-  }
+  );
 
   void init() {
     if (_isInitialized) return;
@@ -118,57 +117,84 @@ class ShareService {
 
     final trimmedUrl = match.group(0)!.trim();
 
-    if (_isArchiveUrl(trimmedUrl)) {
-      if (requestId != _latestRequestId) return;
-      await _pushSummaryWhenNavigatorReady(
-        requestId,
-        (context) => ArchiveScraperScreen(url: trimmedUrl),
-      );
-      return;
+    // 1. Duplicate detection
+    final existingItem = await _database.getItemByUrl(trimmedUrl);
+    if (existingItem != null && requestId == _latestRequestId) {
+      final confirm = await _showDuplicateDialog(trimmedUrl);
+      if (confirm != true) return;
     }
 
-    final result = await _extractionService.extractContent(trimmedUrl);
+    _showLoadingOverlay('Processing content...');
 
-    if (requestId != _latestRequestId) return;
+    try {
+      if (_isArchiveUrl(trimmedUrl)) {
+        if (requestId != _latestRequestId) return;
+        _hideLoadingOverlay();
+        await _pushSummaryWhenNavigatorReady(
+          requestId,
+          (context) => ArchiveScraperScreen(url: trimmedUrl),
+        );
+        return;
+      }
 
-    await _pushSummaryWhenNavigatorReady(
-      requestId,
-      (context) => IngestionSummaryScreen(
-        type: 'url',
-        url: trimmedUrl,
-        title: result?.title,
-        content: result?.content,
-        thumbnailUrl: result?.thumbnailUrl,
-      ),
-    );
+      final result = await _extractionService.extractContent(trimmedUrl);
+
+      if (requestId != _latestRequestId) return;
+
+      await _pushSummaryWhenNavigatorReady(
+        requestId,
+        (context) => IngestionSummaryScreen(
+          type: 'url',
+          url: trimmedUrl,
+          title: result?.title,
+          content: result?.content,
+          thumbnailUrl: result?.thumbnailUrl,
+        ),
+      );
+    } finally {
+      _hideLoadingOverlay();
+    }
   }
 
   Future<void> _handleFile(SharedMediaFile sharedFile, int requestId) async {
     final file = File(sharedFile.path);
     if (!await file.exists()) return;
 
-    final appDir = await getApplicationDocumentsDirectory();
+    // 1. Duplicate detection
     final fileName = p.basename(sharedFile.path);
-    final newPath = p.join(appDir.path, fileName);
-
-    await file.copy(newPath);
-
-    String? extractedText;
-    if (fileName.toLowerCase().endsWith('.pdf')) {
-      extractedText = await _pdfExtractionService.extractText(newPath);
+    final existingFile = await _database.getItemByFilePath(sharedFile.path);
+    if (existingFile != null && requestId == _latestRequestId) {
+      final confirm = await _showDuplicateDialog(fileName);
+      if (confirm != true) return;
     }
 
-    if (requestId != _latestRequestId) return;
+    _showLoadingOverlay('Saving file...');
 
-    await _pushSummaryWhenNavigatorReady(
-      requestId,
-      (context) => IngestionSummaryScreen(
-        type: 'file',
-        filePath: newPath,
-        title: fileName,
-        content: extractedText,
-      ),
-    );
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final newPath = p.join(appDir.path, fileName);
+
+      await file.copy(newPath);
+
+      String? extractedText;
+      if (fileName.toLowerCase().endsWith('.pdf')) {
+        extractedText = await _pdfExtractionService.extractText(newPath);
+      }
+
+      if (requestId != _latestRequestId) return;
+
+      await _pushSummaryWhenNavigatorReady(
+        requestId,
+        (context) => IngestionSummaryScreen(
+          type: 'file',
+          filePath: newPath,
+          title: fileName,
+          content: extractedText,
+        ),
+      );
+    } finally {
+      _hideLoadingOverlay();
+    }
   }
 
   Future<void> _pushSummaryWhenNavigatorReady(
@@ -251,5 +277,61 @@ class ShareService {
     final path = parsed.path.isEmpty ? '/' : parsed.path;
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return '$scheme://$host$path$query';
+  }
+
+  Future<bool?> _showDuplicateDialog(String identifier) async {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return true;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Duplicate Detected'),
+        content: Text('This item seems to be already in your list:\n\n$identifier\n\nDo you want to add it again?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('DISCARD'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ADD AGAIN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLoadingOverlay(String message) {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 24),
+              Text(message),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideLoadingOverlay() {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
+
+    final navigator = _navigatorKey.currentState;
+    if (navigator != null) {
+      navigator.popUntil((route) => route is! RawDialogRoute);
+    }
   }
 }
