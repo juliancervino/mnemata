@@ -17,20 +17,20 @@ class ShareService {
   final ExtractionService _extractionService;
   final PdfExtractionService _pdfExtractionService;
   final GlobalKey<NavigatorState> _navigatorKey;
+  final Future<bool?> Function(String identifier)? _duplicatePromptOverride;
   StreamSubscription? _intentDataStreamSubscription;
 
   bool _isInitialized = false;
+  bool _isLoadingShowing = false;
   int _latestRequestId = 0;
-  String? _lastProcessedPayloadKey;
-  DateTime? _lastProcessedAt;
-  static const Duration _dedupeWindow = Duration(seconds: 10);
 
   ShareService(
     this._database,
     this._extractionService,
     this._pdfExtractionService,
     this._navigatorKey,
-  );
+    {Future<bool?> Function(String identifier)? duplicatePromptOverride}
+  ) : _duplicatePromptOverride = duplicatePromptOverride;
 
   void init() {
     if (_isInitialized) return;
@@ -72,20 +72,17 @@ class ShareService {
     if (files.isEmpty) return;
 
     final int requestId = ++_latestRequestId;
+    final Set<String> batchProcessedKeys = <String>{};
 
     for (final file in files) {
       if (requestId != _latestRequestId) return;
 
+      // Temporal dedupe only suppresses duplicate payloads in this batch.
       final String payloadKey = _buildPayloadKey(file);
-      final DateTime now = DateTime.now();
-      if (_lastProcessedPayloadKey == payloadKey &&
-          _lastProcessedAt != null &&
-          now.difference(_lastProcessedAt!) < _dedupeWindow) {
+      if (batchProcessedKeys.contains(payloadKey)) {
         continue;
       }
-
-      _lastProcessedPayloadKey = payloadKey;
-      _lastProcessedAt = now;
+      batchProcessedKeys.add(payloadKey);
 
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
         await _handleUrl(file.path, requestId);
@@ -117,12 +114,13 @@ class ShareService {
     if (match == null) return;
 
     final trimmedUrl = match.group(0)!.trim();
-
     // 1. Duplicate detection
-    final existingItem = await _database.getItemByUrl(trimmedUrl);
+    final existingItem = await _database.getItemByCanonicalUrl(trimmedUrl);
+    if (requestId != _latestRequestId) return;
+
     if (existingItem != null && requestId == _latestRequestId) {
       final confirm = await _showDuplicateDialog(trimmedUrl);
-      if (confirm != true) return;
+      if (confirm != true || requestId != _latestRequestId) return;
     }
 
     _showLoadingOverlay('Processing content...');
@@ -151,6 +149,7 @@ class ShareService {
         return;
       }
 
+      _hideLoadingOverlay();
       await _pushSummaryWhenNavigatorReady(
         requestId,
         (context) => IngestionSummaryScreen(
@@ -175,7 +174,7 @@ class ShareService {
     final existingFile = await _database.getItemByFilePath(sharedFile.path);
     if (existingFile != null && requestId == _latestRequestId) {
       final confirm = await _showDuplicateDialog(fileName);
-      if (confirm != true) return;
+      if (confirm != true || requestId != _latestRequestId) return;
     }
 
     _showLoadingOverlay('Saving file...');
@@ -193,6 +192,7 @@ class ShareService {
 
       if (requestId != _latestRequestId) return;
 
+      _hideLoadingOverlay();
       await _pushSummaryWhenNavigatorReady(
         requestId,
         (context) => IngestionSummaryScreen(
@@ -311,6 +311,11 @@ class ShareService {
   }
 
   Future<bool?> _showDuplicateDialog(String identifier) async {
+    final duplicatePromptOverride = _duplicatePromptOverride;
+    if (duplicatePromptOverride != null) {
+      return duplicatePromptOverride(identifier);
+    }
+
     final context = _navigatorKey.currentContext;
     if (context == null) return true;
 
@@ -335,8 +340,9 @@ class ShareService {
 
   void _showLoadingOverlay(String message) {
     final context = _navigatorKey.currentContext;
-    if (context == null) return;
+    if (context == null || _isLoadingShowing) return;
 
+    _isLoadingShowing = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -353,16 +359,16 @@ class ShareService {
           ),
         ),
       ),
-    );
+    ).then((_) => _isLoadingShowing = false);
   }
 
   void _hideLoadingOverlay() {
-    final context = _navigatorKey.currentContext;
-    if (context == null) return;
+    if (!_isLoadingShowing) return;
 
     final navigator = _navigatorKey.currentState;
     if (navigator != null) {
-      navigator.popUntil((route) => route is! RawDialogRoute);
+      _isLoadingShowing = false;
+      navigator.pop();
     }
   }
 }

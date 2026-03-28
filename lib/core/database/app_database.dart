@@ -8,7 +8,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  AppDatabase.forTesting(QueryExecutor e) : super(e);
+  AppDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => 6;
@@ -98,6 +98,25 @@ class AppDatabase extends _$AppDatabase {
 
   Future<MnemataItem?> getItemByUrl(String url) {
     return (select(mnemataItems)..where((t) => t.url.equals(url))).getSingleOrNull();
+  }
+
+  Future<MnemataItem?> getItemByCanonicalUrl(String rawUrl) async {
+    final candidates = _buildUrlLookupCandidates(rawUrl);
+    if (candidates.isEmpty) return null;
+
+    final placeholders = List<String>.filled(candidates.length, '?').join(', ');
+    final rows = await customSelect(
+      'SELECT * FROM mnemata_items '
+      'WHERE url IS NOT NULL AND LOWER(url) IN ($placeholders) '
+      'LIMIT 1',
+      variables: [
+        for (final candidate in candidates) Variable<String>(candidate.toLowerCase()),
+      ],
+      readsFrom: {mnemataItems},
+    ).get();
+
+    if (rows.isEmpty) return null;
+    return mnemataItems.map(rows.first.data);
   }
 
   Future<MnemataItem?> getItemByFilePath(String filePath) {
@@ -294,5 +313,44 @@ class AppDatabase extends _$AppDatabase {
     ).watch().map((rows) {
       return rows.map((row) => mnemataItems.map(row.data)).toList();
     });
+  }
+
+  Set<String> _buildUrlLookupCandidates(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return <String>{};
+
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed == null) {
+      return <String>{trimmed};
+    }
+
+    final normalized = _normalizeUrlForLookup(parsed);
+    final withSlash = _normalizePathSlash(normalized, withTrailingSlash: true);
+    final withoutSlash = _normalizePathSlash(normalized, withTrailingSlash: false);
+
+    return <String>{trimmed, normalized, withSlash, withoutSlash};
+  }
+
+  String _normalizeUrlForLookup(Uri parsed) {
+    final scheme = parsed.scheme.toLowerCase();
+    final host = parsed.host.toLowerCase();
+    final path = parsed.path.isEmpty ? '/' : parsed.path;
+    final query = parsed.hasQuery ? '?${parsed.query}' : '';
+    return '$scheme://$host$path$query';
+  }
+
+  String _normalizePathSlash(String normalizedUrl, {required bool withTrailingSlash}) {
+    final parsed = Uri.tryParse(normalizedUrl);
+    if (parsed == null) return normalizedUrl;
+
+    final currentPath = parsed.path.isEmpty ? '/' : parsed.path;
+    final updatedPath = withTrailingSlash
+        ? (currentPath.endsWith('/') ? currentPath : '$currentPath/')
+        : (currentPath.length > 1 && currentPath.endsWith('/')
+            ? currentPath.substring(0, currentPath.length - 1)
+            : currentPath);
+
+    final query = parsed.hasQuery ? '?${parsed.query}' : '';
+    return '${parsed.scheme}://${parsed.host}$updatedPath$query';
   }
 }
