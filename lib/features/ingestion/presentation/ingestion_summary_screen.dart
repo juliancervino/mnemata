@@ -38,6 +38,32 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.title);
+    _initializeAutoTags();
+  }
+
+  Future<void> _initializeAutoTags() async {
+    final database = GetIt.instance<AppDatabase>();
+    final settingsService = GetIt.instance<SettingsService>();
+
+    if (settingsService.autoTagYear) {
+      final yearStr = DateTime.now().year.toString();
+      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.value);
+      if (mounted) setState(() => _selectedLabelIds.add(yearTagId));
+    }
+
+    if (settingsService.autoTagDomain) {
+      final tagUrl = widget.originalUrl ?? widget.url;
+      if (tagUrl != null) {
+        try {
+          final uri = Uri.parse(tagUrl);
+          if (uri.host.isNotEmpty) {
+            final hostStr = uri.host.replaceFirst('www.', '');
+            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
+            if (mounted) setState(() => _selectedLabelIds.add(domainTagId));
+          }
+        } catch (_) {}
+      }
+    }
   }
 
   @override
@@ -48,7 +74,6 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
   Future<void> _handleSave() async {
     final database = GetIt.instance<AppDatabase>();
-    final settingsService = GetIt.instance<SettingsService>();
     
     // 1. Insert the item
     final id = await database.insertItem(MnemataItemsCompanion.insert(
@@ -61,32 +86,9 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
       createdAt: DateTime.now(),
     ));
 
-    // 2. Assign selected labels
+    // 2. Assign selected labels (this now includes auto-tags if selected)
     for (final labelId in _selectedLabelIds) {
       await database.assignLabelToItem(id, labelId);
-    }
-
-    // 3. Auto-tagging
-    if (settingsService.autoTagYear) {
-      final yearStr = DateTime.now().year.toString();
-      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.value);
-      await database.assignLabelToItem(id, yearTagId);
-    }
-
-    if (settingsService.autoTagDomain) {
-      final tagUrl = widget.originalUrl ?? widget.url;
-      if (tagUrl != null) {
-        try {
-          final uri = Uri.parse(tagUrl);
-          if (uri.host.isNotEmpty) {
-            final hostStr = uri.host.replaceFirst('www.', '');
-            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
-            await database.assignLabelToItem(id, domainTagId);
-          }
-        } catch (_) {
-          // Ignore invalid URLs
-        }
-      }
     }
 
     if (mounted) {
@@ -222,45 +224,6 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               const SizedBox(height: 24),
-              if (widget.content != null && widget.content!.isNotEmpty) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Content Preview',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      'Length: ${widget.content!.length} chars',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  constraints: const BoxConstraints(maxHeight: 250),
-                  child: SingleChildScrollView(
-                    child: HtmlWidget(
-                      widget.content!,
-                      textStyle: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -309,6 +272,45 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                   );
                 },
               ),
+              const SizedBox(height: 24),
+              if (widget.content != null && widget.content!.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Content Preview',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Length: ${widget.content!.length} chars',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  constraints: const BoxConstraints(maxHeight: 250),
+                  child: SingleChildScrollView(
+                    child: HtmlWidget(
+                      widget.content!,
+                      textStyle: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 32), // Padding for system buttons
             ],
           ),

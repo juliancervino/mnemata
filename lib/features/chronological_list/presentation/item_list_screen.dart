@@ -28,6 +28,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
   final Set<int> _selectedLabelIds = {};
   bool _isHistoryMode = false;
 
+  bool _isMultiSelectMode = false;
+  final Set<int> _selectedItemIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +40,83 @@ class _ItemListScreenState extends State<ItemListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedItemIds.contains(id)) {
+        _selectedItemIds.remove(id);
+        if (_selectedItemIds.isEmpty) {
+          _isMultiSelectMode = false;
+        }
+      } else {
+        _selectedItemIds.add(id);
+      }
+    });
+  }
+
+  void _enterMultiSelectMode(int id) {
+    setState(() {
+      _isMultiSelectMode = true;
+      _selectedItemIds.add(id);
+    });
+  }
+
+  Future<void> _confirmBulkDelete(BuildContext context, AppDatabase database) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Items?'),
+        content: Text('Are you sure you want to delete ${_selectedItemIds.length} items?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await database.deleteItems(_selectedItemIds.toList());
+      setState(() {
+        _isMultiSelectMode = false;
+        _selectedItemIds.clear();
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Items deleted')),
+        );
+      }
+    }
+  }
+
+  Future<void> _bulkShare(AppDatabase database) async {
+    final ids = _selectedItemIds.toList();
+    // Fetch items to get URLs or titles
+    // Since we only have IDs, we need to query them. For simplicity, we can get them from the stream or do a quick query.
+    // Actually, sharing multiple links natively might just be sharing a text block with multiple URLs.
+    // Let's build a combined text.
+    final itemsStream = await database.watchAllItems().first;
+    final itemsToShare = itemsStream.where((item) => ids.contains(item.id)).toList();
+    
+    final shareLines = itemsToShare.map((item) {
+      if (item.url != null) return item.url!;
+      if (item.title != null) return item.title!;
+      return '';
+    }).where((s) => s.isNotEmpty).join('\n\n');
+
+    if (shareLines.isNotEmpty) {
+      await Share.share(shareLines);
+    }
+    setState(() {
+      _isMultiSelectMode = false;
+      _selectedItemIds.clear();
+    });
   }
 
   void _showAddUrlDialog(BuildContext context) {
@@ -113,69 +193,117 @@ class _ItemListScreenState extends State<ItemListScreen> {
     final database = GetIt.instance<AppDatabase>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search...',
-                  border: InputBorder.none,
-                ),
-                style: const TextStyle(color: Colors.black),
-                onChanged: _updateSearch,
-              )
-            : Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
-                      'assets/mnemata.jpg',
-                      height: 32,
-                      width: 32,
-                      fit: BoxFit.cover,
+      appBar: _isMultiSelectMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _isMultiSelectMode = false;
+                    _selectedItemIds.clear();
+                  });
+                },
+              ),
+              title: Text('${_selectedItemIds.length} Selected'),
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+            )
+          : AppBar(
+              title: _isSearching
+                  ? TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Search...',
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(color: Colors.black),
+                      onChanged: _updateSearch,
+                    )
+                  : Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/mnemata.jpg',
+                            height: 32,
+                            width: 32,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(_getTitle()),
+                      ],
                     ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              actions: [
+                if (!_isSearching)
+                  IconButton(
+                    icon: const Icon(Icons.label),
+                    tooltip: 'Manage Labels',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LabelManagerScreen()),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  Text(_getTitle()),
+                IconButton(
+                  icon: Icon(_isSearching ? Icons.close : Icons.search),
+                  onPressed: () {
+                    setState(() {
+                      if (_isSearching) {
+                        _isSearching = false;
+                        _searchController.clear();
+                        _searchQuery = '';
+                      } else {
+                        _isSearching = true;
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+      drawer: _isMultiSelectMode ? null : _buildDrawer(context, database),
+      floatingActionButton: _isMultiSelectMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showAddUrlDialog(context),
+              child: const Icon(Icons.add_link),
+              tooltip: 'Add URL',
+            ),
+      bottomNavigationBar: _isMultiSelectMode
+          ? BottomAppBar(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    onPressed: _selectedItemIds.isEmpty ? null : () => _confirmBulkDelete(context, database),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.label),
+                    label: const Text('Tags'),
+                    onPressed: _selectedItemIds.isEmpty ? null : () {
+                      BulkLabelSelectorSheet.show(context, _selectedItemIds.toList()).then((_) {
+                        setState(() {
+                          _isMultiSelectMode = false;
+                          _selectedItemIds.clear();
+                        });
+                      });
+                    },
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.share),
+                    label: const Text('Share'),
+                    onPressed: _selectedItemIds.isEmpty ? null : () => _bulkShare(database),
+                  ),
                 ],
               ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        actions: [
-          if (!_isSearching)
-            IconButton(
-              icon: const Icon(Icons.label),
-              tooltip: 'Manage Labels',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LabelManagerScreen()),
-                );
-              },
-            ),
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _isSearching = false;
-                  _searchController.clear();
-                  _searchQuery = '';
-                } else {
-                  _isSearching = true;
-                }
-              });
-            },
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(context, database),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddUrlDialog(context),
-        child: const Icon(Icons.add_link),
-        tooltip: 'Add URL',
-      ),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [
@@ -337,6 +465,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
               item: item,
               index: index,
               labels: labelsByItem[item.id] ?? const <Label>[],
+              isSelected: _selectedItemIds.contains(item.id),
+              isMultiSelectMode: _isMultiSelectMode,
+              onLongPress: () => _enterMultiSelectMode(item.id),
+              onTap: () => _isMultiSelectMode ? _toggleSelection(item.id) : null,
             );
           },
         );
@@ -346,39 +478,41 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   Widget _buildDrawer(BuildContext context, AppDatabase database) {
     return Drawer(
-      child: Column(
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/mnemata.jpg',
-                      height: 64,
-                      width: 64,
-                      fit: BoxFit.cover,
+      child: SafeArea(
+        top: false, // AppBar usually handles the top
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/mnemata.jpg',
+                        height: 64,
+                        width: 64,
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Mnemata',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimary,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Mnemata',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          ListTile(
+            ListTile(
             leading: const Icon(Icons.all_inbox),
             title: const Text('All Items'),
             selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
@@ -450,8 +584,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
           const SizedBox(height: 16),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLabelTile(BuildContext context, Label label) {
     final isSelected = _selectedLabelIds.contains(label.id);
@@ -481,22 +616,96 @@ class _ItemTile extends StatelessWidget {
   final MnemataItem item;
   final int index;
   final List<Label> labels;
+  final bool isSelected;
+  final bool isMultiSelectMode;
+  final VoidCallback onLongPress;
+  final VoidCallback onTap;
 
   const _ItemTile({
     super.key,
     required this.item,
     required this.index,
     required this.labels,
+    required this.isSelected,
+    required this.isMultiSelectMode,
+    required this.onLongPress,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isUrl = item.type == 'url';
     final String title = item.title ?? (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
-    final String subtitle = isUrl ? (item.url ?? '') : (item.filePath ?? '');
-    final String dateStr = DateFormat('MMM dd, yyyy • HH:mm').format(item.createdAt);
+    
+    String subtitle = '';
+    if (isUrl && item.url != null) {
+      try {
+        final uri = Uri.parse(item.url!);
+        String host = uri.host.replaceFirst('www.', '');
+        
+        // Archive.today / archive.ph logic: extract original domain
+        if (host.startsWith('archive.') || host == 'archive.today' || host == 'archive.ph' || host == 'archive.is' || host == 'archive.li' || host == 'archive.vn') {
+          final segments = uri.pathSegments;
+          if (segments.isNotEmpty) {
+            // Usually the last segment or the one after the timestamp is the original URL
+            for (final segment in segments.reversed) {
+              if (segment.contains('.')) {
+                try {
+                  final potentialUri = Uri.parse(segment.startsWith('http') ? segment : 'https://$segment');
+                  if (potentialUri.host.isNotEmpty) {
+                    host = potentialUri.host.replaceFirst('www.', '');
+                    break;
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+        subtitle = host;
+      } catch (_) {
+        subtitle = item.url!;
+      }
+    } else {
+      subtitle = item.filePath?.split('/').last ?? '';
+    }
+
+    final String dateStr = DateFormat('MMM dd, yyyy').format(item.createdAt);
+
+    Future<void> shareRichContent() async {
+      String shareText = '*$title*';
+      if (subtitle.isNotEmpty) shareText += '\n_${subtitle}_';
+      if (item.url != null) shareText += '\n\nSource: ${item.url}';
+      
+      if (item.content != null && item.content!.isNotEmpty) {
+        // Convert HTML to WhatsApp-compatible markdown
+        String plainText = item.content!
+            .replaceAll(RegExp(r'<(strong|b)>'), '*')
+            .replaceAll(RegExp(r'<\/(strong|b)>'), '*')
+            .replaceAll(RegExp(r'<(em|i)>'), '_')
+            .replaceAll(RegExp(r'<\/(em|i)>'), '_')
+            .replaceAll(RegExp(r'<(br|br \/)>'), '\n')
+            .replaceAll(RegExp(r'<\/(p|div|h[1-6])>'), '\n\n')
+            .replaceAll(RegExp(r'<[^>]*>'), '')
+            .replaceAll('&nbsp;', ' ')
+            .replaceAll('&amp;', '&')
+            .replaceAll('&lt;', '<')
+            .replaceAll('&gt;', '>')
+            .replaceAll('&quot;', '"')
+            .replaceAll('&#39;', "'")
+            .replaceAll(RegExp(r'[ \t]+'), ' ')
+            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+            .trim();
+        
+        final snippet = plainText.length > 3000 ? '${plainText.substring(0, 3000)}...' : plainText;
+        shareText += '\n\n---\n\n$snippet';
+      }
+      
+      await Share.share(shareText, subject: item.title);
+    }
+
     return Slidable(
       key: ValueKey(item.id),
+      enabled: !isMultiSelectMode,
       startActionPane: ActionPane(
         motion: const StretchMotion(),
         dismissible: DismissiblePane(
@@ -542,11 +751,7 @@ class _ItemTile extends StatelessWidget {
           closeOnCancel: true,
           confirmDismiss: () async {
             Future.microtask(() async {
-              if (item.url != null) {
-                await Share.share(item.url!, subject: item.title);
-              } else if (item.title != null) {
-                await Share.share(item.title!);
-              }
+              await shareRichContent();
             });
             return false;
           },
@@ -556,11 +761,7 @@ class _ItemTile extends StatelessWidget {
             onPressed: (context) {
               Slidable.of(context)?.close();
               Future.microtask(() async {
-                if (item.url != null) {
-                  await Share.share(item.url!, subject: item.title);
-                } else if (item.title != null) {
-                  await Share.share(item.title!);
-                }
+                await shareRichContent();
               });
             },
             backgroundColor: Colors.blue,
@@ -572,104 +773,135 @@ class _ItemTile extends StatelessWidget {
         ],
       ),
       child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          leading: item.thumbnailUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedNetworkImage(
-                    imageUrl: item.thumbnailUrl!,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 120,
-                    memCacheHeight: 120,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    placeholder: (context, url) => _buildThumbnailPlaceholder(context),
-                    errorWidget: (context, url, error) => _buildThumbnailFallback(context),
-                  ),
-                )
-              : _buildThumbnailFallback(context),
-          title: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              const SizedBox(height: 4),
-              Text(
-                dateStr,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 4),
-              if (labels.isNotEmpty)
-                Row(
-                  children: labels.map((label) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: label.color != null
-                              ? Color(label.color!)
-                              : (label.isFolder ? Colors.amber : Colors.blue),
-                        ),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        elevation: isSelected ? 4 : 0.5,
+        color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: isSelected 
+            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
+            : BorderSide(color: Colors.grey.shade200),
+        ),
+        child: InkWell(
+          onLongPress: isMultiSelectMode ? null : onLongPress,
+          onTap: isMultiSelectMode ? onTap : () => _handleOpen(context),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                if (isMultiSelectMode)
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => onTap(),
+                  )
+                else
+                  item.thumbnailUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: CachedNetworkImage(
+                            imageUrl: item.thumbnailUrl!,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 100,
+                            memCacheHeight: 100,
+                            placeholder: (context, url) => _buildThumbnailPlaceholder(context, size: 36),
+                            errorWidget: (context, url, error) => _buildThumbnailFallback(context, size: 36),
+                          ),
+                        )
+                      : _buildThumbnailFallback(context, size: 36),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 8,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
-                    );
-                  }).toList(),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (subtitle.isNotEmpty)
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          if (subtitle.isNotEmpty)
+                            const Text(' • ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(
+                            dateStr,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-            ],
+                if (!isMultiSelectMode) ...[
+                  if (labels.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Wrap(
+                        spacing: 2,
+                        children: labels.take(3).map((label) {
+                          return Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: label.color != null
+                                  ? Color(label.color!)
+                                  : Colors.blue,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: const Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+                  ),
+                ],
+              ],
+            ),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.label_outline),
-                onPressed: () => LabelSelectorSheet.show(context, item),
-              ),
-              ReorderableDragStartListener(
-                index: index,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Icon(Icons.drag_handle, color: Colors.grey),
-                ),
-              ),
-            ],
-          ),
-          onTap: () => _handleOpen(context),
         ),
       ),
     );
   }
 
-  Widget _buildThumbnailPlaceholder(BuildContext context) {
+  Widget _buildThumbnailPlaceholder(BuildContext context, {double size = 40}) {
     return Container(
-      width: 40,
-      height: 40,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 
-  Widget _buildThumbnailFallback(BuildContext context) {
+  Widget _buildThumbnailFallback(BuildContext context, {double size = 40}) {
     final isUrlItem = item.type == 'url';
-    return CircleAvatar(
-      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Icon(
         isUrlItem ? Icons.link : Icons.file_present,
+        size: size * 0.6,
         color: Theme.of(context).colorScheme.onPrimaryContainer,
       ),
     );

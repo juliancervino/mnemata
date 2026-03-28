@@ -85,3 +85,95 @@ class LabelSelectorSheet extends StatelessWidget {
     );
   }
 }
+
+class BulkLabelSelectorSheet extends StatelessWidget {
+  final List<int> itemIds;
+
+  const BulkLabelSelectorSheet({super.key, required this.itemIds});
+
+  static Future<void> show(BuildContext context, List<int> itemIds) {
+    return showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => BulkLabelSelectorSheet(itemIds: itemIds),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final database = GetIt.instance<AppDatabase>();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Assign Labels to ${itemIds.length} items',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<List<Label>>(
+              stream: database.watchAllLabels(),
+              builder: (context, allLabelsSnapshot) {
+                if (!allLabelsSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final allLabels = allLabelsSnapshot.data!;
+                if (allLabels.isEmpty) {
+                  return const Center(child: Text('No labels created yet. Go to Label Manager to add some.'));
+                }
+
+                // In bulk mode, we might not easily show "mixed" state natively without
+                // complex querying. Let's just show a clean list. If a user checks it,
+                // it adds to all. If they uncheck it, it removes from all.
+                return ListView.builder(
+                  itemCount: allLabels.length,
+                  itemBuilder: (context, index) {
+                    final label = allLabels[index];
+
+                    return ListTile(
+                      title: Text(label.name),
+                      leading: Icon(
+                        Icons.label,
+                        color: label.color != null ? Color(label.color!) : Colors.blue,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                            onPressed: () {
+                              database.assignLabelToItems(itemIds, label.id);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Added label to items')),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                            onPressed: () {
+                              database.removeLabelFromItems(itemIds, label.id);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Removed label from items')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

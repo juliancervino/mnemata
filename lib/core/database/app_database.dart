@@ -100,6 +100,10 @@ class AppDatabase extends _$AppDatabase {
     return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
   }
 
+  Future<int> deleteItems(List<int> ids) {
+    return (delete(mnemataItems)..where((t) => t.id.isIn(ids))).go();
+  }
+
   Future<void> updateItemContent(int id, String content, String? title, String? thumbnailUrl) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
@@ -169,9 +173,27 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> assignLabelToItems(List<int> itemIds, int labelId) async {
+    await batch((b) {
+      for (final itemId in itemIds) {
+        b.insert(
+          itemLabels,
+          ItemLabelsCompanion.insert(itemId: itemId, labelId: labelId),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
+  }
+
   Future<int> removeLabelFromItem(int itemId, int labelId) {
     return (delete(itemLabels)
           ..where((t) => t.itemId.equals(itemId) & t.labelId.equals(labelId)))
+        .go();
+  }
+
+  Future<int> removeLabelFromItems(List<int> itemIds, int labelId) {
+    return (delete(itemLabels)
+          ..where((t) => t.itemId.isIn(itemIds) & t.labelId.equals(labelId)))
         .go();
   }
 
