@@ -23,6 +23,7 @@ class ShareService {
   bool _isInitialized = false;
   bool _isLoadingShowing = false;
   int _latestRequestId = 0;
+  Future<void> _pendingIntentWork = Future<void>.value();
 
   ShareService(
     this._database,
@@ -38,34 +39,55 @@ class ShareService {
 
     _intentDataStreamSubscription =
         ReceiveSharingIntent.instance.getMediaStream().listen(
-      (List<SharedMediaFile> value) async {
-        try {
-          await _handleSharedMedia(value);
-        } finally {
-          ReceiveSharingIntent.instance.reset();
-        }
+      (List<SharedMediaFile> value) {
+        unawaited(_enqueueIntentWork(() async {
+          try {
+            await _handleSharedMedia(value);
+          } finally {
+            await _resetShareIntentBuffer();
+          }
+        }));
       },
       onError: (Object err) {
         debugPrint('getMediaStream error: $err');
+        unawaited(_resetShareIntentBuffer());
       },
     );
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
-      (List<SharedMediaFile> value) async {
-        try {
-          await _handleSharedMedia(value);
-        } finally {
-          ReceiveSharingIntent.instance.reset();
-        }
+      (List<SharedMediaFile> value) {
+        unawaited(_enqueueIntentWork(() async {
+          try {
+            await _handleSharedMedia(value);
+          } finally {
+            await _resetShareIntentBuffer();
+          }
+        }));
       },
     ).catchError((Object err) {
       debugPrint('getInitialMedia error: $err');
+      unawaited(_resetShareIntentBuffer());
     });
   }
 
   void dispose() {
     _intentDataStreamSubscription?.cancel();
     _isInitialized = false;
+  }
+
+  Future<void> _enqueueIntentWork(Future<void> Function() action) {
+    _pendingIntentWork = _pendingIntentWork
+        .catchError((_) {})
+        .then((_) => action());
+    return _pendingIntentWork;
+  }
+
+  Future<void> _resetShareIntentBuffer() async {
+    try {
+      await ReceiveSharingIntent.instance.reset();
+    } catch (err) {
+      debugPrint('resetShareIntent error: $err');
+    }
   }
 
   Future<void> _handleSharedMedia(List<SharedMediaFile> files) async {
