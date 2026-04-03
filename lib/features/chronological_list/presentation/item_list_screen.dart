@@ -11,6 +11,7 @@ import 'package:mnemata/features/organization/presentation/label_selector_sheet.
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
 import 'package:mnemata/features/settings/presentation/settings_screen.dart';
 import 'package:mnemata/features/settings/presentation/about_screen.dart';
+import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -671,38 +672,6 @@ class _ItemTile extends StatelessWidget {
 
     final String dateStr = DateFormat('MMM dd, yyyy').format(item.createdAt);
 
-    Future<void> shareRichContent() async {
-      String shareText = '*$title*';
-      if (subtitle.isNotEmpty) shareText += '\n_${subtitle}_';
-      if (item.url != null) shareText += '\n\nSource: ${item.url}';
-      
-      if (item.content != null && item.content!.isNotEmpty) {
-        // Convert HTML to WhatsApp-compatible markdown
-        String plainText = item.content!
-            .replaceAll(RegExp(r'<(strong|b)>'), '*')
-            .replaceAll(RegExp(r'<\/(strong|b)>'), '*')
-            .replaceAll(RegExp(r'<(em|i)>'), '_')
-            .replaceAll(RegExp(r'<\/(em|i)>'), '_')
-            .replaceAll(RegExp(r'<(br|br \/)>'), '\n')
-            .replaceAll(RegExp(r'<\/(p|div|h[1-6])>'), '\n\n')
-            .replaceAll(RegExp(r'<[^>]*>'), '')
-            .replaceAll('&nbsp;', ' ')
-            .replaceAll('&amp;', '&')
-            .replaceAll('&lt;', '<')
-            .replaceAll('&gt;', '>')
-            .replaceAll('&quot;', '"')
-            .replaceAll('&#39;', "'")
-            .replaceAll(RegExp(r'[ \t]+'), ' ')
-            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-            .trim();
-        
-        final snippet = plainText.length > 3000 ? '${plainText.substring(0, 3000)}...' : plainText;
-        shareText += '\n\n---\n\n$snippet';
-      }
-      
-      await Share.share(shareText, subject: item.title);
-    }
-
     return Slidable(
       key: ValueKey(item.id),
       enabled: !isMultiSelectMode,
@@ -751,7 +720,9 @@ class _ItemTile extends StatelessWidget {
           closeOnCancel: true,
           confirmDismiss: () async {
             Future.microtask(() async {
-              await shareRichContent();
+              if (context.mounted) {
+                await ShareUtils.shareItem(context, item);
+              }
             });
             return false;
           },
@@ -761,7 +732,9 @@ class _ItemTile extends StatelessWidget {
             onPressed: (context) {
               Slidable.of(context)?.close();
               Future.microtask(() async {
-                await shareRichContent();
+                if (context.mounted) {
+                  await ShareUtils.shareItem(context, item);
+                }
               });
             },
             backgroundColor: Colors.blue,

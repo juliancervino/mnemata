@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:mnemata/core/utils/share_utils.dart';
 
 class ReaderScreen extends StatelessWidget {
   final MnemataItem item;
@@ -32,59 +33,7 @@ class ReaderScreen extends StatelessWidget {
             icon: const Icon(Icons.share),
             tooltip: 'Share Rich Content',
             onPressed: () async {
-              String host = _safeHost(item.url ?? '');
-              
-              // Archive.today / archive.ph logic: extract original domain
-              if (item.url != null) {
-                try {
-                  final uri = Uri.parse(item.url!);
-                  final hostLower = uri.host.toLowerCase();
-                  if (hostLower.startsWith('archive.') || hostLower == 'archive.today' || hostLower == 'archive.ph' || hostLower == 'archive.is' || hostLower == 'archive.li' || hostLower == 'archive.vn') {
-                    final segments = uri.pathSegments;
-                    for (final segment in segments.reversed) {
-                      if (segment.contains('.')) {
-                        try {
-                          final potentialUri = Uri.parse(segment.startsWith('http') ? segment : 'https://$segment');
-                          if (potentialUri.host.isNotEmpty) {
-                            host = potentialUri.host.replaceFirst('www.', '');
-                            break;
-                          }
-                        } catch (_) {}
-                      }
-                    }
-                  }
-                } catch (_) {}
-              }
-
-              String shareText = '*${item.title ?? 'Article'}*';
-              if (host.isNotEmpty) shareText += '\n_${host}_';
-              if (item.url != null) shareText += '\n\nSource: ${item.url}';
-              
-              if (item.content != null && item.content!.isNotEmpty) {
-                // Convert HTML to WhatsApp-compatible markdown
-                String plainText = item.content!
-                    .replaceAll(RegExp(r'<(strong|b)>'), '*')
-                    .replaceAll(RegExp(r'<\/(strong|b)>'), '*')
-                    .replaceAll(RegExp(r'<(em|i)>'), '_')
-                    .replaceAll(RegExp(r'<\/(em|i)>'), '_')
-                    .replaceAll(RegExp(r'<(br|br \/)>'), '\n')
-                    .replaceAll(RegExp(r'<\/(p|div|h[1-6])>'), '\n\n')
-                    .replaceAll(RegExp(r'<[^>]*>'), '')
-                    .replaceAll('&nbsp;', ' ')
-                    .replaceAll('&amp;', '&')
-                    .replaceAll('&lt;', '<')
-                    .replaceAll('&gt;', '>')
-                    .replaceAll('&quot;', '"')
-                    .replaceAll('&#39;', "'")
-                    .replaceAll(RegExp(r'[ \t]+'), ' ')
-                    .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-                    .trim();
-                
-                final snippet = plainText.length > 3000 ? '${plainText.substring(0, 3000)}...' : plainText;
-                shareText += '\n\n---\n\n$snippet';
-              }
-              
-              await Share.share(shareText, subject: item.title);
+              await ShareUtils.shareItem(context, item);
             },
           ),
           PopupMenuButton<String>(

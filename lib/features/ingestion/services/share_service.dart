@@ -40,13 +40,7 @@ class ShareService {
     _intentDataStreamSubscription =
         ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> value) {
-        unawaited(_enqueueIntentWork(() async {
-          try {
-            await _handleSharedMedia(value);
-          } finally {
-            await _resetShareIntentBuffer();
-          }
-        }));
+        _enqueueSharedMediaPayload(value, source: 'stream');
       },
       onError: (Object err) {
         debugPrint('getMediaStream error: $err');
@@ -56,13 +50,7 @@ class ShareService {
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
       (List<SharedMediaFile> value) {
-        unawaited(_enqueueIntentWork(() async {
-          try {
-            await _handleSharedMedia(value);
-          } finally {
-            await _resetShareIntentBuffer();
-          }
-        }));
+        _enqueueSharedMediaPayload(value, source: 'initial');
       },
     ).catchError((Object err) {
       debugPrint('getInitialMedia error: $err');
@@ -82,6 +70,28 @@ class ShareService {
     return _pendingIntentWork;
   }
 
+  void _enqueueSharedMediaPayload(
+    List<SharedMediaFile> files, {
+    required String source,
+  }) {
+    if (files.isEmpty) {
+      unawaited(_resetShareIntentBuffer());
+      return;
+    }
+
+    // Mark this payload as newest as soon as it is received.
+    final int requestId = ++_latestRequestId;
+    debugPrint('ShareService: enqueue $source payload requestId=$requestId size=${files.length}');
+
+    unawaited(_enqueueIntentWork(() async {
+      try {
+        await _handleSharedMedia(files, requestId);
+      } finally {
+        await _resetShareIntentBuffer();
+      }
+    }));
+  }
+
   Future<void> _resetShareIntentBuffer() async {
     try {
       await ReceiveSharingIntent.instance.reset();
@@ -90,10 +100,9 @@ class ShareService {
     }
   }
 
-  Future<void> _handleSharedMedia(List<SharedMediaFile> files) async {
+  Future<void> _handleSharedMedia(List<SharedMediaFile> files, int requestId) async {
     if (files.isEmpty) return;
 
-    final int requestId = ++_latestRequestId;
     final Set<String> batchProcessedKeys = <String>{};
 
     for (final file in files) {
