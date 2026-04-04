@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
-import 'package:readability/readability.dart' as readability;
 import 'package:readability/article.dart' as readability;
 
 class MockReadabilityWrapper extends Mock implements ReadabilityWrapper {}

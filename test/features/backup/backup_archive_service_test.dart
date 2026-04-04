@@ -60,7 +60,7 @@ void main() {
           utf8.encode('{"autoTagDomain":true}'),
         ),
       );
-    final encoded = ZipEncoder().encode(archive)!;
+    final encoded = ZipEncoder().encode(archive);
     await File(incompleteArchivePath).writeAsBytes(encoded, flush: true);
 
     final service = BackupArchiveService(

@@ -252,7 +252,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       autofocus: true,
                       decoration: InputDecoration(
                         hintText: 'Search...',
-                        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
+                        ),
                         border: InputBorder.none,
                       ),
                       style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
@@ -320,8 +322,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
           ? null
           : FloatingActionButton(
               onPressed: () => _showAddUrlDialog(context),
-              child: const Icon(Icons.add_link),
               tooltip: 'Add URL',
+              child: const Icon(Icons.add_link),
             ),
       bottomNavigationBar: _isMultiSelectMode
           ? BottomAppBar(
@@ -838,7 +840,9 @@ class _ItemTile extends StatelessWidget {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         elevation: isSelected ? 4 : 0.5,
-        color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5) : null,
+        color: isSelected
+            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
+            : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: isSelected 

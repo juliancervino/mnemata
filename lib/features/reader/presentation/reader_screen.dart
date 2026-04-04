@@ -3,7 +3,6 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 
 class ReaderScreen extends StatelessWidget {
@@ -116,7 +115,9 @@ class ReaderScreen extends StatelessWidget {
                               runSpacing: 4,
                               children: labels.map((label) => Chip(
                                 label: Text(label.name, style: const TextStyle(fontSize: 12)),
-                                backgroundColor: label.color != null ? Color(label.color!).withOpacity(0.2) : null,
+                                backgroundColor: label.color != null
+                                    ? Color(label.color!).withValues(alpha: 0.2)
+                                    : null,
                                 side: BorderSide(color: label.color != null ? Color(label.color!) : Colors.blue),
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,

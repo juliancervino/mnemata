@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class PdfExtractionService {
@@ -16,7 +18,7 @@ class PdfExtractionService {
       document.dispose();
       return text;
     } catch (e) {
-      print('PDF Extraction error for $filePath: $e');
+      debugPrint('PDF Extraction error for $filePath: $e');
       return null;
     }
   }

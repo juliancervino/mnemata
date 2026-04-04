@@ -155,7 +155,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                 if (name.isNotEmpty) {
                   final id = await database.insertLabel(LabelsCompanion.insert(
                     name: name,
-                    color: drift.Value(selectedColor.value),
+                    color: drift.Value(selectedColor.toARGB32()),
                   ));
                   setState(() {
                     _selectedLabelIds.add(id);
@@ -177,7 +177,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
 
     return PopScope(
       canPop: true,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) {
           await _handleSave(pop: false);
         }

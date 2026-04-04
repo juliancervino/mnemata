@@ -47,7 +47,7 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
     final database = GetIt.instance<AppDatabase>();
     database.insertLabel(LabelsCompanion.insert(
       name: name,
-      color: drift.Value(_selectedColor.value),
+      color: drift.Value(_selectedColor.toARGB32()),
       isFolder: drift.Value(_isFolder),
     ));
 
@@ -96,7 +96,7 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                 database.updateLabel(LabelsCompanion(
                   id: drift.Value(label.id),
                   name: drift.Value(nameController.text.trim()),
-                  color: drift.Value(editColor.value),
+                  color: drift.Value(editColor.toARGB32()),
                 ));
                 Navigator.pop(context);
               },

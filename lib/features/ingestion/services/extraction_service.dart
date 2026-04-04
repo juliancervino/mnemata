@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:favicon/favicon.dart' as fav;
 import 'package:http/http.dart' as http;
 import 'package:metadata_fetch/metadata_fetch.dart';
@@ -93,7 +94,7 @@ class ExtractionService {
         thumbnailUrl: thumbnailUrl,
       );
     } catch (e) {
-      print('Extraction error for $url: $e');
+      debugPrint('Extraction error for $url: $e');
       return null;
     }
   }
@@ -106,7 +107,7 @@ class ExtractionService {
         return match.group(1)?.trim();
       }
     } catch (e) {
-      print('Manual title extraction error: $e');
+      debugPrint('Manual title extraction error: $e');
     }
     return null;
   }
