@@ -63,7 +63,7 @@
 - [x] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
 - [ ] **Phase 9: Utility & Control (v2 Foundation)** - About view, reader deletion, settings infrastructure, and auto-tagging.
 - [ ] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
-- [ ] **Phase 11: Cloud & Data Portability** - Google Drive backup and browser extension support.
+- [ ] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability.
 - [ ] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations.
 
 ## Phase Details
@@ -112,9 +112,11 @@
 **Depends on**: Phase 1
 **Success Criteria**:
   1. Manual and scheduled backup of all database content and files to Google Drive.
-  2. Research/Implementation of a simple browser extension to "Save to Mnemata".
-**Plans**: 1 plan
-- [ ] 11-01-PLAN — Google Drive Integration
+  2. Full restore flow includes preview, integrity validation, and explicit user confirmation.
+**Plans**: 3 plans
+- [ ] 11-01-PLAN — Backup Core Contracts & Archive Pipeline
+- [ ] 11-02-PLAN — Restore Preview & Safe Apply Flow
+- [ ] 11-03-PLAN — Scheduler & Google Drive Provider Wiring
 
 ### Phase 12: Intelligence & Advanced Reading
 **Goal**: Use AI and rich interactions to extract more value from content.
@@ -139,6 +141,6 @@
 | 8. Refinement & Advanced | 3/3 | Completed | 2026-03-24 |
 | 9. Utility & Control | 1/1 | Completed | 2026-03-28 |
 | 10. Bulk Operations | 4/4 | Completed | 2026-03-28 |
-| 11. Cloud & Portability | 0/1 | Planned | - |
+| 11. Cloud & Portability | 0/3 | Planned | - |
 | 12. Intelligence | 0/0 | Research | - |
 
