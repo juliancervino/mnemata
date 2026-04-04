@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
+import 'package:mnemata/features/backup/services/google_drive_auth_client.dart';
 import 'package:path/path.dart' as p;
 
 enum GoogleDriveProviderFailureType {
@@ -15,10 +18,7 @@ enum GoogleDriveProviderFailureType {
 }
 
 class GoogleDriveProviderFailure implements Exception {
-  const GoogleDriveProviderFailure({
-    required this.type,
-    required this.message,
-  });
+  const GoogleDriveProviderFailure({required this.type, required this.message});
 
   final GoogleDriveProviderFailureType type;
   final String message;
@@ -60,25 +60,36 @@ class GoogleDriveDownloadResult {
 
 abstract class GoogleDriveClient {
   Future<GoogleDriveUploadResult> uploadArchive({
+    required String accessToken,
     required String archivePath,
     required String backupId,
   });
 
-  Future<List<GoogleDriveBackupRecord>> listArchives();
+  Future<List<GoogleDriveBackupRecord>> listArchives({
+    required String accessToken,
+  });
 
   Future<GoogleDriveDownloadResult> downloadArchive({
+    required String accessToken,
     required String remoteId,
     required String backupId,
   });
 }
 
 class GoogleDriveBackupProvider implements CloudBackupProvider {
-  GoogleDriveBackupProvider({required GoogleDriveClient client}) : _client = client;
+  GoogleDriveBackupProvider({
+    required GoogleDriveAuthClient authClient,
+    required GoogleDriveClient client,
+  }) : _authClient = authClient,
+       _client = client;
 
+  final GoogleDriveAuthClient _authClient;
   final GoogleDriveClient _client;
 
   @override
-  Future<CloudBackupUploadReceipt> uploadBackup({required String archivePath}) async {
+  Future<CloudBackupUploadReceipt> uploadBackup({
+    required String archivePath,
+  }) async {
     final archiveFile = File(archivePath);
     if (!await archiveFile.exists()) {
       throw const CloudBackupProviderException(
@@ -105,7 +116,9 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
     final backupId = _buildBackupId(archivePath);
 
     try {
+      final accessToken = await _authClient.refreshIfNeeded();
       final result = await _client.uploadArchive(
+        accessToken: accessToken,
         archivePath: archivePath,
         backupId: backupId,
       );
@@ -115,6 +128,12 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
         remoteId: result.remoteId,
         uploadedAt: result.uploadedAt,
       );
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudBackupProviderException(
+        code: CloudBackupProviderErrorCode.authenticationRequired,
+        message: error.message,
+        cause: error,
+      );
     } on GoogleDriveProviderFailure catch (error) {
       throw _mapFailure(error);
     }
@@ -123,7 +142,8 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
   @override
   Future<List<CloudBackupDescriptor>> listBackups() async {
     try {
-      final records = await _client.listArchives();
+      final accessToken = await _authClient.refreshIfNeeded();
+      final records = await _client.listArchives(accessToken: accessToken);
       return records
           .map(
             (record) => CloudBackupDescriptor(
@@ -133,6 +153,12 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
             ),
           )
           .toList(growable: false);
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudBackupProviderException(
+        code: CloudBackupProviderErrorCode.authenticationRequired,
+        message: error.message,
+        cause: error,
+      );
     } on GoogleDriveProviderFailure catch (error) {
       throw _mapFailure(error);
     }
@@ -141,7 +167,8 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
   @override
   Future<Uint8List> downloadBackup({required String backupId}) async {
     try {
-      final records = await _client.listArchives();
+      final accessToken = await _authClient.refreshIfNeeded();
+      final records = await _client.listArchives(accessToken: accessToken);
       final record = _findRecordByBackupId(records, backupId);
       if (record == null) {
         throw const CloudBackupProviderException(
@@ -151,6 +178,7 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
       }
 
       final result = await _client.downloadArchive(
+        accessToken: accessToken,
         remoteId: record.remoteId,
         backupId: backupId,
       );
@@ -163,6 +191,12 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
       }
 
       return Uint8List.fromList(result.bytes);
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudBackupProviderException(
+        code: CloudBackupProviderErrorCode.authenticationRequired,
+        message: error.message,
+        cause: error,
+      );
     } on GoogleDriveProviderFailure catch (error) {
       throw _mapFailure(error);
     }
@@ -235,5 +269,239 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
           cause: failure,
         );
     }
+  }
+}
+
+class GoogleDriveHttpClient implements GoogleDriveClient {
+  GoogleDriveHttpClient({required http.Client httpClient})
+    : _httpClient = httpClient;
+
+  final http.Client _httpClient;
+
+  static final Uri _multipartUploadUri = Uri.parse(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,createdTime,appProperties,name',
+  );
+
+  @override
+  Future<GoogleDriveUploadResult> uploadArchive({
+    required String accessToken,
+    required String archivePath,
+    required String backupId,
+  }) async {
+    final archiveFile = File(archivePath);
+    final fileBytes = await archiveFile.readAsBytes();
+    final metadata = <String, dynamic>{
+      'name': '$backupId.zip',
+      'appProperties': <String, String>{
+        'mnemata_backup': 'true',
+        'backupId': backupId,
+      },
+    };
+
+    final boundary =
+        'mnemata-boundary-${DateTime.now().microsecondsSinceEpoch}';
+    final body = <int>[]
+      ..addAll(utf8.encode('--$boundary\r\n'))
+      ..addAll(
+        utf8.encode('Content-Type: application/json; charset=UTF-8\r\n\r\n'),
+      )
+      ..addAll(utf8.encode(jsonEncode(metadata)))
+      ..addAll(utf8.encode('\r\n--$boundary\r\n'))
+      ..addAll(utf8.encode('Content-Type: application/zip\r\n\r\n'))
+      ..addAll(fileBytes)
+      ..addAll(utf8.encode('\r\n--$boundary--\r\n'));
+
+    final response = await _httpClient.post(
+      _multipartUploadUri,
+      headers: <String, String>{
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'multipart/related; boundary=$boundary',
+      },
+      body: body,
+    );
+
+    _throwIfFailed(response);
+    final payload = _decodeJson(response.body);
+    final remoteId = payload['id'] as String?;
+    if (remoteId == null || remoteId.isEmpty) {
+      throw const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.invalidPayload,
+        message: 'Google Drive upload response did not include file id.',
+      );
+    }
+
+    final createdAtRaw = payload['createdTime'] as String?;
+    final uploadedAt =
+        DateTime.tryParse(createdAtRaw ?? '')?.toUtc() ??
+        DateTime.now().toUtc();
+    return GoogleDriveUploadResult(
+      backupId: _resolveBackupId(payload, fallback: backupId),
+      remoteId: remoteId,
+      uploadedAt: uploadedAt,
+    );
+  }
+
+  @override
+  Future<List<GoogleDriveBackupRecord>> listArchives({
+    required String accessToken,
+  }) async {
+    final query =
+        "trashed=false and appProperties has { key='mnemata_backup' and value='true' }";
+    final uri =
+        Uri.https('www.googleapis.com', '/drive/v3/files', <String, String>{
+          'spaces': 'drive',
+          'q': query,
+          'fields': 'files(id,name,createdTime,appProperties)',
+          'orderBy': 'createdTime desc',
+          'pageSize': '100',
+        });
+
+    final response = await _httpClient.get(
+      uri,
+      headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+    );
+
+    _throwIfFailed(response);
+    final payload = _decodeJson(response.body);
+    final files = payload['files'];
+    if (files is! List<dynamic>) {
+      throw const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.invalidPayload,
+        message: 'Google Drive list response did not include files.',
+      );
+    }
+
+    final records = <GoogleDriveBackupRecord>[];
+    for (final item in files) {
+      if (item is! Map<String, dynamic>) {
+        continue;
+      }
+      final remoteId = item['id'] as String?;
+      if (remoteId == null || remoteId.isEmpty) {
+        continue;
+      }
+
+      final createdAt =
+          DateTime.tryParse(item['createdTime'] as String? ?? '')?.toUtc() ??
+          DateTime.now().toUtc();
+      records.add(
+        GoogleDriveBackupRecord(
+          backupId: _resolveBackupId(item, fallback: remoteId),
+          remoteId: remoteId,
+          createdAt: createdAt,
+        ),
+      );
+    }
+
+    return records;
+  }
+
+  @override
+  Future<GoogleDriveDownloadResult> downloadArchive({
+    required String accessToken,
+    required String remoteId,
+    required String backupId,
+  }) async {
+    final uri = Uri.https(
+      'www.googleapis.com',
+      '/drive/v3/files/$remoteId',
+      <String, String>{'alt': 'media'},
+    );
+    final response = await _httpClient.get(
+      uri,
+      headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+    );
+
+    _throwIfFailed(response);
+    if (response.bodyBytes.isEmpty) {
+      throw const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.invalidPayload,
+        message: 'Google Drive download response was empty.',
+      );
+    }
+
+    return GoogleDriveDownloadResult(
+      backupId: backupId,
+      bytes: response.bodyBytes,
+    );
+  }
+
+  Map<String, dynamic> _decodeJson(String rawBody) {
+    final parsed = jsonDecode(rawBody);
+    if (parsed is! Map<String, dynamic>) {
+      throw const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.invalidPayload,
+        message: 'Google Drive response body was not a JSON object.',
+      );
+    }
+
+    return parsed;
+  }
+
+  String _resolveBackupId(
+    Map<String, dynamic> payload, {
+    required String fallback,
+  }) {
+    final appProperties = payload['appProperties'];
+    if (appProperties is Map<String, dynamic>) {
+      final fromMetadata = appProperties['backupId'] as String?;
+      if (fromMetadata != null && fromMetadata.trim().isNotEmpty) {
+        return fromMetadata.trim();
+      }
+    }
+
+    final name = payload['name'] as String?;
+    if (name != null && name.trim().isNotEmpty) {
+      return p.basenameWithoutExtension(name.trim());
+    }
+
+    return fallback;
+  }
+
+  void _throwIfFailed(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw _mapStatusToFailure(response.statusCode);
+  }
+
+  GoogleDriveProviderFailure _mapStatusToFailure(int statusCode) {
+    if (statusCode == 401) {
+      return const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.auth,
+        message: 'Google Drive authentication failed.',
+      );
+    }
+    if (statusCode == 403) {
+      return const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.permissionDenied,
+        message:
+            'Google Drive permissions are not sufficient for backup access.',
+      );
+    }
+    if (statusCode == 404) {
+      return const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.notFound,
+        message: 'Google Drive backup item was not found.',
+      );
+    }
+    if (statusCode == 429) {
+      return const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.rateLimited,
+        message: 'Google Drive request was rate limited.',
+      );
+    }
+    if (statusCode >= 500) {
+      return const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.network,
+        message: 'Google Drive service is unavailable.',
+      );
+    }
+
+    return GoogleDriveProviderFailure(
+      type: GoogleDriveProviderFailureType.unknown,
+      message: 'Google Drive request failed with status $statusCode.',
+    );
   }
 }

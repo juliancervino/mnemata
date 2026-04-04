@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_scheduler_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
+import 'package:mnemata/features/backup/services/google_drive_auth_client.dart';
 import 'package:mnemata/features/backup/services/google_drive_backup_provider.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
@@ -22,8 +24,10 @@ Future<void> setupLocator() async {
   getIt.registerSingleton<GlobalKey<NavigatorState>>(navigatorKey);
   getIt.registerSingleton<AppDatabase>(AppDatabase());
   getIt.registerLazySingleton<ExtractionService>(() => ExtractionService());
-  getIt.registerLazySingleton<PdfExtractionService>(() => PdfExtractionService());
-  
+  getIt.registerLazySingleton<PdfExtractionService>(
+    () => PdfExtractionService(),
+  );
+
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SettingsService>(SettingsService(prefs));
 
@@ -35,27 +39,32 @@ Future<void> setupLocator() async {
       settingsService: getIt<SettingsService>(),
     ),
   );
+  getIt.registerLazySingleton<GoogleDriveAuthClient>(GoogleDriveAuthClient.new);
   getIt.registerLazySingleton<CloudBackupProvider>(
     () => GoogleDriveBackupProvider(
-      client: _DeferredAuthGoogleDriveClient(),
+      authClient: getIt<GoogleDriveAuthClient>(),
+      client: GoogleDriveHttpClient(httpClient: http.Client()),
     ),
   );
   getIt.registerLazySingleton<BackupSchedulerService>(
     () => BackupSchedulerService(
       settingsService: getIt<SettingsService>(),
       cloudBackupProvider: getIt<CloudBackupProvider>(),
-      createBackupArchive: () => getIt<BackupArchiveService>().createBackupArchive(),
+      createBackupArchive: () =>
+          getIt<BackupArchiveService>().createBackupArchive(),
       isWifiConnected: _defaultWifiSignal,
       isDeviceCharging: _defaultChargingSignal,
     ),
   );
 
-  getIt.registerSingleton<ShareService>(ShareService(
-    getIt<AppDatabase>(),
-    getIt<ExtractionService>(),
-    getIt<PdfExtractionService>(),
-    getIt<GlobalKey<NavigatorState>>(),
-  ));
+  getIt.registerSingleton<ShareService>(
+    ShareService(
+      getIt<AppDatabase>(),
+      getIt<ExtractionService>(),
+      getIt<PdfExtractionService>(),
+      getIt<GlobalKey<NavigatorState>>(),
+    ),
+  );
 }
 
 void main() async {
@@ -75,35 +84,6 @@ Future<bool> _defaultWifiSignal() async {
 
 Future<bool> _defaultChargingSignal() async {
   return true;
-}
-
-class _DeferredAuthGoogleDriveClient implements GoogleDriveClient {
-  @override
-  Future<GoogleDriveUploadResult> uploadArchive({
-    required String archivePath,
-    required String backupId,
-  }) {
-    throw const GoogleDriveProviderFailure(
-      type: GoogleDriveProviderFailureType.auth,
-      message: 'Google Drive authentication is not configured yet.',
-    );
-  }
-
-  @override
-  Future<List<GoogleDriveBackupRecord>> listArchives() async {
-    return const <GoogleDriveBackupRecord>[];
-  }
-
-  @override
-  Future<GoogleDriveDownloadResult> downloadArchive({
-    required String remoteId,
-    required String backupId,
-  }) {
-    throw const GoogleDriveProviderFailure(
-      type: GoogleDriveProviderFailureType.auth,
-      message: 'Google Drive authentication is not configured yet.',
-    );
-  }
 }
 
 class MyApp extends StatelessWidget {
