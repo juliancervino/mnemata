@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
@@ -52,11 +52,16 @@ void main() {
   test('archive inspection reports missing required entries', () async {
     final incompleteArchivePath = '${rootDir.path}/incomplete.zip';
 
-    final encoder = ZipFileEncoder()..create(incompleteArchivePath);
-    final tmpSettings = File('${rootDir.path}/settings.json')
-      ..writeAsStringSync('{"autoTagDomain":true}');
-    encoder.addFile(tmpSettings, 'settings/settings.json');
-    encoder.close();
+    final archive = Archive()
+      ..addFile(
+        ArchiveFile(
+          'settings/settings.json',
+          utf8.encode('{"autoTagDomain":true}').length,
+          utf8.encode('{"autoTagDomain":true}'),
+        ),
+      );
+    final encoded = ZipEncoder().encode(archive)!;
+    await File(incompleteArchivePath).writeAsBytes(encoded, flush: true);
 
     final service = BackupArchiveService(
       storageService: storageService,
