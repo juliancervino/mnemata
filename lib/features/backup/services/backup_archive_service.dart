@@ -6,7 +6,9 @@ import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/backup/domain/backup_manifest.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class BackupArchiveService {
   BackupArchiveService({
@@ -207,8 +209,14 @@ class BackupArchiveService {
     }
 
     if (_database != null) {
-      throw UnimplementedError(
-        'Database byte export from AppDatabase is not wired yet. Provide databaseBytesProvider.',
+      final supportDir = await getApplicationSupportDirectory();
+      final dbFile = File(p.join(supportDir.path, 'mnemata_db.sqlite'));
+      if (await dbFile.exists()) {
+        return dbFile.readAsBytes();
+      }
+
+      throw StateError(
+        'Expected database file at ${dbFile.path}, but it does not exist.',
       );
     }
 
@@ -236,6 +244,8 @@ class BackupArchiveService {
     if (_appVersionProvider != null) {
       return _appVersionProvider();
     }
-    return 'unknown';
+
+    final packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
   }
 }
