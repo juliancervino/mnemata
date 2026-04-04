@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: Ready to execute
+last_updated: "2026-04-04T20:48:27.868Z"
+progress:
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 24
+  completed_plans: 23
+  percent: 96
+---
+
 # Project State: Mnemata
 
 ## Project Reference
@@ -8,10 +22,13 @@
 
 ## Current Position
 
-- **Phase**: 11-cloud-portability
-- **Plan**: 11-01
-- **Status**: Phase 10 Complete (UX Refinements & Duplicate Detection)
-- **Progress**: [▓▓▓▓▓▓▓░░░░░░░░░░░░░] 35% (v2.0)
+Phase: 11 (cloud-data-portability) — EXECUTING
+Plan: 3 of 3
+
+- **Phase**: 11-cloud-data-portability
+- **Plan**: 11-03
+- **Status**: Plan 11-02 complete (restore preview and integrity-gated apply)
+- **Progress**: [██████████] 96% (v1.0)
 
 ## Performance Metrics
 
@@ -22,6 +39,7 @@
 ## Accumulated Context
 
 ### Key Decisions
+
 - **Cross-platform**: iOS, Android, Web (Flutter selected)
 - **Database**: Drift (SQLite) with reactive streams. Schema version 5.
 - **Organization**: Simplified model by removing "Folders". Only "Tags" (Labels) remain.
@@ -30,8 +48,11 @@
 - **URL Extraction**: Using Regex to find URLs inside shared text.
 - **UI**: Standardized tag colors, added `SafeArea` for system button compatibility, and integrated tags in reader view.
 - **Build**: Successfully generated release APK.
+- **Restore Safety**: Re-validate manifest checksums at apply-time and abort on mismatch.
+- **Restore UX Gate**: Require explicit confirmation checkbox before enabling restore apply.
 
 ### Completed Milestones
+
 - [x] Phase 1: Foundation & Ingestion
 - [x] Phase 2: The Reflective Loop
 - [x] Phase 3: Organization & Continuity
@@ -42,18 +63,21 @@
 - [x] Phase 8: Refinement & Advanced Features
 
 ### Todos
+
 - [ ] Add more comprehensive integration tests.
 
 ### Blockers
+
 - None
 
 ## Session Continuity
 
 ### Last Session Summary
-- Implemented all 11 requested refinement tasks (Phase 8).
-- Fixed a syntax error in `ReaderScreen` and successfully built the release APK.
-- Committed all changes to git with a detailed summary.
+
+- Completed Phase 11 Plan 02 restore work with preview-first flow and integrity-gated apply.
+- Added checksum-failure and non-mutating preview test coverage for restore service.
+- Cleared analyzer gate blockers and generated plan summary artifact.
 
 ### Next Session Guidance
-- Perform final project review.
-- Consider next steps for v2.0 or additional features.
+
+- Execute Plan 11-03 to finish Phase 11 cloud portability scope.
