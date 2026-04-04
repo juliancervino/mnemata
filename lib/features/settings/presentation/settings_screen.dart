@@ -5,12 +5,27 @@ import 'package:mnemata/features/backup/presentation/restore_preview_sheet.dart'
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
+import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    this.settingsService,
+    this.backupRestoreService,
+    this.createBackupArchiveAction,
+    this.uploadBackupAction,
+    this.nowProvider,
+  });
+
+  final SettingsService? settingsService;
+  final BackupRestoreService? backupRestoreService;
+  final Future<String> Function()? createBackupArchiveAction;
+  final Future<CloudBackupUploadReceipt> Function(String archivePath)?
+  uploadBackupAction;
+  final DateTime Function()? nowProvider;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -19,57 +34,71 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late bool _autoTagDomain;
   late bool _autoTagYear;
-  final SettingsService _settingsService = GetIt.instance<SettingsService>();
-  final AppDatabase _database = GetIt.instance<AppDatabase>();
-  late final BackupStorageService _backupStorageService;
-  late final BackupArchiveService _backupArchiveService;
+  late final SettingsService _settingsService;
+  BackupArchiveService? _backupArchiveService;
+  CloudBackupProvider? _cloudBackupProvider;
   late final BackupRestoreService _backupRestoreService;
   bool _isCreatingBackup = false;
 
   @override
   void initState() {
     super.initState();
+    _settingsService =
+        widget.settingsService ?? GetIt.instance<SettingsService>();
     _autoTagDomain = _settingsService.autoTagDomain;
     _autoTagYear = _settingsService.autoTagYear;
-    _backupStorageService = BackupStorageService();
-    _backupArchiveService = BackupArchiveService(
-      storageService: _backupStorageService,
-      database: _database,
-      settingsService: _settingsService,
-      attachmentsDirectoryPathProvider: () async {
-        final dir = await getApplicationDocumentsDirectory();
-        return dir.path;
-      },
-    );
-    _backupRestoreService = BackupRestoreService(
-      archiveService: _backupArchiveService,
-      storageService: _backupStorageService,
-      liveDatabasePathProvider: () async {
-        final supportDir = await getApplicationSupportDirectory();
-        return p.join(supportDir.path, 'mnemata_db.sqlite');
-      },
-      liveAttachmentsDirectoryPathProvider: () async {
-        final documentsDir = await getApplicationDocumentsDirectory();
-        return documentsDir.path;
-      },
-      settingsImporter: (json) async {
-        final autoTagDomain = json['autoTagDomain'];
-        final autoTagYear = json['autoTagYear'];
-        if (autoTagDomain is bool) {
-          await _settingsService.setAutoTagDomain(autoTagDomain);
-        }
-        if (autoTagYear is bool) {
-          await _settingsService.setAutoTagYear(autoTagYear);
-        }
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _autoTagDomain = _settingsService.autoTagDomain;
-          _autoTagYear = _settingsService.autoTagYear;
-        });
-      },
-    );
+
+    if (widget.createBackupArchiveAction == null ||
+        widget.backupRestoreService == null) {
+      final backupStorageService = BackupStorageService();
+      _backupArchiveService = BackupArchiveService(
+        storageService: backupStorageService,
+        database: GetIt.instance<AppDatabase>(),
+        settingsService: _settingsService,
+        attachmentsDirectoryPathProvider: () async {
+          final dir = await getApplicationDocumentsDirectory();
+          return dir.path;
+        },
+      );
+
+      _backupRestoreService =
+          widget.backupRestoreService ??
+          BackupRestoreService(
+            archiveService: _backupArchiveService!,
+            storageService: backupStorageService,
+            liveDatabasePathProvider: () async {
+              final supportDir = await getApplicationSupportDirectory();
+              return p.join(supportDir.path, 'mnemata_db.sqlite');
+            },
+            liveAttachmentsDirectoryPathProvider: () async {
+              final documentsDir = await getApplicationDocumentsDirectory();
+              return documentsDir.path;
+            },
+            settingsImporter: (json) async {
+              final autoTagDomain = json['autoTagDomain'];
+              final autoTagYear = json['autoTagYear'];
+              if (autoTagDomain is bool) {
+                await _settingsService.setAutoTagDomain(autoTagDomain);
+              }
+              if (autoTagYear is bool) {
+                await _settingsService.setAutoTagYear(autoTagYear);
+              }
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _autoTagDomain = _settingsService.autoTagDomain;
+                _autoTagYear = _settingsService.autoTagYear;
+              });
+            },
+          );
+    } else {
+      _backupRestoreService = widget.backupRestoreService!;
+    }
+
+    if (widget.uploadBackupAction == null) {
+      _cloudBackupProvider = GetIt.instance<CloudBackupProvider>();
+    }
   }
 
   @override
@@ -95,7 +124,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SwitchListTile(
             title: const Text('Auto-tag by domain'),
-            subtitle: const Text('Automatically assign a tag based on the URL domain (e.g. elpais.com)'),
+            subtitle: const Text(
+              'Automatically assign a tag based on the URL domain (e.g. elpais.com)',
+            ),
             value: _autoTagDomain,
             onChanged: (value) {
               setState(() {
@@ -106,7 +137,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SwitchListTile(
             title: const Text('Auto-tag by year'),
-            subtitle: const Text('Automatically assign a tag with the current year (e.g. 2026)'),
+            subtitle: const Text(
+              'Automatically assign a tag with the current year (e.g. 2026)',
+            ),
             value: _autoTagYear,
             onChanged: (value) {
               setState(() {
@@ -129,8 +162,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.backup_outlined),
-            title: const Text('Create backup now'),
-            subtitle: const Text('Generate a full backup archive on this device.'),
+            title: const Text('Upload backup to Google Drive'),
+            subtitle: const Text(
+              'Create a full backup archive and upload it to your Drive.',
+            ),
             enabled: !_isCreatingBackup,
             onTap: _isCreatingBackup ? null : _createBackupNow,
             trailing: _isCreatingBackup
@@ -144,7 +179,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.restore),
             title: const Text('Restore from backup'),
-            subtitle: const Text('Preview and validate a backup before applying restore.'),
+            subtitle: const Text(
+              'Preview and validate a backup before applying restore.',
+            ),
             onTap: _openRestorePreviewFlow,
           ),
         ],
@@ -158,22 +195,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     final messenger = ScaffoldMessenger.of(context);
+    final now = (widget.nowProvider ?? DateTime.now).call().toUtc();
+    String? archivePath;
+
     try {
-      final archivePath = await _backupArchiveService.createBackupArchive();
+      await _settingsService.setLastBackupAttemptAt(now);
+
+      archivePath =
+          await (widget.createBackupArchiveAction?.call() ??
+              _backupArchiveService!.createBackupArchive());
+
+      final receipt =
+          await (widget.uploadBackupAction?.call(archivePath) ??
+              _cloudBackupProvider!.uploadBackup(archivePath: archivePath));
+
+      await _settingsService.setLastSuccessfulBackupAt(receipt.uploadedAt);
+      await _settingsService.clearLastBackupFailureReason();
+
       if (!mounted) {
         return;
       }
 
       messenger.showSnackBar(
-        SnackBar(content: Text('Backup created: $archivePath')),
+        SnackBar(
+          content: Text('Backup uploaded to Google Drive: ${receipt.remoteId}'),
+        ),
+      );
+    } on CloudBackupProviderException catch (error) {
+      await _settingsService.setLastBackupFailureReason(
+        'manual_upload_${error.code.name}',
+      );
+      if (!mounted) {
+        return;
+      }
+
+      final diagnostics = archivePath == null ? '' : ' Archive: $archivePath';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Cloud backup failed: ${error.message}.$diagnostics'),
+        ),
       );
     } catch (error) {
+      await _settingsService.setLastBackupFailureReason(
+        'manual_upload_unknown',
+      );
       if (!mounted) {
         return;
       }
 
+      final diagnostics = archivePath == null ? '' : ' Archive: $archivePath';
       messenger.showSnackBar(
-        SnackBar(content: Text('Backup failed: $error')),
+        SnackBar(content: Text('Cloud backup failed: $error.$diagnostics')),
       );
     } finally {
       if (mounted) {
@@ -222,7 +294,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
               child: const Text('Preview'),
             ),
           ],

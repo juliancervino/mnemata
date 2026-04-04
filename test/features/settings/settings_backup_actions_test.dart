@@ -22,7 +22,9 @@ void main() {
     final archiveService = BackupArchiveService(
       storageService: storageService,
       databaseBytesProvider: () async => const <int>[1],
-      settingsJsonProvider: () async => <String, dynamic>{'autoTagDomain': true},
+      settingsJsonProvider: () async => <String, dynamic>{
+        'autoTagDomain': true,
+      },
       attachmentsDirectoryPathProvider: () async => null,
       appVersionProvider: () async => '2.0.0-test',
       nowProvider: () => DateTime.utc(2026, 4, 5, 10),
@@ -37,7 +39,9 @@ void main() {
     );
   }
 
-  testWidgets('manual backup action creates archive then uploads to cloud', (tester) async {
+  testWidgets('manual backup action creates archive then uploads to cloud', (
+    tester,
+  ) async {
     final settingsService = await buildSettingsService();
     final restoreService = buildRestoreService();
     final order = <String>[];
@@ -70,34 +74,40 @@ void main() {
 
     expect(order, equals(<String>['create', 'upload']));
     expect(uploadedPath, equals('/tmp/manual_backup.zip'));
-    expect(find.textContaining('Backup uploaded to Google Drive'), findsOneWidget);
-  });
-
-  testWidgets('manual backup action surfaces cloud upload failure and diagnostics', (tester) async {
-    final settingsService = await buildSettingsService();
-    final restoreService = buildRestoreService();
-    final archivePath = '/tmp/manual_backup_failure.zip';
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsScreen(
-          settingsService: settingsService,
-          backupRestoreService: restoreService,
-          createBackupArchiveAction: () async => archivePath,
-          uploadBackupAction: (_) async {
-            throw const CloudBackupProviderException(
-              code: CloudBackupProviderErrorCode.authenticationRequired,
-              message: 'Sign in required.',
-            );
-          },
-        ),
-      ),
+    expect(
+      find.textContaining('Backup uploaded to Google Drive'),
+      findsOneWidget,
     );
-
-    await tester.tap(find.text('Upload backup to Google Drive'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('Cloud backup failed'), findsOneWidget);
-    expect(find.textContaining(archivePath), findsOneWidget);
   });
+
+  testWidgets(
+    'manual backup action surfaces cloud upload failure and diagnostics',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final archivePath = '/tmp/manual_backup_failure.zip';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => archivePath,
+            uploadBackupAction: (_) async {
+              throw const CloudBackupProviderException(
+                code: CloudBackupProviderErrorCode.authenticationRequired,
+                message: 'Sign in required.',
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Upload backup to Google Drive'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Cloud backup failed'), findsOneWidget);
+      expect(find.textContaining(archivePath), findsOneWidget);
+    },
+  );
 }
