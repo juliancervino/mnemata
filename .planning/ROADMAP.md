@@ -108,15 +108,18 @@
 - [ ] 10-02-PLAN — UI List Optimization
 
 ### Phase 11: Cloud & Data Portability
-**Goal**: Ensure data safety and cross-platform ingestion.
+**Goal**: Ensure Google Drive backup and restore reliability for data safety.
 **Depends on**: Phase 1
+**Scope Note**: Browser-extension portability research is deferred to Phase 12.
 **Success Criteria**:
   1. Manual and scheduled backup of all database content and files to Google Drive.
   2. Full restore flow includes preview, integrity validation, and explicit user confirmation.
-**Plans**: 3 plans
+**Plans**: 5 plans
 - [ ] 11-01-PLAN — Backup Core Contracts & Archive Pipeline
 - [ ] 11-02-PLAN — Restore Preview & Safe Apply Flow
 - [ ] 11-03-PLAN — Scheduler & Google Drive Provider Wiring
+- [ ] 11-04-PLAN — Gap Closure: Production Drive Auth & Manual Cloud Upload
+- [ ] 11-05-PLAN — Gap Closure: Runtime Signals & POR-03 Traceability Fix
 
 ### Phase 12: Intelligence & Advanced Reading
 **Goal**: Use AI and rich interactions to extract more value from content.
