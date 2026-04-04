@@ -6,6 +6,8 @@ import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 
+enum IngestionSummaryResult { saved, discarded }
+
 class IngestionSummaryScreen extends StatefulWidget {
   final String? title;
   final String? content;
@@ -33,6 +35,7 @@ class IngestionSummaryScreen extends StatefulWidget {
 class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   late TextEditingController _titleController;
   final Set<int> _selectedLabelIds = {};
+  bool _isClosing = false;
 
   @override
   void initState() {
@@ -47,7 +50,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
     if (settingsService.autoTagYear) {
       final yearStr = DateTime.now().year.toString();
-      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.value);
+      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.toARGB32());
       if (mounted) setState(() => _selectedLabelIds.add(yearTagId));
     }
 
@@ -58,7 +61,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
           final uri = Uri.parse(tagUrl);
           if (uri.host.isNotEmpty) {
             final hostStr = uri.host.replaceFirst('www.', '');
-            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.value);
+            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.toARGB32());
             if (mounted) setState(() => _selectedLabelIds.add(domainTagId));
           }
         } catch (_) {}
@@ -92,11 +95,18 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     }
 
     if (mounted) {
-      Navigator.of(context).pop();
+      _isClosing = true;
+      Navigator.of(context).pop(IngestionSummaryResult.saved);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Item saved successfully')),
       );
     }
+  }
+
+  void _handleDiscard() {
+    if (!mounted || _isClosing) return;
+    _isClosing = true;
+    Navigator.of(context).pop(IngestionSummaryResult.discarded);
   }
 
   void _pickColor(BuildContext context, Color initialColor, Function(Color) onColorChanged) {
@@ -156,7 +166,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                 if (name.isNotEmpty) {
                   final id = await database.insertLabel(LabelsCompanion.insert(
                     name: name,
-                    color: drift.Value(selectedColor.value),
+                    color: drift.Value(selectedColor.toARGB32()),
                   ));
                   setState(() {
                     _selectedLabelIds.add(id);
@@ -176,143 +186,155 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Item'),
-        actions: [
-          TextButton(
-            onPressed: _handleSave,
-            child: const Text('SAVE', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _handleDiscard();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleDiscard,
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.thumbnailUrl != null)
-                Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      widget.thumbnailUrl!,
-                      height: 150,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+          title: const Text('New Item'),
+          actions: [
+            TextButton(
+              onPressed: _handleSave,
+              child: const Text('SAVE', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.thumbnailUrl != null)
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.thumbnailUrl!,
+                        height: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
                     ),
                   ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (widget.url != null)
-                Text(
-                  'Source: ${widget.url}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              if (widget.filePath != null)
-                Text(
-                  'File: ${widget.filePath!.split('/').last}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                const SizedBox(height: 16),
+                if (widget.url != null)
                   Text(
-                    'Assign Labels',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    'Source: ${widget.url}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  TextButton.icon(
-                    onPressed: () => _showAddTagDialog(context, database),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Tag'),
+                if (widget.filePath != null)
+                  Text(
+                    'File: ${widget.filePath!.split('/').last}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              StreamBuilder<List<Label>>(
-                stream: database.watchAllLabels(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-                  final labels = snapshot.data!;
-                  if (labels.isEmpty) return const Text('No labels created yet.');
-
-                  return Wrap(
-                    spacing: 8,
-                    children: labels.map((label) {
-                      final isSelected = _selectedLabelIds.contains(label.id);
-                      return FilterChip(
-                        label: Text(label.name),
-                        selected: isSelected,
-                        avatar: Icon(
-                          Icons.label,
-                          size: 16,
-                          color: label.color != null ? Color(label.color!) : Colors.blue,
-                        ),
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedLabelIds.add(label.id);
-                            } else {
-                              _selectedLabelIds.remove(label.id);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              if (widget.content != null && widget.content!.isNotEmpty) ...[
+                const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Content Preview',
+                      'Assign Labels',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    Text(
-                      'Length: ${widget.content!.length} chars',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    TextButton.icon(
+                      onPressed: () => _showAddTagDialog(context, database),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Tag'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                StreamBuilder<List<Label>>(
+                  stream: database.watchAllLabels(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const CircularProgressIndicator();
+                    final labels = snapshot.data!;
+                    if (labels.isEmpty) return const Text('No labels created yet.');
+
+                    return Wrap(
+                      spacing: 8,
+                      children: labels.map((label) {
+                        final isSelected = _selectedLabelIds.contains(label.id);
+                        return FilterChip(
+                          label: Text(label.name),
+                          selected: isSelected,
+                          avatar: Icon(
+                            Icons.label,
+                            size: 16,
+                            color: label.color != null ? Color(label.color!) : Colors.blue,
+                          ),
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedLabelIds.add(label.id);
+                              } else {
+                                _selectedLabelIds.remove(label.id);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 24),
+                if (widget.content != null && widget.content!.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Content Preview',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        'Length: ${widget.content!.length} chars',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
                   ),
-                  constraints: const BoxConstraints(maxHeight: 250),
-                  child: SingleChildScrollView(
-                    child: HtmlWidget(
-                      widget.content!,
-                      textStyle: const TextStyle(fontSize: 14),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    constraints: const BoxConstraints(maxHeight: 250),
+                    child: SingleChildScrollView(
+                      child: HtmlWidget(
+                        widget.content!,
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
                     ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 32), // Padding for system buttons
               ],
-              const SizedBox(height: 32), // Padding for system buttons
-            ],
+            ),
           ),
         ),
       ),

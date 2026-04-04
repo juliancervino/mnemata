@@ -22,8 +22,9 @@ class ShareService {
 
   bool _isInitialized = false;
   bool _isLoadingShowing = false;
-  int _latestRequestId = 0;
-  Future<void> _pendingIntentWork = Future<void>.value();
+  bool _isProcessingIncomingShare = false;
+  String? _activeIncomingFingerprint;
+  (List<SharedMediaFile>, String)? _pendingIncomingShare;
 
   ShareService(
     this._database,
@@ -40,7 +41,7 @@ class ShareService {
     _intentDataStreamSubscription =
         ReceiveSharingIntent.instance.getMediaStream().listen(
       (List<SharedMediaFile> value) {
-        _enqueueSharedMediaPayload(value, source: 'stream');
+        unawaited(_processIncomingShare(value, source: 'stream'));
       },
       onError: (Object err) {
         debugPrint('getMediaStream error: $err');
@@ -50,7 +51,7 @@ class ShareService {
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
       (List<SharedMediaFile> value) {
-        _enqueueSharedMediaPayload(value, source: 'initial');
+        unawaited(_processIncomingShare(value, source: 'initial'));
       },
     ).catchError((Object err) {
       debugPrint('getInitialMedia error: $err');
@@ -61,35 +62,59 @@ class ShareService {
   void dispose() {
     _intentDataStreamSubscription?.cancel();
     _isInitialized = false;
+    _clearShareProcessingState();
   }
 
-  Future<void> _enqueueIntentWork(Future<void> Function() action) {
-    _pendingIntentWork = _pendingIntentWork
-        .catchError((_) {})
-        .then((_) => action());
-    return _pendingIntentWork;
-  }
-
-  void _enqueueSharedMediaPayload(
+  Future<void> _processIncomingShare(
     List<SharedMediaFile> files, {
     required String source,
-  }) {
-    if (files.isEmpty) {
-      unawaited(_resetShareIntentBuffer());
+  }) async {
+    final List<SharedMediaFile> snapshot = List<SharedMediaFile>.from(files);
+
+    if (snapshot.isEmpty) {
+      debugPrint('ShareService: received empty $source payload');
+      await _resetShareIntentBuffer();
+      _clearShareProcessingState();
       return;
     }
 
-    // Mark this payload as newest as soon as it is received.
-    final int requestId = ++_latestRequestId;
-    debugPrint('ShareService: enqueue $source payload requestId=$requestId size=${files.length}');
+    if (_isProcessingIncomingShare) {
+      _pendingIncomingShare = (snapshot, source);
+      debugPrint('ShareService: queued latest $source payload while another is active');
+      await _resetShareIntentBuffer();
+      return;
+    }
 
-    unawaited(_enqueueIntentWork(() async {
-      try {
-        await _handleSharedMedia(files, requestId);
-      } finally {
-        await _resetShareIntentBuffer();
+    _isProcessingIncomingShare = true;
+    _activeIncomingFingerprint = _buildBatchFingerprint(snapshot);
+    debugPrint('ShareService: received $source payload fingerprint=$_activeIncomingFingerprint size=${snapshot.length}');
+
+    // Clear plugin state immediately so stale payloads are not replayed later.
+    await _resetShareIntentBuffer();
+
+    try {
+      await _handleSharedMedia(snapshot);
+    } finally {
+      debugPrint('ShareService: cleanup payload fingerprint=$_activeIncomingFingerprint');
+      _clearShareProcessingState();
+      await _resetShareIntentBuffer();
+
+      final pending = _pendingIncomingShare;
+      if (pending != null) {
+        _pendingIncomingShare = null;
+        unawaited(_processIncomingShare(pending.$1, source: pending.$2));
       }
-    }));
+    }
+  }
+
+  void _clearShareProcessingState() {
+    _isProcessingIncomingShare = false;
+    _activeIncomingFingerprint = null;
+  }
+
+  String _buildBatchFingerprint(List<SharedMediaFile> files) {
+    final keys = files.map(_buildPayloadKey).toList()..sort();
+    return keys.join('|');
   }
 
   Future<void> _resetShareIntentBuffer() async {
@@ -100,14 +125,14 @@ class ShareService {
     }
   }
 
-  Future<void> _handleSharedMedia(List<SharedMediaFile> files, int requestId) async {
-    if (files.isEmpty) return;
+  Future<void> _handleSharedMedia(List<SharedMediaFile> files) async {
+    if (files.isEmpty) {
+      return;
+    }
 
     final Set<String> batchProcessedKeys = <String>{};
 
     for (final file in files) {
-      if (requestId != _latestRequestId) return;
-
       // Temporal dedupe only suppresses duplicate payloads in this batch.
       final String payloadKey = _buildPayloadKey(file);
       if (batchProcessedKeys.contains(payloadKey)) {
@@ -116,24 +141,22 @@ class ShareService {
       batchProcessedKeys.add(payloadKey);
 
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
-        await _handleUrl(file.path, requestId);
+        await _handleUrl(file.path);
       } else {
-        await _handleFile(file, requestId);
+        await _handleFile(file);
       }
     }
   }
 
   Future<void> handleUrl(String? text) async {
-    final int requestId = ++_latestRequestId;
-    await _handleUrl(text, requestId);
+    await _handleUrl(text);
   }
 
   Future<void> handleFile(SharedMediaFile sharedFile) async {
-    final int requestId = ++_latestRequestId;
-    await _handleFile(sharedFile, requestId);
+    await _handleFile(sharedFile);
   }
 
-  Future<void> _handleUrl(String? text, int requestId) async {
+  Future<void> _handleUrl(String? text) async {
     if (text == null || text.isEmpty) return;
 
     final urlRegex = RegExp(
@@ -147,21 +170,18 @@ class ShareService {
     final trimmedUrl = match.group(0)!.trim();
     // 1. Duplicate detection
     final existingItem = await _database.getItemByCanonicalUrl(trimmedUrl);
-    if (requestId != _latestRequestId) return;
 
-    if (existingItem != null && requestId == _latestRequestId) {
+    if (existingItem != null) {
       final confirm = await _showDuplicateDialog(trimmedUrl);
-      if (confirm != true || requestId != _latestRequestId) return;
+      if (confirm != true) return;
     }
 
     _showLoadingOverlay('Processing content...');
 
     try {
       if (_isArchiveUrl(trimmedUrl)) {
-        if (requestId != _latestRequestId) return;
         _hideLoadingOverlay();
         await _pushSummaryWhenNavigatorReady(
-          requestId,
           (context) => ArchiveScraperScreen(url: trimmedUrl),
         );
         return;
@@ -169,20 +189,16 @@ class ShareService {
 
       final result = await _extractionService.extractContent(trimmedUrl);
 
-      if (requestId != _latestRequestId) return;
-
       if (_looksLikeJsRequiredContent(result?.content, result?.title)) {
         _hideLoadingOverlay();
         await _pushSummaryWhenNavigatorReady(
-          requestId,
           (context) => JsRenderedScraperScreen(url: trimmedUrl),
         );
         return;
       }
 
       _hideLoadingOverlay();
-      await _pushSummaryWhenNavigatorReady(
-        requestId,
+      final resultFromSummary = await _pushSummaryWhenNavigatorReady(
         (context) => IngestionSummaryScreen(
           type: 'url',
           url: trimmedUrl,
@@ -191,21 +207,22 @@ class ShareService {
           thumbnailUrl: result?.thumbnailUrl,
         ),
       );
+      debugPrint('ShareService: url summary closed with result=$resultFromSummary');
     } finally {
       _hideLoadingOverlay();
     }
   }
 
-  Future<void> _handleFile(SharedMediaFile sharedFile, int requestId) async {
+  Future<void> _handleFile(SharedMediaFile sharedFile) async {
     final file = File(sharedFile.path);
     if (!await file.exists()) return;
 
     // 1. Duplicate detection
     final fileName = p.basename(sharedFile.path);
     final existingFile = await _database.getItemByFilePath(sharedFile.path);
-    if (existingFile != null && requestId == _latestRequestId) {
+    if (existingFile != null) {
       final confirm = await _showDuplicateDialog(fileName);
-      if (confirm != true || requestId != _latestRequestId) return;
+      if (confirm != true) return;
     }
 
     _showLoadingOverlay('Saving file...');
@@ -221,11 +238,8 @@ class ShareService {
         extractedText = await _pdfExtractionService.extractText(newPath);
       }
 
-      if (requestId != _latestRequestId) return;
-
       _hideLoadingOverlay();
-      await _pushSummaryWhenNavigatorReady(
-        requestId,
+      final resultFromSummary = await _pushSummaryWhenNavigatorReady(
         (context) => IngestionSummaryScreen(
           type: 'file',
           filePath: newPath,
@@ -233,24 +247,23 @@ class ShareService {
           content: extractedText,
         ),
       );
+      debugPrint('ShareService: file summary closed with result=$resultFromSummary');
     } finally {
       _hideLoadingOverlay();
     }
   }
 
-  Future<void> _pushSummaryWhenNavigatorReady(
-    int requestId,
+  Future<Object?> _pushSummaryWhenNavigatorReady(
     WidgetBuilder builder,
   ) async {
     const int maxAttempts = 20;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      if (requestId != _latestRequestId) return;
-
       final navigator = _navigatorKey.currentState;
       if (navigator != null) {
-        navigator.push(MaterialPageRoute(builder: builder));
-        return;
+        return navigator.push<dynamic>(
+          MaterialPageRoute<dynamic>(builder: builder),
+        );
       }
 
       final completer = Completer<void>();
@@ -263,6 +276,7 @@ class ShareService {
     }
 
     debugPrint('ShareService: navigator not ready, skipping share navigation.');
+    return null;
   }
 
   bool _isArchiveUrl(String url) {

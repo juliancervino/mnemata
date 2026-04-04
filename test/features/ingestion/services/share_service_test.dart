@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'package:drift/native.dart';
@@ -48,7 +47,10 @@ void main() {
     mockNavigatorState = MockNavigatorState();
 
     when(() => mockNavigatorKey.currentState).thenReturn(mockNavigatorState);
-    when(() => mockNavigatorState.push<dynamic>(any())).thenAnswer((_) async => null);
+    when(() => mockNavigatorState.push<dynamic>(any()))
+      .thenAnswer((_) => Future<Object?>.value(null));
+    when(() => mockNavigatorState.push<Object?>(any()))
+      .thenAnswer((_) => Future<Object?>.value(null));
 
     shareService = ShareService(
       database, 
@@ -124,56 +126,46 @@ void main() {
     verifyNever(() => mockNavigatorState.push<dynamic>(any()));
   });
 
-  test('stale request does not navigate when newer request arrives', () async {
-    const slowUrl = 'https://example.com/slow';
-    const fastUrl = 'https://example.com/fast';
+  test('sequential shares process each payload independently', () async {
+    const urlA = 'https://example.com/a';
+    const urlB = 'https://example.com/b';
 
-    final slowExtraction = Completer<({String title, String content, String? thumbnailUrl})?>();
+    when(() => mockExtractionService.extractContent(urlA))
+        .thenAnswer((_) async => (title: 'A', content: 'Content A', thumbnailUrl: null));
+    when(() => mockExtractionService.extractContent(urlB))
+        .thenAnswer((_) async => (title: 'B', content: 'Content B', thumbnailUrl: null));
 
-    when(() => mockExtractionService.extractContent(slowUrl))
-        .thenAnswer((_) => slowExtraction.future);
-    when(() => mockExtractionService.extractContent(fastUrl))
-        .thenAnswer((_) async => (title: 'Fast', content: 'Fast content', thumbnailUrl: null));
+    await shareService.handleUrl(urlA);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await shareService.handleUrl(urlB);
 
-    final pendingSlow = shareService.handleUrl(slowUrl);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-
-    await shareService.handleUrl(fastUrl);
-
-    slowExtraction.complete((title: 'Slow', content: 'Slow content', thumbnailUrl: null));
-    await pendingSlow;
-
-    verify(() => mockExtractionService.extractContent(slowUrl)).called(1);
-    verify(() => mockExtractionService.extractContent(fastUrl)).called(1);
-    verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
+    verify(() => mockExtractionService.extractContent(urlA)).called(1);
+    verify(() => mockExtractionService.extractContent(urlB)).called(1);
+    verify(() => mockNavigatorState.push<dynamic>(any())).called(2);
   });
 
-  test('stale request after duplicate confirmation is aborted', () async {
+  test('discarding duplicate does not affect next shared url', () async {
     const duplicateUrl = 'https://example.com/dup';
-    const newerUrl = 'https://example.com/newer';
+    const nextUrl = 'https://example.com/next';
     await insertUrlItem(duplicateUrl);
 
-    final serviceWithDelayedDialog = ShareService(
+    final duplicateDiscardService = ShareService(
       database,
       mockExtractionService,
       mockPdfExtractionService,
       mockNavigatorKey,
-      duplicatePromptOverride: (_) async {
-        await Future<void>.delayed(const Duration(milliseconds: 60));
-        return true;
-      },
+      duplicatePromptOverride: (_) async => false,
     );
 
-    when(() => mockExtractionService.extractContent(newerUrl))
-        .thenAnswer((_) async => (title: 'New', content: 'New content', thumbnailUrl: null));
+    when(() => mockExtractionService.extractContent(nextUrl))
+        .thenAnswer((_) async => (title: 'Next', content: 'Next content', thumbnailUrl: null));
 
-    final pendingDuplicate = serviceWithDelayedDialog.handleUrl(duplicateUrl);
+    await duplicateDiscardService.handleUrl(duplicateUrl);
     await Future<void>.delayed(const Duration(milliseconds: 10));
-    await serviceWithDelayedDialog.handleUrl(newerUrl);
-    await pendingDuplicate;
+    await duplicateDiscardService.handleUrl(nextUrl);
 
     verifyNever(() => mockExtractionService.extractContent(duplicateUrl));
-    verify(() => mockExtractionService.extractContent(newerUrl)).called(1);
+    verify(() => mockExtractionService.extractContent(nextUrl)).called(1);
     verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
   });
 }
