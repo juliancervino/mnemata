@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mnemata/features/backup/services/backup_scheduler_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
+import 'package:mnemata/features/backup/services/network_power_signal_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,8 +31,10 @@ void main() {
         settingsService: settingsService,
         cloudBackupProvider: provider,
         createBackupArchive: () async => archive.path,
-        isWifiConnected: () async => true,
-        isDeviceCharging: () async => true,
+        networkPowerSignalService: _FakeNetworkPowerSignalService(
+          wifiConnected: true,
+          charging: true,
+        ),
         nowProvider: () => DateTime.utc(2026, 4, 4, 12),
       );
 
@@ -64,8 +67,10 @@ void main() {
         settingsService: settingsService,
         cloudBackupProvider: provider,
         createBackupArchive: () async => '/tmp/never_used.zip',
-        isWifiConnected: () async => false,
-        isDeviceCharging: () async => true,
+        networkPowerSignalService: _FakeNetworkPowerSignalService(
+          wifiConnected: false,
+          charging: true,
+        ),
         nowProvider: () => DateTime.utc(2026, 4, 4, 12),
       );
 
@@ -102,4 +107,20 @@ class _RecordingCloudBackupProvider implements CloudBackupProvider {
       uploadedAt: DateTime.utc(2026, 4, 4, 12),
     );
   }
+}
+
+class _FakeNetworkPowerSignalService implements NetworkPowerSignalService {
+  _FakeNetworkPowerSignalService({
+    required this.wifiConnected,
+    required this.charging,
+  });
+
+  final bool wifiConnected;
+  final bool charging;
+
+  @override
+  Future<bool> isWifiConnected() async => wifiConnected;
+
+  @override
+  Future<bool> isCharging() async => charging;
 }

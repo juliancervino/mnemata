@@ -1,4 +1,5 @@
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
+import 'package:mnemata/features/backup/services/network_power_signal_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 
 enum BackupSkipReason {
@@ -38,21 +39,18 @@ class BackupSchedulerService {
     required SettingsService settingsService,
     required CloudBackupProvider cloudBackupProvider,
     required Future<String> Function() createBackupArchive,
-    required Future<bool> Function() isWifiConnected,
-    required Future<bool> Function() isDeviceCharging,
+    required NetworkPowerSignalService networkPowerSignalService,
     DateTime Function()? nowProvider,
   })  : _settingsService = settingsService,
         _cloudBackupProvider = cloudBackupProvider,
         _createBackupArchive = createBackupArchive,
-        _isWifiConnected = isWifiConnected,
-        _isDeviceCharging = isDeviceCharging,
+        _networkPowerSignalService = networkPowerSignalService,
         _nowProvider = nowProvider ?? DateTime.now;
 
   final SettingsService _settingsService;
   final CloudBackupProvider _cloudBackupProvider;
   final Future<String> Function() _createBackupArchive;
-  final Future<bool> Function() _isWifiConnected;
-  final Future<bool> Function() _isDeviceCharging;
+  final NetworkPowerSignalService _networkPowerSignalService;
   final DateTime Function() _nowProvider;
 
   bool _isRunning = false;
@@ -78,8 +76,8 @@ class BackupSchedulerService {
         autoBackupEnabled: _settingsService.autoBackupEnabled,
         requireWifi: _settingsService.backupRequireWifi,
         requireCharging: _settingsService.backupRequireCharging,
-        isWifiConnected: await _isWifiConnected(),
-        isCharging: await _isDeviceCharging(),
+        isWifiConnected: await _networkPowerSignalService.isWifiConnected(),
+        isCharging: await _networkPowerSignalService.isCharging(),
       );
 
       if (!evaluation.shouldRun) {

@@ -11,6 +11,7 @@ import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/backup/services/google_drive_auth_client.dart';
 import 'package:mnemata/features/backup/services/google_drive_backup_provider.dart';
+import 'package:mnemata/features/backup/services/network_power_signal_service.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
@@ -46,14 +47,16 @@ Future<void> setupLocator() async {
       client: GoogleDriveHttpClient(httpClient: http.Client()),
     ),
   );
+  getIt.registerLazySingleton<NetworkPowerSignalService>(
+    NetworkPowerSignalService.new,
+  );
   getIt.registerLazySingleton<BackupSchedulerService>(
     () => BackupSchedulerService(
       settingsService: getIt<SettingsService>(),
       cloudBackupProvider: getIt<CloudBackupProvider>(),
       createBackupArchive: () =>
           getIt<BackupArchiveService>().createBackupArchive(),
-      isWifiConnected: _defaultWifiSignal,
-      isDeviceCharging: _defaultChargingSignal,
+      networkPowerSignalService: getIt<NetworkPowerSignalService>(),
     ),
   );
 
@@ -76,14 +79,6 @@ void main() async {
   unawaited(getIt<BackupSchedulerService>().runIfDue());
 
   runApp(const MyApp());
-}
-
-Future<bool> _defaultWifiSignal() async {
-  return true;
-}
-
-Future<bool> _defaultChargingSignal() async {
-  return true;
 }
 
 class MyApp extends StatelessWidget {

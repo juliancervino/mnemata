@@ -60,6 +60,8 @@ dependencies:
   archive: ^4.0.7
   crypto: ^3.0.6
   google_sign_in: ^6.2.1
+  connectivity_plus: ^6.1.5
+  battery_plus: ^6.2.1
 
 dev_dependencies:
   flutter_test:
