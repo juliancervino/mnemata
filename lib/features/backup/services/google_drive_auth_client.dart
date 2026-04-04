@@ -87,22 +87,18 @@ class GoogleDriveAuthClient {
   }
 
   Future<String> _resolveAccessToken() async {
-    if (_accessTokenProvider != null) {
-      return _requireToken(
-        await _accessTokenProvider!(),
-        context: 'access token provider',
-      );
+    final provider = _accessTokenProvider;
+    if (provider != null) {
+      return _requireToken(await provider(), context: 'access token provider');
     }
 
     return _resolveTokenFromGoogleSignIn(interactive: true);
   }
 
   Future<String> _resolveRefreshedToken() async {
-    if (_refreshTokenProvider != null) {
-      return _requireToken(
-        await _refreshTokenProvider!(),
-        context: 'refresh token provider',
-      );
+    final provider = _refreshTokenProvider;
+    if (provider != null) {
+      return _requireToken(await provider(), context: 'refresh token provider');
     }
 
     return _resolveTokenFromGoogleSignIn(interactive: false);

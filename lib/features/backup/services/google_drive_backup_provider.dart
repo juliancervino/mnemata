@@ -300,16 +300,15 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
 
     final boundary =
         'mnemata-boundary-${DateTime.now().microsecondsSinceEpoch}';
-    final body = <int>[]
-      ..addAll(utf8.encode('--$boundary\r\n'))
-      ..addAll(
-        utf8.encode('Content-Type: application/json; charset=UTF-8\r\n\r\n'),
-      )
-      ..addAll(utf8.encode(jsonEncode(metadata)))
-      ..addAll(utf8.encode('\r\n--$boundary\r\n'))
-      ..addAll(utf8.encode('Content-Type: application/zip\r\n\r\n'))
-      ..addAll(fileBytes)
-      ..addAll(utf8.encode('\r\n--$boundary--\r\n'));
+    final body = <int>[
+      ...utf8.encode('--$boundary\r\n'),
+      ...utf8.encode('Content-Type: application/json; charset=UTF-8\r\n\r\n'),
+      ...utf8.encode(jsonEncode(metadata)),
+      ...utf8.encode('\r\n--$boundary\r\n'),
+      ...utf8.encode('Content-Type: application/zip\r\n\r\n'),
+      ...fileBytes,
+      ...utf8.encode('\r\n--$boundary--\r\n'),
+    ];
 
     final response = await _httpClient.post(
       _multipartUploadUri,
