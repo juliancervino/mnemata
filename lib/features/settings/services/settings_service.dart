@@ -7,6 +7,12 @@ class SettingsService {
 
   static const String _keyAutoTagDomain = 'autoTagDomain';
   static const String _keyAutoTagYear = 'autoTagYear';
+  static const String _keyAutoBackupEnabled = 'autoBackupEnabled';
+  static const String _keyBackupRequireWifi = 'backupRequireWifi';
+  static const String _keyBackupRequireCharging = 'backupRequireCharging';
+  static const String _keyLastSuccessfulBackupAt = 'lastSuccessfulBackupAt';
+  static const String _keyLastBackupAttemptAt = 'lastBackupAttemptAt';
+  static const String _keyLastBackupFailureReason = 'lastBackupFailureReason';
 
   bool get autoTagDomain => _prefs.getBool(_keyAutoTagDomain) ?? true;
 
@@ -18,5 +24,71 @@ class SettingsService {
 
   Future<void> setAutoTagYear(bool value) async {
     await _prefs.setBool(_keyAutoTagYear, value);
+  }
+
+  bool get autoBackupEnabled => _prefs.getBool(_keyAutoBackupEnabled) ?? true;
+
+  Future<void> setAutoBackupEnabled(bool value) async {
+    await _prefs.setBool(_keyAutoBackupEnabled, value);
+  }
+
+  bool get backupRequireWifi => _prefs.getBool(_keyBackupRequireWifi) ?? true;
+
+  Future<void> setBackupRequireWifi(bool value) async {
+    await _prefs.setBool(_keyBackupRequireWifi, value);
+  }
+
+  bool get backupRequireCharging =>
+      _prefs.getBool(_keyBackupRequireCharging) ?? true;
+
+  Future<void> setBackupRequireCharging(bool value) async {
+    await _prefs.setBool(_keyBackupRequireCharging, value);
+  }
+
+  DateTime? get lastSuccessfulBackupAt =>
+      _readDateTime(_keyLastSuccessfulBackupAt);
+
+  Future<void> setLastSuccessfulBackupAt(DateTime? value) async {
+    await _writeDateTime(_keyLastSuccessfulBackupAt, value);
+  }
+
+  DateTime? get lastBackupAttemptAt => _readDateTime(_keyLastBackupAttemptAt);
+
+  Future<void> setLastBackupAttemptAt(DateTime? value) async {
+    await _writeDateTime(_keyLastBackupAttemptAt, value);
+  }
+
+  String? get lastBackupFailureReason =>
+      _prefs.getString(_keyLastBackupFailureReason);
+
+  Future<void> setLastBackupFailureReason(String? reason) async {
+    if (reason == null || reason.trim().isEmpty) {
+      await _prefs.remove(_keyLastBackupFailureReason);
+      return;
+    }
+
+    await _prefs.setString(_keyLastBackupFailureReason, reason);
+  }
+
+  Future<void> clearLastBackupFailureReason() async {
+    await _prefs.remove(_keyLastBackupFailureReason);
+  }
+
+  DateTime? _readDateTime(String key) {
+    final raw = _prefs.getString(key);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  Future<void> _writeDateTime(String key, DateTime? value) async {
+    if (value == null) {
+      await _prefs.remove(key);
+      return;
+    }
+
+    await _prefs.setString(key, value.toUtc().toIso8601String());
   }
 }
