@@ -303,13 +303,38 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  Stream<List<MnemataItem>> searchItems(String query) {
+  Stream<List<MnemataItem>> searchItems(String query, {List<int> labelIds = const []}) {
+    if (labelIds.isEmpty) {
+      return customSelect(
+        'SELECT i.* FROM mnemata_items i '
+        'INNER JOIN mnemata_search s ON s.rowid = i.id '
+        'WHERE mnemata_search MATCH ?',
+        variables: [Variable(query)],
+        readsFrom: {mnemataItems, mnemataSearch},
+      ).watch().map((rows) {
+        return rows.map((row) => mnemataItems.map(row.data)).toList();
+      });
+    }
+
+    final placeholders = List.filled(labelIds.length, '?').join(',');
+    final variables = [
+      Variable(query),
+      ...labelIds.map((id) => Variable(id)),
+      Variable(labelIds.length)
+    ];
+
     return customSelect(
-      'SELECT i.* FROM mnemata_items i '
+      'SELECT DISTINCT i.* FROM mnemata_items i '
       'INNER JOIN mnemata_search s ON s.rowid = i.id '
-      'WHERE mnemata_search MATCH ?',
-      variables: [Variable(query)],
-      readsFrom: {mnemataItems, mnemataSearch},
+      'WHERE mnemata_search MATCH ? '
+      'AND i.id IN ('
+      '  SELECT item_id FROM item_labels '
+      '  WHERE label_id IN ($placeholders) '
+      '  GROUP BY item_id '
+      '  HAVING COUNT(DISTINCT label_id) = ?'
+      ')',
+      variables: variables,
+      readsFrom: {mnemataItems, mnemataSearch, itemLabels},
     ).watch().map((rows) {
       return rows.map((row) => mnemataItems.map(row.data)).toList();
     });

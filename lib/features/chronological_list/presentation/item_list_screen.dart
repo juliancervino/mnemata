@@ -14,6 +14,7 @@ import 'package:mnemata/features/settings/presentation/about_screen.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
@@ -24,6 +25,7 @@ class ItemListScreen extends StatefulWidget {
 
 class _ItemListScreenState extends State<ItemListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   bool _isSearching = false;
   String _searchQuery = '';
   final Set<int> _selectedLabelIds = {};
@@ -31,15 +33,46 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   bool _isMultiSelectMode = false;
   final Set<int> _selectedItemIds = {};
+  List<String> _searchHistory = [];
+  bool _showSearchHistory = false;
 
   @override
   void initState() {
     super.initState();
+    _loadSearchHistory();
+    _searchFocusNode.addListener(() {
+      setState(() {
+        _showSearchHistory = _searchFocusNode.hasFocus;
+      });
+    });
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _searchHistory = prefs.getStringList('search_history') ?? [];
+    });
+  }
+
+  Future<void> _saveSearchToHistory(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _searchHistory.remove(trimmed);
+      _searchHistory.insert(0, trimmed);
+      if (_searchHistory.length > 10) {
+        _searchHistory = _searchHistory.sublist(0, 10);
+      }
+      _showSearchHistory = false;
+    });
+    await prefs.setStringList('search_history', _searchHistory);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -158,15 +191,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
     setState(() {
       _searchQuery = query;
       if (query.isNotEmpty) {
-        _selectedLabelIds.clear();
         _isHistoryMode = false;
+        _showSearchHistory = false;
+      } else if (_searchFocusNode.hasFocus) {
+        _showSearchHistory = true;
       }
     });
   }
 
   Stream<List<MnemataItem>> _getStream(AppDatabase database) {
     if (_searchQuery.isNotEmpty) {
-      return database.searchItems(_searchQuery);
+      return database.searchItems(_searchQuery, labelIds: _selectedLabelIds.toList());
     }
     if (_isHistoryMode) {
       if (_selectedLabelIds.isNotEmpty) {
@@ -213,28 +248,40 @@ class _ItemListScreenState extends State<ItemListScreen> {
               title: _isSearching
                   ? TextField(
                       controller: _searchController,
+                      focusNode: _searchFocusNode,
                       autofocus: true,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search...',
+                        hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
                         border: InputBorder.none,
                       ),
-                      style: const TextStyle(color: Colors.black),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                      cursorColor: Theme.of(context).colorScheme.onPrimary,
                       onChanged: _updateSearch,
+                      onSubmitted: _saveSearchToHistory,
                     )
-                  : Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.asset(
-                            'assets/mnemata.jpg',
-                            height: 32,
-                            width: 32,
-                            fit: BoxFit.cover,
+                  : GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isSearching = true;
+                          _searchFocusNode.requestFocus();
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.asset(
+                              'assets/mnemata.jpg',
+                              height: 32,
+                              width: 32,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(_getTitle()),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(_getTitle())),
+                        ],
+                      ),
                     ),
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -258,8 +305,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
                         _isSearching = false;
                         _searchController.clear();
                         _searchQuery = '';
+                        _showSearchHistory = false;
                       } else {
                         _isSearching = true;
+                        _searchFocusNode.requestFocus();
                       }
                     });
                   },
@@ -306,14 +355,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
             )
           : null,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildQuickFilterBar(context, database),
-            Expanded(
-              child: StreamBuilder<List<MnemataItem>>(
-                stream: _getStream(database),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+            Column(
+              children: [
+                _buildQuickFilterBar(context, database),
+                Expanded(
+                  child: StreamBuilder<List<MnemataItem>>(
+                    stream: _getStream(database),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
@@ -358,9 +409,48 @@ class _ItemListScreenState extends State<ItemListScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
+        if (_showSearchHistory && _searchHistory.isNotEmpty)
+          Positioned(
+            top: 60,
+            left: 0,
+            right: 0,
+            child: Material(
+              elevation: 4,
+              color: Theme.of(context).colorScheme.surface,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _searchHistory.length,
+                itemBuilder: (context, index) {
+                  final historyItem = _searchHistory[index];
+                  return ListTile(
+                    leading: const Icon(Icons.history),
+                    title: Text(historyItem),
+                    onTap: () {
+                      _searchController.text = historyItem;
+                      _updateSearch(historyItem);
+                      _saveSearchToHistory(historyItem);
+                      FocusScope.of(context).unfocus();
+                    },
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        setState(() {
+                          _searchHistory.removeAt(index);
+                        });
+                        await prefs.setStringList('search_history', _searchHistory);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    ),
+  ),
+);
+}
 
   Widget _buildQuickFilterBar(BuildContext context, AppDatabase database) {
     return Container(
