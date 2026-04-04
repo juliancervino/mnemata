@@ -83,6 +83,6 @@
 | PRO-04 | Phase 10 | Planned |
 | PRO-05 | Phase 10 | Planned |
 | POR-01 | Phase 11 | Completed |
-| POR-02 | Phase 11 | Planned |
+| POR-02 | Phase 11 | Completed |
 | POR-03 | Phase 11 | Planned |
 | POR-04 | Phase 12 | Research |

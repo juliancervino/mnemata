@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-last_updated: "2026-04-04T20:48:27.868Z"
+status: Phase complete — ready for verification
+last_updated: "2026-04-04T21:34:11.000Z"
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 24
-  completed_plans: 23
-  percent: 96
+  completed_plans: 24
+  percent: 100
 ---
 
 # Project State: Mnemata
@@ -22,19 +22,19 @@ progress:
 
 ## Current Position
 
-Phase: 11 (cloud-data-portability) — EXECUTING
+Phase: 11 (cloud-data-portability) — COMPLETE
 Plan: 3 of 3
 
 - **Phase**: 11-cloud-data-portability
 - **Plan**: 11-03
-- **Status**: Plan 11-02 complete (restore preview and integrity-gated apply)
-- **Progress**: [██████████] 96% (v1.0)
+- **Status**: Plan 11-03 complete (cloud provider seam + scheduler startup wiring)
+- **Progress**: [██████████] 100% (v1.0)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
 - **Requirement Coverage**: 35% (v2)
-- **Phase Completion**: 9/12 (9 completed)
+- **Phase Completion**: 10/12 (10 completed)
 
 ## Accumulated Context
 
@@ -50,6 +50,9 @@ Plan: 3 of 3
 - **Build**: Successfully generated release APK.
 - **Restore Safety**: Re-validate manifest checksums at apply-time and abort on mismatch.
 - **Restore UX Gate**: Require explicit confirmation checkbox before enabling restore apply.
+- **Cloud Provider Boundary**: Added CloudBackupProvider abstraction with deterministic Google Drive error mapping.
+- **Scheduler Diagnostics**: Persist deterministic auto-backup skip/failure reason codes in SettingsService.
+- **Startup Policy Hook**: Backup scheduler run check bootstraps non-blocking after share listener initialization.
 
 ### Completed Milestones
 
@@ -74,10 +77,10 @@ Plan: 3 of 3
 
 ### Last Session Summary
 
-- Completed Phase 11 Plan 02 restore work with preview-first flow and integrity-gated apply.
-- Added checksum-failure and non-mutating preview test coverage for restore service.
-- Cleared analyzer gate blockers and generated plan summary artifact.
+- Completed Phase 11 Plan 03 cloud portability work with provider abstraction and scheduler policy engine.
+- Added deterministic scheduler due-run/skip tests and Google Drive provider error mapping tests.
+- Wired non-blocking scheduler bootstrap at app startup and generated plan summary artifact.
 
 ### Next Session Guidance
 
-- Execute Plan 11-03 to finish Phase 11 cloud portability scope.
+- Run verification workflow for completed Phase 11 and proceed to next planned phase.
