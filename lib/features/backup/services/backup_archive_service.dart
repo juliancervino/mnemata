@@ -154,9 +154,6 @@ class BackupArchiveService {
     }
 
     final encoded = ZipEncoder().encode(archive);
-    if (encoded == null) {
-      throw StateError('Failed to encode backup archive');
-    }
 
     await File(archivePath).writeAsBytes(encoded, flush: true);
   }

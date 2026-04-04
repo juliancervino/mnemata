@@ -164,7 +164,7 @@ Future<String> _createArchiveWithManifest({
   final manifestBytes = utf8.encode(jsonEncode(manifest.toJson()));
   archive.addFile(ArchiveFile(BackupArchiveService.manifestEntry, manifestBytes.length, manifestBytes));
 
-  final encoded = ZipEncoder().encode(archive)!;
+  final encoded = ZipEncoder().encode(archive);
   final archiveFile = File('${rootDir.path}/restore_input.zip');
   await archiveFile.writeAsBytes(encoded, flush: true);
   return archiveFile.path;
