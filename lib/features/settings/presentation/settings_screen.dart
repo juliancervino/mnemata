@@ -67,8 +67,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             archiveService: _backupArchiveService!,
             storageService: backupStorageService,
             liveDatabasePathProvider: () async {
+              final rows = await GetIt.instance<AppDatabase>()
+                  .customSelect('PRAGMA database_list')
+                  .get();
+              for (final row in rows) {
+                final name = (row.data['name'] as String?)?.trim();
+                final filePath = (row.data['file'] as String?)?.trim();
+                if (name == 'main' && filePath != null && filePath.isNotEmpty) {
+                  return filePath;
+                }
+              }
+
               final supportDir = await getApplicationSupportDirectory();
-              return p.join(supportDir.path, 'mnemata_db.sqlite');
+              return p.join(supportDir.path, '${AppDatabase.databaseName}.sqlite');
             },
             liveAttachmentsDirectoryPathProvider: () async {
               final documentsDir = await getApplicationDocumentsDirectory();
@@ -257,7 +268,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openRestorePreviewFlow() async {
-    final archivePath = await _promptForArchivePath();
+    final archivePath = await _resolveRestoreArchivePath();
     if (!mounted || archivePath == null) {
       return;
     }
@@ -274,13 +285,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<String?> _promptForArchivePath() async {
+  Future<String?> _resolveRestoreArchivePath() async {
+    final cloudProvider = _cloudBackupProvider;
+    if (cloudProvider == null) {
+      return _promptForArchivePathFallback();
+    }
+
+    try {
+      final backups = await cloudProvider.listBackups();
+      if (backups.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No backups found on Google Drive.'),
+            ),
+          );
+        }
+        return null;
+      }
+
+      final sorted = backups.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final selected = await _promptForCloudBackupSelection(sorted);
+      if (selected == null) {
+        return null;
+      }
+
+      final archiveBytes = await cloudProvider.downloadBackup(
+        backupId: selected.backupId,
+      );
+      return _backupRestoreService.stageDownloadedArchive(
+        archiveBytes,
+        backupId: selected.backupId,
+      );
+    } on CloudBackupProviderException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Unable to list cloud backups (${error.code.name}). You can use local archive fallback.',
+            ),
+          ),
+        );
+      }
+      return _promptForArchivePathFallback();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to list cloud backups. Please try again.'),
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<CloudBackupDescriptor?> _promptForCloudBackupSelection(
+    List<CloudBackupDescriptor> backups,
+  ) {
+    return showModalBottomSheet<CloudBackupDescriptor>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Choose a backup from Google Drive',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: backups.length,
+                  itemBuilder: (context, index) {
+                    final backup = backups[index];
+                    return ListTile(
+                      leading: const Icon(Icons.cloud_done_outlined),
+                      title: Text(backup.remoteId),
+                      subtitle: Text(backup.createdAt.toUtc().toIso8601String()),
+                      onTap: () => Navigator.of(context).pop(backup),
+                    );
+                  },
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String?> _promptForArchivePathFallback() async {
     final controller = TextEditingController();
     final value = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Open backup archive'),
+          title: const Text('Fallback: Open local backup archive'),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(

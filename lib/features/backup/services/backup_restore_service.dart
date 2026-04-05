@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:mnemata/features/backup/domain/backup_manifest.dart';
@@ -73,6 +74,19 @@ class BackupRestoreService {
   final Future<String> Function()? _liveDatabasePathProvider;
   final Future<String?> Function()? _liveAttachmentsDirectoryPathProvider;
   final Future<void> Function(Map<String, dynamic> json)? _settingsImporter;
+
+  Future<String> stageDownloadedArchive(
+    Uint8List archiveBytes, {
+    required String backupId,
+  }) async {
+    final stagingDir = await _storageService.createStagingDir();
+    final safeBackupId = backupId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final stagedPath = p.join(stagingDir.path, 'cloud_restore_$safeBackupId.zip');
+    final stagedFile = File(stagedPath);
+    await stagedFile.parent.create(recursive: true);
+    await stagedFile.writeAsBytes(archiveBytes, flush: true);
+    return stagedPath;
+  }
 
   Future<RestorePreview> previewBackup(String archivePath) async {
     final missingRequiredEntries =

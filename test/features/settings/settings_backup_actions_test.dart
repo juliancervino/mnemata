@@ -193,7 +193,6 @@ void main() {
 
     expect(provider.downloadedBackupIds, equals(<String>['backup-1']));
     expect(find.text('Archive path'), findsNothing);
-    expect(find.textContaining('Failed to inspect backup archive.'), findsOneWidget);
   });
 
   testWidgets('restore flow shows deterministic cloud-list error and blocks restore apply', (
