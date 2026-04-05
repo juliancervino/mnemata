@@ -63,7 +63,7 @@
 - [x] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
 - [ ] **Phase 9: Utility & Control (v2 Foundation)** - About view, reader deletion, settings infrastructure, and auto-tagging.
 - [ ] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
-- [ ] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability.
+- [x] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability. (completed 2026-04-05)
 - [ ] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations.
 
 ## Phase Details
@@ -114,12 +114,13 @@
 **Success Criteria**:
   1. Manual and scheduled backup of all database content and files to Google Drive.
   2. Full restore flow includes preview, integrity validation, and explicit user confirmation.
-**Plans**: 5 plans
-- [ ] 11-01-PLAN — Backup Core Contracts & Archive Pipeline
-- [ ] 11-02-PLAN — Restore Preview & Safe Apply Flow
-- [ ] 11-03-PLAN — Scheduler & Google Drive Provider Wiring
-- [ ] 11-04-PLAN — Gap Closure: Production Drive Auth & Manual Cloud Upload
-- [ ] 11-05-PLAN — Gap Closure: Runtime Signals & POR-03 Traceability Fix
+**Plans**: 6 plans
+- [x] 11-01-PLAN — Backup Core Contracts & Archive Pipeline
+- [x] 11-02-PLAN — Restore Preview & Safe Apply Flow
+- [x] 11-03-PLAN — Scheduler & Google Drive Provider Wiring
+- [x] 11-04-PLAN — Gap Closure: Production Drive Auth & Manual Cloud Upload
+- [x] 11-05-PLAN — Gap Closure: Runtime Signals & POR-03 Traceability Fix
+- [x] 11-06-PLAN — Gap Closure: Drive-Based Restore Selection & Persistent Backup Status Feedback
 
 ### Phase 12: Intelligence & Advanced Reading
 **Goal**: Use AI and rich interactions to extract more value from content.
@@ -144,6 +145,6 @@
 | 8. Refinement & Advanced | 3/3 | Completed | 2026-03-24 |
 | 9. Utility & Control | 1/1 | Completed | 2026-03-28 |
 | 10. Bulk Operations | 4/4 | Completed | 2026-03-28 |
-| 11. Cloud & Portability | 0/3 | Planned | - |
+| 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
 | 12. Intelligence | 0/0 | Research | - |
 
