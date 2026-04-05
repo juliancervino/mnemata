@@ -72,16 +72,16 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 9 | Planned |
-| CFG-02 | Phase 9 | Planned |
-| CFG-03 | Phase 9 | Planned |
-| CFG-04 | Phase 9 | Planned |
-| CFG-05 | Phase 9 | Planned |
-| PRO-01 | Phase 10 | Planned |
-| PRO-02 | Phase 10 | Planned |
-| PRO-03 | Phase 10 | Planned |
-| PRO-04 | Phase 10 | Planned |
-| PRO-05 | Phase 10 | Planned |
+| CFG-01 | Phase 9 | Completed |
+| CFG-02 | Phase 9 | Completed |
+| CFG-03 | Phase 9 | Completed |
+| CFG-04 | Phase 9 | Completed |
+| CFG-05 | Phase 9 | Completed |
+| PRO-01 | Phase 10 | Completed |
+| PRO-02 | Phase 10 | Completed |
+| PRO-03 | Phase 10 | Completed |
+| PRO-04 | Phase 10 | Completed |
+| PRO-05 | Phase 10 | Completed |
 | POR-01 | Phase 11 | Completed |
 | POR-02 | Phase 11 | Completed |
 | POR-03 | Phase 12 | Research |
