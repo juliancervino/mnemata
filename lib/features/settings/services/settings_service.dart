@@ -13,6 +13,8 @@ class SettingsService {
   static const String _keyLastSuccessfulBackupAt = 'lastSuccessfulBackupAt';
   static const String _keyLastBackupAttemptAt = 'lastBackupAttemptAt';
   static const String _keyLastBackupFailureReason = 'lastBackupFailureReason';
+  static const String _keyLastBackupRemoteId = 'lastBackupRemoteId';
+  static const String _keyLastBackupResultStatus = 'lastBackupResultStatus';
 
   bool get autoTagDomain => _prefs.getBool(_keyAutoTagDomain) ?? true;
 
@@ -72,6 +74,27 @@ class SettingsService {
 
   Future<void> clearLastBackupFailureReason() async {
     await _prefs.remove(_keyLastBackupFailureReason);
+  }
+
+  String? get lastBackupRemoteId => _prefs.getString(_keyLastBackupRemoteId);
+
+  Future<void> setLastBackupRemoteId(String? remoteId) async {
+    if (remoteId == null || remoteId.trim().isEmpty) {
+      await _prefs.remove(_keyLastBackupRemoteId);
+      return;
+    }
+    await _prefs.setString(_keyLastBackupRemoteId, remoteId);
+  }
+
+  String? get lastBackupResultStatus =>
+      _prefs.getString(_keyLastBackupResultStatus);
+
+  Future<void> setLastBackupResultStatus(String? status) async {
+    if (status == null || status.trim().isEmpty) {
+      await _prefs.remove(_keyLastBackupResultStatus);
+      return;
+    }
+    await _prefs.setString(_keyLastBackupResultStatus, status);
   }
 
   DateTime? _readDateTime(String key) {

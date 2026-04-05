@@ -92,9 +92,15 @@ void main() {
       settingsService.lastBackupRemoteId,
       equals('remote-manual-backup'),
     );
+    await tester.scrollUntilVisible(
+      find.text('Last backup result'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('Last backup result'), findsOneWidget);
     expect(find.textContaining('manual_upload_success'), findsOneWidget);
-    expect(find.textContaining('remote-manual-backup'), findsOneWidget);
+    expect(find.textContaining('remote-manual-backup'), findsWidgets);
   });
 
   testWidgets(
@@ -134,6 +140,12 @@ void main() {
         settingsService.lastBackupFailureReason,
         equals('manual_upload_authenticationRequired'),
       );
+      await tester.scrollUntilVisible(
+        find.text('Last backup result'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.textContaining('Last backup result'), findsOneWidget);
       expect(
         find.textContaining('manual_upload_authenticationRequired'),
@@ -178,9 +190,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Last backup result'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('Last backup result'), findsOneWidget);
     expect(find.textContaining('manual_upload_success'), findsOneWidget);
-    expect(find.textContaining('remote-sticky'), findsOneWidget);
+    expect(find.textContaining('remote-sticky'), findsWidgets);
   });
 
   testWidgets('restore flow lists cloud backups newest-first and lets user choose', (

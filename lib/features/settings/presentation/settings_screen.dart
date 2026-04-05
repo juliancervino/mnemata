@@ -195,6 +195,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             onTap: _openRestorePreviewFlow,
           ),
+          const Divider(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Backup diagnostics',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          _buildDiagnosticsTile(
+            label: 'Last backup attempt',
+            value: _formatTimestamp(_settingsService.lastBackupAttemptAt),
+          ),
+          _buildDiagnosticsTile(
+            label: 'Last successful backup',
+            value: _formatTimestamp(_settingsService.lastSuccessfulBackupAt),
+          ),
+          _buildDiagnosticsTile(
+            label: 'Last backup remote id',
+            value: _settingsService.lastBackupRemoteId ?? 'n/a',
+          ),
+          _buildDiagnosticsTile(
+            label: 'Last backup result',
+            value: _settingsService.lastBackupResultStatus ?? 'n/a',
+          ),
+          _buildDiagnosticsTile(
+            label: 'Last backup failure reason',
+            value: _settingsService.lastBackupFailureReason ?? 'n/a',
+          ),
         ],
       ),
     );
@@ -221,6 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _cloudBackupProvider!.uploadBackup(archivePath: archivePath));
 
       await _settingsService.setLastSuccessfulBackupAt(receipt.uploadedAt);
+        await _settingsService.setLastBackupRemoteId(receipt.remoteId);
+        await _settingsService.setLastBackupResultStatus('manual_upload_success');
       await _settingsService.clearLastBackupFailureReason();
 
       if (!mounted) {
@@ -233,8 +266,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     } on CloudBackupProviderException catch (error) {
+      final status = 'manual_upload_${error.code.name}';
+      await _settingsService.setLastBackupResultStatus(status);
       await _settingsService.setLastBackupFailureReason(
-        'manual_upload_${error.code.name}',
+        status,
       );
       if (!mounted) {
         return;
@@ -247,6 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     } catch (error) {
+      await _settingsService.setLastBackupResultStatus('manual_upload_unknown');
       await _settingsService.setLastBackupFailureReason(
         'manual_upload_unknown',
       );
@@ -265,6 +301,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
     }
+  }
+
+  ListTile _buildDiagnosticsTile({required String label, required String value}) {
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      title: Text(label),
+      subtitle: Text(value),
+    );
+  }
+
+  String _formatTimestamp(DateTime? value) {
+    if (value == null) {
+      return 'n/a';
+    }
+    return value.toUtc().toIso8601String();
   }
 
   Future<void> _openRestorePreviewFlow() async {
