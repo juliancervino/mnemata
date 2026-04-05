@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
@@ -36,6 +39,10 @@ void main() {
       settingsImporter: (_) async {},
     );
   }
+
+  tearDown(() {
+    GetIt.instance.reset();
+  });
 
   testWidgets('manual backup action creates archive then uploads to cloud', (
     tester,
@@ -108,4 +115,149 @@ void main() {
       expect(find.textContaining(archivePath), findsOneWidget);
     },
   );
+
+  testWidgets('restore flow lists cloud backups newest-first and lets user choose', (
+    tester,
+  ) async {
+    final settingsService = await buildSettingsService();
+    final restoreService = buildRestoreService();
+    final provider = _FakeCloudBackupProvider(
+      backups: <CloudBackupDescriptor>[
+        CloudBackupDescriptor(
+          backupId: 'older',
+          remoteId: 'remote-older',
+          createdAt: DateTime.utc(2026, 4, 4, 10),
+        ),
+        CloudBackupDescriptor(
+          backupId: 'newer',
+          remoteId: 'remote-newer',
+          createdAt: DateTime.utc(2026, 4, 5, 10),
+        ),
+      ],
+      downloadedBytes: <int>[1, 2, 3],
+    );
+    GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          settingsService: settingsService,
+          backupRestoreService: restoreService,
+          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Restore from backup'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose a backup from Google Drive'), findsOneWidget);
+    final newest = tester.widgetList<ListTile>(find.byType(ListTile)).firstWhere(
+      (tile) => tile.title is Text && (tile.title as Text).data == 'remote-newer',
+    );
+    expect(newest.subtitle, isNotNull);
+  });
+
+  testWidgets('restore flow downloads selected backup and opens preview without path input', (
+    tester,
+  ) async {
+    final settingsService = await buildSettingsService();
+    final restoreService = buildRestoreService();
+    final provider = _FakeCloudBackupProvider(
+      backups: <CloudBackupDescriptor>[
+        CloudBackupDescriptor(
+          backupId: 'backup-1',
+          remoteId: 'remote-backup-1',
+          createdAt: DateTime.utc(2026, 4, 5, 10),
+        ),
+      ],
+      downloadedBytes: <int>[1, 2, 3],
+    );
+    GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          settingsService: settingsService,
+          backupRestoreService: restoreService,
+          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Restore from backup'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('remote-backup-1'));
+    await tester.pumpAndSettle();
+
+    expect(provider.downloadedBackupIds, equals(<String>['backup-1']));
+    expect(find.text('Archive path'), findsNothing);
+    expect(find.textContaining('Failed to inspect backup archive.'), findsOneWidget);
+  });
+
+  testWidgets('restore flow shows deterministic cloud-list error and blocks restore apply', (
+    tester,
+  ) async {
+    final settingsService = await buildSettingsService();
+    final restoreService = buildRestoreService();
+    final provider = _FakeCloudBackupProvider(
+      backups: const <CloudBackupDescriptor>[],
+      downloadedBytes: <int>[1, 2, 3],
+      listError: const CloudBackupProviderException(
+        code: CloudBackupProviderErrorCode.networkUnavailable,
+        message: 'No network',
+      ),
+    );
+    GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          settingsService: settingsService,
+          backupRestoreService: restoreService,
+          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Restore from backup'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Unable to list cloud backups'), findsOneWidget);
+    expect(provider.downloadedBackupIds, isEmpty);
+    expect(find.text('Restore Preview'), findsNothing);
+  });
+}
+
+class _FakeCloudBackupProvider implements CloudBackupProvider {
+  _FakeCloudBackupProvider({
+    required this.backups,
+    required this.downloadedBytes,
+    this.listError,
+  });
+
+  final List<CloudBackupDescriptor> backups;
+  final List<int> downloadedBytes;
+  final CloudBackupProviderException? listError;
+  final List<String> downloadedBackupIds = <String>[];
+
+  @override
+  Future<List<CloudBackupDescriptor>> listBackups() async {
+    if (listError != null) {
+      throw listError!;
+    }
+    return backups;
+  }
+
+  @override
+  Future<Uint8List> downloadBackup({required String backupId}) async {
+    downloadedBackupIds.add(backupId);
+    return Uint8List.fromList(downloadedBytes);
+  }
+
+  @override
+  Future<CloudBackupUploadReceipt> uploadBackup({required String archivePath}) {
+    throw UnimplementedError();
+  }
 }

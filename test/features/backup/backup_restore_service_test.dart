@@ -99,6 +99,25 @@ void main() {
     expect(applyCalled, isFalse);
     expect(await liveDb.readAsString(), 'live-db-before');
   });
+
+  test('stageDownloadedArchive creates temp archive file from cloud bytes', () async {
+    final restoreService = BackupRestoreService(
+      archiveService: archiveService,
+      storageService: storageService,
+      liveDatabasePathProvider: () async => '${rootDir.path}/live/mnemata_db.sqlite',
+    );
+
+    final archiveBytes = utf8.encode('cloud-archive-content');
+    final stagedPath = await restoreService.stageDownloadedArchive(
+      archiveBytes,
+      backupId: 'backup-123',
+    );
+
+    final stagedFile = File(stagedPath);
+    expect(await stagedFile.exists(), isTrue);
+    expect(await stagedFile.readAsBytes(), archiveBytes);
+    expect(stagedPath, contains('backup-123'));
+  });
 }
 
 Future<String> _createArchiveWithManifest({
