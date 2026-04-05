@@ -57,6 +57,7 @@ void main() {
         home: SettingsScreen(
           settingsService: settingsService,
           backupRestoreService: restoreService,
+          nowProvider: () => DateTime.utc(2026, 4, 5, 10, 0),
           createBackupArchiveAction: () async {
             order.add('create');
             return '/tmp/manual_backup.zip';
@@ -83,6 +84,17 @@ void main() {
       find.textContaining('Backup uploaded to Google Drive'),
       findsOneWidget,
     );
+    expect(
+      settingsService.lastBackupResultStatus,
+      equals('manual_upload_success'),
+    );
+    expect(
+      settingsService.lastBackupRemoteId,
+      equals('remote-manual-backup'),
+    );
+    expect(find.textContaining('Last backup result'), findsOneWidget);
+    expect(find.textContaining('manual_upload_success'), findsOneWidget);
+    expect(find.textContaining('remote-manual-backup'), findsOneWidget);
   });
 
   testWidgets(
@@ -97,6 +109,7 @@ void main() {
           home: SettingsScreen(
             settingsService: settingsService,
             backupRestoreService: restoreService,
+            nowProvider: () => DateTime.utc(2026, 4, 5, 10, 0),
             createBackupArchiveAction: () async => archivePath,
             uploadBackupAction: (_) async {
               throw const CloudBackupProviderException(
@@ -113,8 +126,62 @@ void main() {
 
       expect(find.textContaining('Cloud backup failed'), findsOneWidget);
       expect(find.textContaining(archivePath), findsOneWidget);
+      expect(
+        settingsService.lastBackupResultStatus,
+        equals('manual_upload_authenticationRequired'),
+      );
+      expect(
+        settingsService.lastBackupFailureReason,
+        equals('manual_upload_authenticationRequired'),
+      );
+      expect(find.textContaining('Last backup result'), findsOneWidget);
+      expect(
+        find.textContaining('manual_upload_authenticationRequired'),
+        findsWidgets,
+      );
     },
   );
+
+  testWidgets('backup diagnostics stay visible after settings screen rebuild', (
+    tester,
+  ) async {
+    final settingsService = await buildSettingsService();
+    final restoreService = buildRestoreService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          settingsService: settingsService,
+          backupRestoreService: restoreService,
+          nowProvider: () => DateTime.utc(2026, 4, 5, 10, 0),
+          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+          uploadBackupAction: (_) async => CloudBackupUploadReceipt(
+            backupId: 'manual_backup',
+            remoteId: 'remote-sticky',
+            uploadedAt: DateTime.utc(2026, 4, 5, 10, 15),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Upload backup to Google Drive'));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          settingsService: settingsService,
+          backupRestoreService: restoreService,
+          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Last backup result'), findsOneWidget);
+    expect(find.textContaining('manual_upload_success'), findsOneWidget);
+    expect(find.textContaining('remote-sticky'), findsOneWidget);
+  });
 
   testWidgets('restore flow lists cloud backups newest-first and lets user choose', (
     tester,
