@@ -22,7 +22,8 @@ class CloudBackupProviderException implements Exception {
   final Object? cause;
 
   @override
-  String toString() => 'CloudBackupProviderException(code: $code, message: $message)';
+  String toString() =>
+      'CloudBackupProviderException(code: $code, message: $message)';
 }
 
 class CloudBackupUploadReceipt {
@@ -42,11 +43,13 @@ class CloudBackupDescriptor {
     required this.backupId,
     required this.remoteId,
     required this.createdAt,
+    this.sizeBytes,
   });
 
   final String backupId;
   final String remoteId;
   final DateTime createdAt;
+  final int? sizeBytes;
 }
 
 abstract class CloudBackupProvider {
@@ -55,4 +58,6 @@ abstract class CloudBackupProvider {
   Future<List<CloudBackupDescriptor>> listBackups();
 
   Future<Uint8List> downloadBackup({required String backupId});
+
+  Future<void> deleteBackup({required String backupId});
 }

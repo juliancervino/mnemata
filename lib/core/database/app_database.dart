@@ -6,6 +6,8 @@ part 'app_database.g.dart';
 
 @DriftDatabase(tables: [MnemataItems, Labels, ItemLabels], include: {'tables.drift'})
 class AppDatabase extends _$AppDatabase {
+  static const String databaseName = 'mnemata_db';
+
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
@@ -59,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: 'mnemata_db');
+    return driftDatabase(name: databaseName);
   }
 
   Stream<List<MnemataItem>> watchAllItems() {

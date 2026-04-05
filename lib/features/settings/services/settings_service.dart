@@ -15,6 +15,11 @@ class SettingsService {
   static const String _keyLastBackupFailureReason = 'lastBackupFailureReason';
   static const String _keyLastBackupRemoteId = 'lastBackupRemoteId';
   static const String _keyLastBackupResultStatus = 'lastBackupResultStatus';
+  static const String _keyLastBackupSizeBytes = 'lastBackupSizeBytes';
+  static const String _keyBackupMaxCount = 'backupMaxCount';
+
+  static const int defaultBackupMaxCount = 7;
+  static const int maxBackupMaxCount = 30;
 
   bool get autoTagDomain => _prefs.getBool(_keyAutoTagDomain) ?? true;
 
@@ -95,6 +100,41 @@ class SettingsService {
       return;
     }
     await _prefs.setString(_keyLastBackupResultStatus, status);
+  }
+
+  int? get lastBackupSizeBytes {
+    final value = _prefs.getInt(_keyLastBackupSizeBytes);
+    if (value == null || value < 0) {
+      return null;
+    }
+    return value;
+  }
+
+  Future<void> setLastBackupSizeBytes(int? bytes) async {
+    if (bytes == null || bytes < 0) {
+      await _prefs.remove(_keyLastBackupSizeBytes);
+      return;
+    }
+
+    await _prefs.setInt(_keyLastBackupSizeBytes, bytes);
+  }
+
+  int get backupMaxCount {
+    final value = _prefs.getInt(_keyBackupMaxCount);
+    if (value == null || value < 1) {
+      return defaultBackupMaxCount;
+    }
+
+    if (value > maxBackupMaxCount) {
+      return maxBackupMaxCount;
+    }
+
+    return value;
+  }
+
+  Future<void> setBackupMaxCount(int value) async {
+    final normalized = value.clamp(1, maxBackupMaxCount).toInt();
+    await _prefs.setInt(_keyBackupMaxCount, normalized);
   }
 
   DateTime? _readDateTime(String key) {

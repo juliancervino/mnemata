@@ -206,14 +206,19 @@ class BackupArchiveService {
     }
 
     if (_database != null) {
-      final supportDir = await getApplicationSupportDirectory();
-      final dbFile = File(p.join(supportDir.path, 'mnemata_db.sqlite'));
-      if (await dbFile.exists()) {
+      final dbFile = await _findLiveDatabaseFile();
+      if (dbFile != null) {
         return dbFile.readAsBytes();
       }
 
+      final supportDir = await getApplicationSupportDirectory();
+      final fallbackPath = p.join(
+        supportDir.path,
+        '${AppDatabase.databaseName}.sqlite',
+      );
+
       throw StateError(
-        'Expected database file at ${dbFile.path}, but it does not exist.',
+        'Expected live database file for ${AppDatabase.databaseName}, but no readable file was found. Last fallback path checked: $fallbackPath',
       );
     }
 
@@ -244,5 +249,38 @@ class BackupArchiveService {
 
     final packageInfo = await PackageInfo.fromPlatform();
     return packageInfo.version;
+  }
+
+  Future<File?> _findLiveDatabaseFile() async {
+    if (_database != null) {
+      final rows = await _database.customSelect('PRAGMA database_list').get();
+      for (final row in rows) {
+        final name = (row.data['name'] as String?)?.trim();
+        if (name != 'main') {
+          continue;
+        }
+
+        final filePath = (row.data['file'] as String?)?.trim();
+        if (filePath == null || filePath.isEmpty) {
+          continue;
+        }
+
+        final dbFile = File(filePath);
+        if (await dbFile.exists()) {
+          return dbFile;
+        }
+      }
+    }
+
+    // Drift default naming fallback based on the same app database name.
+    final supportDir = await getApplicationSupportDirectory();
+    final fallbackFile = File(
+      p.join(supportDir.path, '${AppDatabase.databaseName}.sqlite'),
+    );
+    if (await fallbackFile.exists()) {
+      return fallbackFile;
+    }
+
+    return null;
   }
 }

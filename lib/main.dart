@@ -22,6 +22,11 @@ final getIt = GetIt.instance;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> setupLocator() async {
+  const googleOauthClientId = String.fromEnvironment('GOOGLE_OAUTH_CLIENT_ID');
+  const googleOauthServerClientId = String.fromEnvironment(
+    'GOOGLE_OAUTH_SERVER_CLIENT_ID',
+  );
+
   getIt.registerSingleton<GlobalKey<NavigatorState>>(navigatorKey);
   getIt.registerSingleton<AppDatabase>(AppDatabase());
   getIt.registerLazySingleton<ExtractionService>(() => ExtractionService());
@@ -40,7 +45,14 @@ Future<void> setupLocator() async {
       settingsService: getIt<SettingsService>(),
     ),
   );
-  getIt.registerLazySingleton<GoogleDriveAuthClient>(GoogleDriveAuthClient.new);
+  getIt.registerLazySingleton<GoogleDriveAuthClient>(
+    () => GoogleDriveAuthClient(
+      googleClientId: googleOauthClientId.isEmpty ? null : googleOauthClientId,
+      serverClientId: googleOauthServerClientId.isEmpty
+          ? null
+          : googleOauthServerClientId,
+    ),
+  );
   getIt.registerLazySingleton<CloudBackupProvider>(
     () => GoogleDriveBackupProvider(
       authClient: getIt<GoogleDriveAuthClient>(),

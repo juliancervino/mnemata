@@ -60,6 +60,7 @@ void main() {
     expect(preview.missingRequiredEntries, isEmpty);
     expect(preview.validationPassed, isTrue);
     expect(preview.fileCount, 1);
+    expect(preview.archiveSizeBytes, greaterThan(0));
     expect(await liveDb.readAsString(), 'live-db-before');
     expect(applyCalled, isFalse);
   });

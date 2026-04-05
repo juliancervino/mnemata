@@ -41,11 +41,13 @@ class GoogleDriveBackupRecord {
     required this.backupId,
     required this.remoteId,
     required this.createdAt,
+    this.sizeBytes,
   });
 
   final String backupId;
   final String remoteId;
   final DateTime createdAt;
+  final int? sizeBytes;
 }
 
 class GoogleDriveDownloadResult {
@@ -73,6 +75,11 @@ abstract class GoogleDriveClient {
     required String accessToken,
     required String remoteId,
     required String backupId,
+  });
+
+  Future<void> deleteArchive({
+    required String accessToken,
+    required String remoteId,
   });
 }
 
@@ -150,6 +157,7 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
               backupId: record.backupId,
               remoteId: record.remoteId,
               createdAt: record.createdAt,
+              sizeBytes: record.sizeBytes,
             ),
           )
           .toList(growable: false);
@@ -191,6 +199,34 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
       }
 
       return Uint8List.fromList(result.bytes);
+    } on GoogleDriveAuthException catch (error) {
+      throw CloudBackupProviderException(
+        code: CloudBackupProviderErrorCode.authenticationRequired,
+        message: error.message,
+        cause: error,
+      );
+    } on GoogleDriveProviderFailure catch (error) {
+      throw _mapFailure(error);
+    }
+  }
+
+  @override
+  Future<void> deleteBackup({required String backupId}) async {
+    try {
+      final accessToken = await _authClient.refreshIfNeeded();
+      final records = await _client.listArchives(accessToken: accessToken);
+      final record = _findRecordByBackupId(records, backupId);
+      if (record == null) {
+        throw const CloudBackupProviderException(
+          code: CloudBackupProviderErrorCode.notFound,
+          message: 'Requested backup was not found in Google Drive.',
+        );
+      }
+
+      await _client.deleteArchive(
+        accessToken: accessToken,
+        remoteId: record.remoteId,
+      );
     } on GoogleDriveAuthException catch (error) {
       throw CloudBackupProviderException(
         code: CloudBackupProviderErrorCode.authenticationRequired,
@@ -292,6 +328,7 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
     final fileBytes = await archiveFile.readAsBytes();
     final metadata = <String, dynamic>{
       'name': '$backupId.zip',
+      'parents': <String>['appDataFolder'],
       'appProperties': <String, String>{
         'mnemata_backup': 'true',
         'backupId': backupId,
@@ -345,12 +382,12 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
     required String accessToken,
   }) async {
     final query =
-        "trashed=false and appProperties has { key='mnemata_backup' and value='true' }";
+        "trashed=false and 'appDataFolder' in parents and appProperties has { key='mnemata_backup' and value='true' }";
     final uri =
         Uri.https('www.googleapis.com', '/drive/v3/files', <String, String>{
-          'spaces': 'drive',
+          'spaces': 'appDataFolder',
           'q': query,
-          'fields': 'files(id,name,createdTime,appProperties)',
+          'fields': 'files(id,name,createdTime,size,appProperties)',
           'orderBy': 'createdTime desc',
           'pageSize': '100',
         });
@@ -388,6 +425,7 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
           backupId: _resolveBackupId(item, fallback: remoteId),
           remoteId: remoteId,
           createdAt: createdAt,
+          sizeBytes: _tryParseSizeBytes(item['size']),
         ),
       );
     }
@@ -425,6 +463,20 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
     );
   }
 
+  @override
+  Future<void> deleteArchive({
+    required String accessToken,
+    required String remoteId,
+  }) async {
+    final uri = Uri.https('www.googleapis.com', '/drive/v3/files/$remoteId');
+    final response = await _httpClient.delete(
+      uri,
+      headers: <String, String>{'Authorization': 'Bearer $accessToken'},
+    );
+
+    _throwIfFailed(response);
+  }
+
   Map<String, dynamic> _decodeJson(String rawBody) {
     final parsed = jsonDecode(rawBody);
     if (parsed is! Map<String, dynamic>) {
@@ -455,6 +507,18 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
     }
 
     return fallback;
+  }
+
+  int? _tryParseSizeBytes(Object? rawSize) {
+    if (rawSize is int && rawSize >= 0) {
+      return rawSize;
+    }
+
+    if (rawSize is String) {
+      return int.tryParse(rawSize);
+    }
+
+    return null;
   }
 
   void _throwIfFailed(http.Response response) {

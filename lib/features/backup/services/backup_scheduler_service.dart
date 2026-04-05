@@ -41,11 +41,11 @@ class BackupSchedulerService {
     required Future<String> Function() createBackupArchive,
     required NetworkPowerSignalService networkPowerSignalService,
     DateTime Function()? nowProvider,
-  })  : _settingsService = settingsService,
-        _cloudBackupProvider = cloudBackupProvider,
-        _createBackupArchive = createBackupArchive,
-        _networkPowerSignalService = networkPowerSignalService,
-        _nowProvider = nowProvider ?? DateTime.now;
+  }) : _settingsService = settingsService,
+       _cloudBackupProvider = cloudBackupProvider,
+       _createBackupArchive = createBackupArchive,
+       _networkPowerSignalService = networkPowerSignalService,
+       _nowProvider = nowProvider ?? DateTime.now;
 
   final SettingsService _settingsService;
   final CloudBackupProvider _cloudBackupProvider;
@@ -82,7 +82,9 @@ class BackupSchedulerService {
 
       if (!evaluation.shouldRun) {
         await _settingsService.setLastBackupAttemptAt(now);
-        await _settingsService.setLastBackupFailureReason(evaluation.reasonCode);
+        await _settingsService.setLastBackupFailureReason(
+          evaluation.reasonCode,
+        );
         return BackupSchedulerResult(
           executed: false,
           skipReason: evaluation.skipReason,
@@ -92,6 +94,7 @@ class BackupSchedulerService {
 
       final archivePath = await _createBackupArchive();
       await _cloudBackupProvider.uploadBackup(archivePath: archivePath);
+      await _enforceCloudRetentionBestEffort();
 
       await _settingsService.setLastBackupAttemptAt(now);
       await _settingsService.setLastSuccessfulBackupAt(now);
@@ -100,8 +103,9 @@ class BackupSchedulerService {
       return const BackupSchedulerResult(executed: true);
     } on CloudBackupProviderException catch (error) {
       await _settingsService.setLastBackupAttemptAt(now);
-      await _settingsService
-          .setLastBackupFailureReason('upload_${error.code.name}');
+      await _settingsService.setLastBackupFailureReason(
+        'upload_${error.code.name}',
+      );
       return BackupSchedulerResult(
         executed: false,
         failureReasonCode: 'upload_${error.code.name}',
@@ -163,5 +167,28 @@ class BackupSchedulerService {
     }
 
     return const BackupPolicyEvaluation(shouldRun: true);
+  }
+
+  Future<void> _enforceCloudRetentionBestEffort() async {
+    final maxBackups = _settingsService.backupMaxCount;
+    if (maxBackups < 1) {
+      return;
+    }
+
+    try {
+      final backups = await _cloudBackupProvider.listBackups();
+      if (backups.length <= maxBackups) {
+        return;
+      }
+
+      final sorted = backups.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final backupsToDelete = sorted.skip(maxBackups);
+      for (final backup in backupsToDelete) {
+        await _cloudBackupProvider.deleteBackup(backupId: backup.backupId);
+      }
+    } catch (_) {
+      // Retention cleanup should not block a successful backup upload.
+    }
   }
 }

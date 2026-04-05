@@ -145,4 +145,15 @@ class _RecordingGoogleDriveClient implements GoogleDriveClient {
       bytes: const <int>[9, 8, 7],
     );
   }
+
+  @override
+  Future<void> deleteArchive({
+    required String accessToken,
+    required String remoteId,
+  }) async {
+    seenTokens.add(accessToken);
+    if (_lastRecord?.remoteId == remoteId) {
+      _lastRecord = null;
+    }
+  }
 }

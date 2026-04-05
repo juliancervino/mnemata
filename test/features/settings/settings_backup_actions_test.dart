@@ -76,7 +76,7 @@ void main() {
     );
 
     await tester.tap(find.text('Upload backup to Google Drive'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(order, equals(<String>['create', 'upload']));
     expect(uploadedPath, equals('/tmp/manual_backup.zip'));
@@ -88,20 +88,64 @@ void main() {
       settingsService.lastBackupResultStatus,
       equals('manual_upload_success'),
     );
-    expect(
-      settingsService.lastBackupRemoteId,
-      equals('remote-manual-backup'),
-    );
+    expect(settingsService.lastBackupRemoteId, equals('remote-manual-backup'));
     await tester.scrollUntilVisible(
       find.text('Last backup result'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.textContaining('Last backup result'), findsOneWidget);
     expect(find.textContaining('manual_upload_success'), findsOneWidget);
     expect(find.textContaining('remote-manual-backup'), findsWidgets);
   });
+
+  testWidgets(
+    'manual backup applies retention policy using configured maximum',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      await settingsService.setBackupMaxCount(2);
+
+      final provider = _FakeCloudBackupProvider(
+        backups: <CloudBackupDescriptor>[
+          CloudBackupDescriptor(
+            backupId: 'newest',
+            remoteId: 'remote-newest',
+            createdAt: DateTime.utc(2026, 4, 5, 10),
+          ),
+          CloudBackupDescriptor(
+            backupId: 'middle',
+            remoteId: 'remote-middle',
+            createdAt: DateTime.utc(2026, 4, 4, 10),
+          ),
+          CloudBackupDescriptor(
+            backupId: 'oldest',
+            remoteId: 'remote-oldest',
+            createdAt: DateTime.utc(2026, 4, 3, 10),
+          ),
+        ],
+        downloadedBytes: <int>[1, 2, 3],
+      );
+      GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            nowProvider: () => DateTime.utc(2026, 4, 5, 10, 0),
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Upload backup to Google Drive'));
+      await tester.pumpAndSettle();
+
+      expect(provider.deletedBackupIds, equals(<String>['oldest']));
+    },
+  );
 
   testWidgets(
     'manual backup action surfaces cloud upload failure and diagnostics',
@@ -128,7 +172,7 @@ void main() {
       );
 
       await tester.tap(find.text('Upload backup to Google Drive'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(find.textContaining('Cloud backup failed'), findsOneWidget);
       expect(find.textContaining(archivePath), findsOneWidget);
@@ -145,7 +189,7 @@ void main() {
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(find.textContaining('Last backup result'), findsOneWidget);
       expect(
         find.textContaining('manual_upload_authenticationRequired'),
@@ -177,7 +221,7 @@ void main() {
     );
 
     await tester.tap(find.text('Upload backup to Google Drive'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -188,62 +232,117 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     await tester.scrollUntilVisible(
       find.text('Last backup result'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.textContaining('Last backup result'), findsOneWidget);
     expect(find.textContaining('manual_upload_success'), findsOneWidget);
     expect(find.textContaining('remote-sticky'), findsWidgets);
   });
 
-  testWidgets('restore flow lists cloud backups newest-first and lets user choose', (
-    tester,
-  ) async {
-    final settingsService = await buildSettingsService();
-    final restoreService = buildRestoreService();
-    final provider = _FakeCloudBackupProvider(
-      backups: <CloudBackupDescriptor>[
-        CloudBackupDescriptor(
-          backupId: 'older',
-          remoteId: 'remote-older',
-          createdAt: DateTime.utc(2026, 4, 4, 10),
+  testWidgets(
+    'restore flow lists cloud backups newest-first and shows timestamp plus size',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final provider = _FakeCloudBackupProvider(
+        backups: <CloudBackupDescriptor>[
+          CloudBackupDescriptor(
+            backupId: 'older',
+            remoteId: 'remote-older',
+            createdAt: DateTime.utc(2026, 4, 4, 10),
+          ),
+          CloudBackupDescriptor(
+            backupId: 'newer',
+            remoteId: 'remote-newer',
+            createdAt: DateTime.utc(2026, 4, 5, 10),
+          ),
+        ],
+        downloadedBytes: <int>[1, 2, 3],
+      );
+      GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+          ),
         ),
-        CloudBackupDescriptor(
-          backupId: 'newer',
-          remoteId: 'remote-newer',
-          createdAt: DateTime.utc(2026, 4, 5, 10),
+      );
+
+      await tester.tap(find.text('Restore from backup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose a backup from Google Drive'), findsOneWidget);
+      final restoreTiles = tester
+          .widgetList<ListTile>(find.byType(ListTile))
+          .where(
+            (tile) =>
+                tile.leading is Icon &&
+                ((tile.leading as Icon).icon == Icons.cloud_done_outlined),
+          );
+      final newest = restoreTiles.firstWhere(
+        (tile) =>
+            tile.subtitle is Text &&
+            ((tile.subtitle as Text).data?.contains('ID: remote-newer') ??
+                false),
+      );
+      expect(newest.subtitle, isNotNull);
+      expect((newest.subtitle as Text).data, contains('Size:'));
+    },
+  );
+
+  testWidgets(
+    'restore flow downloads selected backup and opens preview without path input',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final provider = _FakeCloudBackupProvider(
+        backups: <CloudBackupDescriptor>[
+          CloudBackupDescriptor(
+            backupId: 'backup-1',
+            remoteId: 'remote-backup-1',
+            createdAt: DateTime.utc(2026, 4, 5, 10),
+          ),
+        ],
+        downloadedBytes: <int>[1, 2, 3],
+      );
+      GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+          ),
         ),
-      ],
-      downloadedBytes: <int>[1, 2, 3],
-    );
-    GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsScreen(
-          settingsService: settingsService,
-          backupRestoreService: restoreService,
-          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
-        ),
-      ),
-    );
+      await tester.tap(find.text('Restore from backup'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Restore from backup'));
-    await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.textContaining('ID: remote-backup-1'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.textContaining('ID: remote-backup-1'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Choose a backup from Google Drive'), findsOneWidget);
-    final newest = tester.widgetList<ListTile>(find.byType(ListTile)).firstWhere(
-      (tile) => tile.title is Text && (tile.title as Text).data == 'remote-newer',
-    );
-    expect(newest.subtitle, isNotNull);
-  });
+      expect(provider.downloadedBackupIds, equals(<String>['backup-1']));
+      expect(find.text('Archive path'), findsNothing);
+    },
+  );
 
-  testWidgets('restore flow downloads selected backup and opens preview without path input', (
+  testWidgets('restore flow allows deleting backup with confirmation', (
     tester,
   ) async {
     final settingsService = await buildSettingsService();
@@ -273,45 +372,52 @@ void main() {
     await tester.tap(find.text('Restore from backup'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('remote-backup-1'));
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete backup?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
 
-    expect(provider.downloadedBackupIds, equals(<String>['backup-1']));
-    expect(find.text('Archive path'), findsNothing);
+    expect(provider.deletedBackupIds, equals(<String>['backup-1']));
   });
 
-  testWidgets('restore flow shows deterministic cloud-list error and blocks restore apply', (
-    tester,
-  ) async {
-    final settingsService = await buildSettingsService();
-    final restoreService = buildRestoreService();
-    final provider = _FakeCloudBackupProvider(
-      backups: const <CloudBackupDescriptor>[],
-      downloadedBytes: <int>[1, 2, 3],
-      listError: const CloudBackupProviderException(
-        code: CloudBackupProviderErrorCode.networkUnavailable,
-        message: 'No network',
-      ),
-    );
-    GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SettingsScreen(
-          settingsService: settingsService,
-          backupRestoreService: restoreService,
-          createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+  testWidgets(
+    'restore flow shows deterministic cloud-list error and blocks restore apply',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final provider = _FakeCloudBackupProvider(
+        backups: const <CloudBackupDescriptor>[],
+        downloadedBytes: <int>[1, 2, 3],
+        listError: const CloudBackupProviderException(
+          code: CloudBackupProviderErrorCode.networkUnavailable,
+          message: 'No network',
         ),
-      ),
-    );
+      );
+      GetIt.instance.registerSingleton<CloudBackupProvider>(provider);
 
-    await tester.tap(find.text('Restore from backup'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+          ),
+        ),
+      );
 
-    expect(find.textContaining('Unable to list cloud backups'), findsOneWidget);
-    expect(provider.downloadedBackupIds, isEmpty);
-    expect(find.text('Restore Preview'), findsNothing);
-  });
+      await tester.tap(find.text('Restore from backup'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Unable to list cloud backups'),
+        findsOneWidget,
+      );
+      expect(provider.downloadedBackupIds, isEmpty);
+      expect(find.text('Restore Preview'), findsNothing);
+    },
+  );
 }
 
 class _FakeCloudBackupProvider implements CloudBackupProvider {
@@ -325,6 +431,7 @@ class _FakeCloudBackupProvider implements CloudBackupProvider {
   final List<int> downloadedBytes;
   final CloudBackupProviderException? listError;
   final List<String> downloadedBackupIds = <String>[];
+  final List<String> deletedBackupIds = <String>[];
 
   @override
   Future<List<CloudBackupDescriptor>> listBackups() async {
@@ -342,6 +449,18 @@ class _FakeCloudBackupProvider implements CloudBackupProvider {
 
   @override
   Future<CloudBackupUploadReceipt> uploadBackup({required String archivePath}) {
-    throw UnimplementedError();
+    return Future<CloudBackupUploadReceipt>.value(
+      CloudBackupUploadReceipt(
+        backupId: 'manual_backup',
+        remoteId: 'remote-manual-backup',
+        uploadedAt: DateTime.utc(2026, 4, 5, 10, 15),
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteBackup({required String backupId}) async {
+    deletedBackupIds.add(backupId);
+    backups.removeWhere((entry) => entry.backupId == backupId);
   }
 }

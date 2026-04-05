@@ -105,4 +105,14 @@ class _FakeGoogleDriveClient implements GoogleDriveClient {
 
     return GoogleDriveDownloadResult(backupId: backupId, bytes: const <int>[1]);
   }
+
+  @override
+  Future<void> deleteArchive({
+    required String accessToken,
+    required String remoteId,
+  }) async {
+    if (failure != null) {
+      throw failure!;
+    }
+  }
 }

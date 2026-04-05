@@ -25,53 +25,64 @@ void main() {
       );
     });
 
-    test('skips with wifi-required reason when runtime wifi signal is false', () async {
-      final provider = _RecordingCloudBackupProvider();
-      final scheduler = BackupSchedulerService(
-        settingsService: settingsService,
-        cloudBackupProvider: provider,
-        createBackupArchive: () async => '/tmp/never-used.zip',
-        networkPowerSignalService: _FakeNetworkPowerSignalService(
-          wifiConnected: false,
-          charging: true,
-        ),
-        nowProvider: () => DateTime.utc(2026, 4, 4, 12),
-      );
+    test(
+      'skips with wifi-required reason when runtime wifi signal is false',
+      () async {
+        final provider = _RecordingCloudBackupProvider();
+        final scheduler = BackupSchedulerService(
+          settingsService: settingsService,
+          cloudBackupProvider: provider,
+          createBackupArchive: () async => '/tmp/never-used.zip',
+          networkPowerSignalService: _FakeNetworkPowerSignalService(
+            wifiConnected: false,
+            charging: true,
+          ),
+          nowProvider: () => DateTime.utc(2026, 4, 4, 12),
+        );
 
-      final result = await scheduler.runIfDue();
+        final result = await scheduler.runIfDue();
 
-      expect(result.executed, isFalse);
-      expect(result.skipReason, BackupSkipReason.wifiRequired);
-      expect(result.failureReasonCode, 'policy_wifi_required');
-      expect(settingsService.lastBackupFailureReason, 'policy_wifi_required');
-      expect(provider.uploadCalls, 0);
-    });
+        expect(result.executed, isFalse);
+        expect(result.skipReason, BackupSkipReason.wifiRequired);
+        expect(result.failureReasonCode, 'policy_wifi_required');
+        expect(settingsService.lastBackupFailureReason, 'policy_wifi_required');
+        expect(provider.uploadCalls, 0);
+      },
+    );
 
-    test('skips with charging-required reason when runtime charging signal is false', () async {
-      final provider = _RecordingCloudBackupProvider();
-      final scheduler = BackupSchedulerService(
-        settingsService: settingsService,
-        cloudBackupProvider: provider,
-        createBackupArchive: () async => '/tmp/never-used.zip',
-        networkPowerSignalService: _FakeNetworkPowerSignalService(
-          wifiConnected: true,
-          charging: false,
-        ),
-        nowProvider: () => DateTime.utc(2026, 4, 4, 12),
-      );
+    test(
+      'skips with charging-required reason when runtime charging signal is false',
+      () async {
+        final provider = _RecordingCloudBackupProvider();
+        final scheduler = BackupSchedulerService(
+          settingsService: settingsService,
+          cloudBackupProvider: provider,
+          createBackupArchive: () async => '/tmp/never-used.zip',
+          networkPowerSignalService: _FakeNetworkPowerSignalService(
+            wifiConnected: true,
+            charging: false,
+          ),
+          nowProvider: () => DateTime.utc(2026, 4, 4, 12),
+        );
 
-      final result = await scheduler.runIfDue();
+        final result = await scheduler.runIfDue();
 
-      expect(result.executed, isFalse);
-      expect(result.skipReason, BackupSkipReason.chargingRequired);
-      expect(result.failureReasonCode, 'policy_charging_required');
-      expect(settingsService.lastBackupFailureReason, 'policy_charging_required');
-      expect(provider.uploadCalls, 0);
-    });
+        expect(result.executed, isFalse);
+        expect(result.skipReason, BackupSkipReason.chargingRequired);
+        expect(result.failureReasonCode, 'policy_charging_required');
+        expect(
+          settingsService.lastBackupFailureReason,
+          'policy_charging_required',
+        );
+        expect(provider.uploadCalls, 0);
+      },
+    );
 
     test('uploads when due and both runtime signals are true', () async {
       final provider = _RecordingCloudBackupProvider();
-      final tempDir = await Directory.systemTemp.createTemp('scheduler_integration_');
+      final tempDir = await Directory.systemTemp.createTemp(
+        'scheduler_integration_',
+      );
       final archive = File('${tempDir.path}/backup.zip');
       await archive.writeAsBytes(const <int>[1, 2, 3], flush: true);
 
@@ -94,7 +105,10 @@ void main() {
         expect(result.failureReasonCode, isNull);
         expect(provider.uploadCalls, 1);
         expect(settingsService.lastBackupFailureReason, isNull);
-        expect(settingsService.lastSuccessfulBackupAt, DateTime.utc(2026, 4, 4, 12));
+        expect(
+          settingsService.lastSuccessfulBackupAt,
+          DateTime.utc(2026, 4, 4, 12),
+        );
       } finally {
         if (await tempDir.exists()) {
           await tempDir.delete(recursive: true);
@@ -122,6 +136,7 @@ class _FakeNetworkPowerSignalService implements NetworkPowerSignalService {
 
 class _RecordingCloudBackupProvider implements CloudBackupProvider {
   int uploadCalls = 0;
+  int deleteCalls = 0;
 
   @override
   Future<Uint8List> downloadBackup({required String backupId}) {
@@ -134,12 +149,19 @@ class _RecordingCloudBackupProvider implements CloudBackupProvider {
   }
 
   @override
-  Future<CloudBackupUploadReceipt> uploadBackup({required String archivePath}) async {
+  Future<CloudBackupUploadReceipt> uploadBackup({
+    required String archivePath,
+  }) async {
     uploadCalls += 1;
     return CloudBackupUploadReceipt(
       backupId: 'backup-1',
       remoteId: 'remote-1',
       uploadedAt: DateTime.utc(2026, 4, 4, 12),
     );
+  }
+
+  @override
+  Future<void> deleteBackup({required String backupId}) async {
+    deleteCalls += 1;
   }
 }

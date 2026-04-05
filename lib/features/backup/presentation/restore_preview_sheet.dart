@@ -71,6 +71,10 @@ class _RestorePreviewSheetState extends State<RestorePreviewSheet> {
                 ),
                 const SizedBox(height: 16),
                 _PreviewRow(label: 'Created at', value: preview.createdAtIso),
+                _PreviewRow(
+                  label: 'Restore size',
+                  value: _formatBytes(preview.archiveSizeBytes),
+                ),
                 _PreviewRow(label: 'Backup app version', value: preview.appVersion),
                 _PreviewRow(label: 'Manifest entries', value: '${preview.archiveEntryCount}'),
                 _PreviewRow(label: 'Files in backup', value: '${preview.fileCount}'),
@@ -134,6 +138,23 @@ class _RestorePreviewSheetState extends State<RestorePreviewSheet> {
     );
   }
 
+  String _formatBytes(int bytes) {
+    if (bytes < 0) {
+      return 'n/a';
+    }
+
+    const units = <String>['B', 'KB', 'MB', 'GB', 'TB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+
+    final decimals = value >= 100 || unitIndex == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
+  }
+
   Future<void> _applyRestore(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -183,8 +204,10 @@ class _PreviewRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
+            flex: 2,
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -193,11 +216,12 @@ class _PreviewRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
+          Expanded(
+            flex: 3,
             child: Text(
               value,
               textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),

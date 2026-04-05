@@ -20,6 +20,7 @@ class RestorePreview {
   const RestorePreview({
     required this.appVersion,
     required this.createdAtIso,
+    required this.archiveSizeBytes,
     required this.missingRequiredEntries,
     required this.checksumMismatches,
     required this.fileCount,
@@ -28,6 +29,7 @@ class RestorePreview {
 
   final String appVersion;
   final String createdAtIso;
+  final int archiveSizeBytes;
   final List<String> missingRequiredEntries;
   final List<String> checksumMismatches;
   final int fileCount;
@@ -102,6 +104,7 @@ class BackupRestoreService {
       return RestorePreview(
         appVersion: manifest.appVersion,
         createdAtIso: manifest.createdAtIso,
+        archiveSizeBytes: await File(archivePath).length(),
         missingRequiredEntries: missingRequiredEntries,
         checksumMismatches: checksumMismatches,
         fileCount: await _countExtractedFiles(stagingDir.path),

@@ -28,6 +28,8 @@ class GoogleDriveAuthClient {
     Future<String> Function()? accessTokenProvider,
     Future<String> Function()? refreshTokenProvider,
     GoogleSignIn? googleSignIn,
+    String? googleClientId,
+    String? serverClientId,
     DateTime Function()? clock,
     Duration? expirySkew,
     Duration? tokenTtl,
@@ -36,11 +38,13 @@ class GoogleDriveAuthClient {
        _tokenTtl = tokenTtl ?? const Duration(minutes: 50),
        _googleSignIn =
            googleSignIn ??
-           GoogleSignIn.standard(
+           GoogleSignIn(
              scopes: const <String>[
                'email',
-               'https://www.googleapis.com/auth/drive.file',
+               'https://www.googleapis.com/auth/drive.appdata',
              ],
+             clientId: _nullIfBlank(googleClientId),
+             serverClientId: _nullIfBlank(serverClientId),
            ),
        _accessTokenProvider = accessTokenProvider,
        _refreshTokenProvider = refreshTokenProvider;
@@ -154,4 +158,13 @@ class GoogleDriveAuthClient {
     _cachedAccessToken = token;
     _cachedExpiryUtc = _clock().toUtc().add(_tokenTtl);
   }
+}
+
+String? _nullIfBlank(String? value) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) {
+    return null;
+  }
+
+  return normalized;
 }
