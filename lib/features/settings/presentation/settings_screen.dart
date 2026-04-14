@@ -8,6 +8,7 @@ import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
+import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -20,6 +21,7 @@ class SettingsScreen extends StatefulWidget {
     this.createBackupArchiveAction,
     this.uploadBackupAction,
     this.nowProvider,
+    this.apiKeyStore,
   });
 
   final SettingsService? settingsService;
@@ -28,6 +30,7 @@ class SettingsScreen extends StatefulWidget {
   final Future<CloudBackupUploadReceipt> Function(String archivePath)?
   uploadBackupAction;
   final DateTime Function()? nowProvider;
+  final ApiKeyStore? apiKeyStore;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -37,7 +40,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _autoTagDomain;
   late bool _autoTagYear;
   late int _backupMaxCount;
+  late bool _aiSummaryEnabled;
+  late bool _semanticSearchEnabled;
+  late bool _aiTagSuggestionsEnabled;
   late final SettingsService _settingsService;
+  late final ApiKeyStore _apiKeyStore;
+  bool _hasApiKey = false;
   BackupArchiveService? _backupArchiveService;
   CloudBackupProvider? _cloudBackupProvider;
   late final BackupRestoreService _backupRestoreService;
@@ -53,6 +61,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _autoTagDomain = _settingsService.autoTagDomain;
     _autoTagYear = _settingsService.autoTagYear;
     _backupMaxCount = _settingsService.backupMaxCount;
+    _aiSummaryEnabled = _settingsService.aiSummaryEnabled;
+    _semanticSearchEnabled = _settingsService.semanticSearchEnabled;
+    _aiTagSuggestionsEnabled = _settingsService.aiTagSuggestionsEnabled;
+    _apiKeyStore = widget.apiKeyStore ?? GetIt.instance<ApiKeyStore>();
+    _loadApiKeyState();
 
     if (widget.createBackupArchiveAction == null ||
         widget.backupRestoreService == null) {
@@ -167,6 +180,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
               });
               _settingsService.setAutoTagYear(value);
             },
+          ),
+          const Divider(height: 32),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Intelligence',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.key_outlined),
+            title: const Text('LLM provider API key'),
+            subtitle: Text(
+              _hasApiKey
+                  ? 'Configured in secure storage'
+                  : 'Required for AI summaries and semantic search',
+            ),
+            trailing: TextButton(
+              onPressed: _hasApiKey ? _removeApiKey : _promptForApiKey,
+              child: Text(_hasApiKey ? 'Remove' : 'Set key'),
+            ),
+            onTap: _hasApiKey ? _removeApiKey : _promptForApiKey,
+          ),
+          SwitchListTile(
+            title: const Text('Enable AI summaries'),
+            subtitle: const Text(
+              'Generate on-demand TL;DR, key points, and why-it-matters blocks.',
+            ),
+            value: _aiSummaryEnabled,
+            onChanged: (value) => _onIntelligenceToggleChanged(
+              value: value,
+              currentSetter: (enabled) async {
+                await _settingsService.setAiSummaryEnabled(enabled);
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _aiSummaryEnabled = enabled;
+                });
+              },
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Enable semantic search mode'),
+            subtitle: const Text(
+              'Keeps keyword search available and unlocks semantic matching when configured.',
+            ),
+            value: _semanticSearchEnabled,
+            onChanged: (value) => _onIntelligenceToggleChanged(
+              value: value,
+              currentSetter: (enabled) async {
+                await _settingsService.setSemanticSearchEnabled(enabled);
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _semanticSearchEnabled = enabled;
+                });
+              },
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Enable AI tag suggestions'),
+            subtitle: const Text('Suggests from existing tags only.'),
+            value: _aiTagSuggestionsEnabled,
+            onChanged: (value) => _onIntelligenceToggleChanged(
+              value: value,
+              currentSetter: (enabled) async {
+                await _settingsService.setAiTagSuggestionsEnabled(enabled);
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _aiTagSuggestionsEnabled = enabled;
+                });
+              },
+            ),
           ),
           const Divider(height: 32),
           const Padding(
@@ -712,5 +806,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final decimals = value >= 100 || unitIndex == 0 ? 0 : 1;
     return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
+  }
+
+  Future<void> _loadApiKeyState() async {
+    final hasKey = await _apiKeyStore.hasKey();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _hasApiKey = hasKey;
+    });
+  }
+
+  Future<void> _promptForApiKey() async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set provider API key'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          decoration: const InputDecoration(hintText: 'Paste API key'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (value == null || value.isEmpty) {
+      return;
+    }
+
+    await _apiKeyStore.saveKey(value);
+    await _loadApiKeyState();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('API key saved to secure storage.')),
+    );
+  }
+
+  Future<void> _removeApiKey() async {
+    await _apiKeyStore.clearKey();
+    await _settingsService.setAiSummaryEnabled(false);
+    await _settingsService.setSemanticSearchEnabled(false);
+    await _settingsService.setAiTagSuggestionsEnabled(false);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _hasApiKey = false;
+      _aiSummaryEnabled = false;
+      _semanticSearchEnabled = false;
+      _aiTagSuggestionsEnabled = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'API key removed. Intelligence features remain disabled until key is configured again.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onIntelligenceToggleChanged({
+    required bool value,
+    required Future<void> Function(bool enabled) currentSetter,
+  }) async {
+    if (value && !_hasApiKey) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configure an API key in Intelligence settings to enable AI summaries and semantic search.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await currentSetter(value);
   }
 }

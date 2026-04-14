@@ -15,6 +15,7 @@ import 'package:mnemata/features/backup/services/network_power_signal_service.da
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
+import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
 
@@ -36,6 +37,7 @@ Future<void> setupLocator() async {
 
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SettingsService>(SettingsService(prefs));
+  getIt.registerLazySingleton<ApiKeyStore>(ApiKeyStore.new);
 
   getIt.registerLazySingleton<BackupStorageService>(BackupStorageService.new);
   getIt.registerLazySingleton<BackupArchiveService>(

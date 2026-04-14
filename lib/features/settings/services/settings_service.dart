@@ -17,6 +17,9 @@ class SettingsService {
   static const String _keyLastBackupResultStatus = 'lastBackupResultStatus';
   static const String _keyLastBackupSizeBytes = 'lastBackupSizeBytes';
   static const String _keyBackupMaxCount = 'backupMaxCount';
+  static const String _keyAiSummaryEnabled = 'aiSummaryEnabled';
+  static const String _keySemanticSearchEnabled = 'semanticSearchEnabled';
+  static const String _keyAiTagSuggestionsEnabled = 'aiTagSuggestionsEnabled';
 
   static const int defaultBackupMaxCount = 7;
   static const int maxBackupMaxCount = 30;
@@ -135,6 +138,26 @@ class SettingsService {
   Future<void> setBackupMaxCount(int value) async {
     final normalized = value.clamp(1, maxBackupMaxCount).toInt();
     await _prefs.setInt(_keyBackupMaxCount, normalized);
+  }
+
+  bool get aiSummaryEnabled => _prefs.getBool(_keyAiSummaryEnabled) ?? false;
+
+  Future<void> setAiSummaryEnabled(bool value) async {
+    await _prefs.setBool(_keyAiSummaryEnabled, value);
+  }
+
+  bool get semanticSearchEnabled =>
+      _prefs.getBool(_keySemanticSearchEnabled) ?? false;
+
+  Future<void> setSemanticSearchEnabled(bool value) async {
+    await _prefs.setBool(_keySemanticSearchEnabled, value);
+  }
+
+  bool get aiTagSuggestionsEnabled =>
+      _prefs.getBool(_keyAiTagSuggestionsEnabled) ?? false;
+
+  Future<void> setAiTagSuggestionsEnabled(bool value) async {
+    await _prefs.setBool(_keyAiTagSuggestionsEnabled, value);
   }
 
   DateTime? _readDateTime(String key) {

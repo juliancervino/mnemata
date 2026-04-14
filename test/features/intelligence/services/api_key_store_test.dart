@@ -37,15 +37,18 @@ void main() {
       expect(await apiKeyStore.hasKey(), isFalse);
     });
 
-    test('missing key reports unavailable summary and semantic capabilities', () async {
-      final secureStore = _InMemorySecureStore();
-      final apiKeyStore = ApiKeyStore(secureStore: secureStore);
+    test(
+      'missing key reports unavailable summary and semantic capabilities',
+      () async {
+        final secureStore = _InMemorySecureStore();
+        final apiKeyStore = ApiKeyStore(secureStore: secureStore);
 
-      final status = await apiKeyStore.readCapabilityStatus();
-      expect(status.summaryAvailable, isFalse);
-      expect(status.semanticSearchAvailable, isFalse);
-      expect(status.reason, IntelligenceCapabilityReason.missingApiKey);
-    });
+        final status = await apiKeyStore.readCapabilityStatus();
+        expect(status.summaryAvailable, isFalse);
+        expect(status.semanticSearchAvailable, isFalse);
+        expect(status.reason, IntelligenceCapabilityReason.missingApiKey);
+      },
+    );
   });
 
   group('SettingsService intelligence defaults', () {
