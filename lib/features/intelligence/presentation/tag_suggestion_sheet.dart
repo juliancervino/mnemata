@@ -22,14 +22,18 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('AI Tag Suggestions', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'AI Tag Suggestions',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _isLoading ? null : _generate,
@@ -63,7 +67,8 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: (_result?.isSuccess == true &&
+                    onPressed:
+                        (_result?.isSuccess == true &&
                             (_result?.suggestedLabels.isNotEmpty ?? false))
                         ? _apply
                         : null,
@@ -92,7 +97,10 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
 
   Future<void> _apply() async {
     final labels = _result?.suggestedLabels ?? const <Label>[];
-    await widget.service.applySuggestions(itemId: widget.item.id, labels: labels);
+    await widget.service.applySuggestions(
+      itemId: widget.item.id,
+      labels: labels,
+    );
     if (!mounted) {
       return;
     }

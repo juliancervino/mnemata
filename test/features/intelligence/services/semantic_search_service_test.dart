@@ -8,6 +8,8 @@ import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
 import 'package:mnemata/features/intelligence/services/semantic_search_service.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 
 class _Store implements SecureKeyValueStore {
@@ -28,6 +30,7 @@ class _Store implements SecureKeyValueStore {
 void main() {
   late AppDatabase database;
   late ApiKeyStore keyStore;
+  late SettingsService settingsService;
 
   setUpAll(() {
     if (Platform.isLinux) {
@@ -41,12 +44,18 @@ void main() {
   setUp(() async {
     database = AppDatabase.forTesting(NativeDatabase.memory());
     keyStore = ApiKeyStore(secureStore: _Store());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    settingsService = SettingsService(prefs);
+    await settingsService.setAiProvider('gemini');
 
     await database.insertItem(
       MnemataItemsCompanion.insert(
         title: const Value('Automobile engineering notes'),
         url: const Value('https://example.com/auto'),
-        content: const Value('This article discusses automobile engineering and EV design.'),
+        content: const Value(
+          'This article discusses automobile engineering and EV design.',
+        ),
         type: 'url',
         createdAt: DateTime.now(),
       ),
@@ -66,27 +75,41 @@ void main() {
     await database.close();
   });
 
-  test('semantic search returns concept-near matches when index is available', () async {
-    await keyStore.saveKey('abc');
+  test(
+    'semantic search returns concept-near matches when index is available',
+    () async {
+      await keyStore.saveKey('abc');
 
-    final items = await database.watchAllItems().first;
-    final indexer = SemanticIndexerService(
-      database: database,
-      apiKeyStore: keyStore,
-      embeddingGenerator: (_) async => <double>[0.1, 0.2],
-    );
-    await indexer.enqueueIndexing(items.firstWhere((item) => item.title!.contains('Automobile')));
-    await indexer.flushPending();
+      final items = await database.watchAllItems().first;
+      final indexer = SemanticIndexerService(
+        database: database,
+        apiKeyStore: keyStore,
+        settingsService: settingsService,
+        embeddingGenerator: (_) async => <double>[0.1, 0.2],
+      );
+      await indexer.enqueueIndexing(
+        items.firstWhere((item) => item.title!.contains('Automobile')),
+      );
+      await indexer.flushPending();
 
-    final service = SemanticSearchService(database: database, apiKeyStore: keyStore);
-    final result = await service.search('car design');
+      final service = SemanticSearchService(
+        database: database,
+        apiKeyStore: keyStore,
+        settingsService: settingsService,
+      );
+      final result = await service.search('car design');
 
-    expect(result.fallbackReason, SemanticFallbackReason.none);
-    expect(result.items.first.title, contains('Automobile'));
-  });
+      expect(result.fallbackReason, SemanticFallbackReason.none);
+      expect(result.items.first.title, contains('Automobile'));
+    },
+  );
 
   test('missing key falls back to keyword search results', () async {
-    final service = SemanticSearchService(database: database, apiKeyStore: keyStore);
+    final service = SemanticSearchService(
+      database: database,
+      apiKeyStore: keyStore,
+      settingsService: settingsService,
+    );
     final result = await service.search('garden');
 
     expect(result.usedFallback, isTrue);
@@ -100,12 +123,17 @@ void main() {
     final indexer = SemanticIndexerService(
       database: database,
       apiKeyStore: keyStore,
+      settingsService: settingsService,
       embeddingGenerator: (_) async => <double>[0.2, 0.4],
     );
     await indexer.enqueueIndexing(items.first);
     await indexer.flushPending();
 
-    final service = SemanticSearchService(database: database, apiKeyStore: keyStore);
+    final service = SemanticSearchService(
+      database: database,
+      apiKeyStore: keyStore,
+      settingsService: settingsService,
+    );
     final result = await service.search('completely unrelated query term');
 
     expect(result.usedFallback, isTrue);

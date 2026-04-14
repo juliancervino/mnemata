@@ -9,6 +9,8 @@ import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 
 class _InMemorySecureStore implements SecureKeyValueStore {
@@ -29,6 +31,7 @@ class _InMemorySecureStore implements SecureKeyValueStore {
 void main() {
   late AppDatabase database;
   late ApiKeyStore apiKeyStore;
+  late SettingsService settingsService;
   late int itemId;
 
   setUpAll(() {
@@ -52,6 +55,10 @@ void main() {
       ),
     );
     apiKeyStore = ApiKeyStore(secureStore: _InMemorySecureStore());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    settingsService = SettingsService(prefs);
+    await settingsService.setAiProvider('gemini');
   });
 
   tearDown(() async {
@@ -66,6 +73,7 @@ void main() {
       database: database,
       apiKeyStore: apiKeyStore,
       providerClient: provider,
+      settingsService: settingsService,
     );
 
     final item = (await database.watchAllItems().first).firstWhere(
@@ -95,6 +103,7 @@ void main() {
       database: database,
       apiKeyStore: apiKeyStore,
       providerClient: provider,
+      settingsService: settingsService,
     );
 
     final fileItem = (await database.watchAllItems().first).firstWhere(
@@ -126,6 +135,7 @@ void main() {
         database: database,
         apiKeyStore: apiKeyStore,
         providerClient: provider,
+        settingsService: settingsService,
       );
 
       var item = (await database.watchAllItems().first).firstWhere(
@@ -151,6 +161,51 @@ void main() {
       final third = await service.generateSummary(item);
       expect(third.isSuccess, isTrue);
       expect(providerCalls, 2);
+
+      final forced = await service.generateSummary(item, forceRefresh: true);
+      expect(forced.isSuccess, isTrue);
+      expect(forced.fromCache, isFalse);
+      expect(providerCalls, 3);
+    },
+  );
+
+  test(
+    'loadSavedSummary returns persisted summary without provider call',
+    () async {
+      await apiKeyStore.saveKey('test-key');
+      var providerCalls = 0;
+      final provider = AIProviderClient(
+        executor: (_) async {
+          providerCalls += 1;
+          return <String, dynamic>{
+            'tldr': 'Cached summary',
+            'keyPoints': <String>['One', 'Two', 'Three'],
+            'whyItMatters': 'Because this remains useful.',
+          };
+        },
+      );
+
+      final service = SummaryService(
+        database: database,
+        apiKeyStore: apiKeyStore,
+        providerClient: provider,
+        settingsService: settingsService,
+      );
+
+      final item = (await database.watchAllItems().first).firstWhere(
+        (i) => i.id == itemId,
+      );
+
+      final generated = await service.generateSummary(item);
+      expect(generated.isSuccess, isTrue);
+      expect(providerCalls, 1);
+
+      final saved = await service.loadSavedSummary(item);
+      expect(saved, isA<SummaryResult>());
+      expect(saved!.isSuccess, isTrue);
+      expect(saved.fromCache, isTrue);
+      expect(saved.tldr, 'Cached summary');
+      expect(providerCalls, 1);
     },
   );
 
@@ -170,6 +225,7 @@ void main() {
         database: database,
         apiKeyStore: apiKeyStore,
         providerClient: provider,
+        settingsService: settingsService,
       );
 
       final item = (await database.watchAllItems().first).firstWhere(

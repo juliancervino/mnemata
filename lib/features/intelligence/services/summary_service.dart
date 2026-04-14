@@ -5,6 +5,7 @@ import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 
 enum SummaryStatus { success, unsupported, error }
 
@@ -35,28 +36,39 @@ class SummaryService {
     required AppDatabase database,
     required ApiKeyStore apiKeyStore,
     required AIProviderClient providerClient,
+    required SettingsService settingsService,
   }) : _database = database,
        _apiKeyStore = apiKeyStore,
-       _providerClient = providerClient;
+       _providerClient = providerClient,
+       _settingsService = settingsService;
 
   final AppDatabase _database;
   final ApiKeyStore _apiKeyStore;
   final AIProviderClient _providerClient;
+  final SettingsService _settingsService;
 
-  Future<SummaryResult> generateSummary(MnemataItem item) async {
-    final apiKey = await _apiKeyStore.readKey();
-    if (apiKey == null) {
-      return const SummaryResult(
-        status: SummaryStatus.error,
-        errorCode: IntelligenceErrorCode.missingApiKey,
-        guidance:
-            'Add your provider API key in Settings > Intelligence to enable summaries and semantic search.',
-      );
+  Future<SummaryResult?> loadSavedSummary(MnemataItem item) async {
+    if (!_supportsSummary(item)) {
+      return null;
     }
 
-    if (item.type != 'url' ||
-        item.content == null ||
-        item.content!.trim().isEmpty) {
+    final cached = await _database.getSummaryCache(
+      itemId: item.id,
+      contentHash: _contentHash(item.content!),
+    );
+    if (cached == null) {
+      return null;
+    }
+
+    return _toSummaryResult(cached);
+  }
+
+  Future<SummaryResult> generateSummary(
+    MnemataItem item, {
+    bool forceRefresh = false,
+  }) async {
+    final provider = _settingsService.aiProvider;
+    if (!_supportsSummary(item)) {
       return const SummaryResult(
         status: SummaryStatus.unsupported,
         guidance:
@@ -65,24 +77,24 @@ class SummaryService {
     }
 
     final content = item.content!.trim();
-    final contentHash = sha256.convert(utf8.encode(content)).toString();
-    final cached = await _database.getSummaryCache(
-      itemId: item.id,
-      contentHash: contentHash,
-    );
+    final contentHash = _contentHash(content);
 
-    if (cached != null) {
-      final keyPoints = cached.keyPointsJson
-          .split('\n')
-          .map((point) => point.trim())
-          .where((point) => point.isNotEmpty)
-          .toList(growable: false);
+    if (!forceRefresh) {
+      final cached = await _database.getSummaryCache(
+        itemId: item.id,
+        contentHash: contentHash,
+      );
+      if (cached != null) {
+        return _toSummaryResult(cached);
+      }
+    }
+
+    final apiKey = await _apiKeyStore.readKeyForProvider(provider);
+    if (apiKey == null) {
       return SummaryResult(
-        status: SummaryStatus.success,
-        tldr: cached.tldr,
-        keyPoints: keyPoints,
-        whyItMatters: cached.whyItMatters,
-        fromCache: true,
+        status: SummaryStatus.error,
+        errorCode: IntelligenceErrorCode.missingApiKey,
+        guidance: 'Add your $provider API key in Settings > Intelligence.',
       );
     }
 
@@ -91,6 +103,7 @@ class SummaryService {
         apiKey: apiKey,
         prompt:
             'Summarize this article into JSON with keys tldr, keyPoints, whyItMatters: $content',
+        provider: parseProviderType(provider),
       );
       final parsed = _parseResponse(response);
       await _database.upsertSummaryCache(
@@ -113,6 +126,31 @@ class SummaryService {
         guidance: error.message,
       );
     }
+  }
+
+  bool _supportsSummary(MnemataItem item) {
+    return item.type == 'url' &&
+        item.content != null &&
+        item.content!.trim().isNotEmpty;
+  }
+
+  String _contentHash(String content) {
+    return sha256.convert(utf8.encode(content.trim())).toString();
+  }
+
+  SummaryResult _toSummaryResult(SummaryCache cached) {
+    final keyPoints = cached.keyPointsJson
+        .split('\n')
+        .map((point) => point.trim())
+        .where((point) => point.isNotEmpty)
+        .toList(growable: false);
+    return SummaryResult(
+      status: SummaryStatus.success,
+      tldr: cached.tldr,
+      keyPoints: keyPoints,
+      whyItMatters: cached.whyItMatters,
+      fromCache: true,
+    );
   }
 
   _ParsedSummary _parseResponse(Map<String, dynamic> response) {

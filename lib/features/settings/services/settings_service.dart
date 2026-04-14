@@ -20,6 +20,7 @@ class SettingsService {
   static const String _keyAiSummaryEnabled = 'aiSummaryEnabled';
   static const String _keySemanticSearchEnabled = 'semanticSearchEnabled';
   static const String _keyAiTagSuggestionsEnabled = 'aiTagSuggestionsEnabled';
+  static const String _keyAiProvider = 'aiProvider';
 
   static const int defaultBackupMaxCount = 7;
   static const int maxBackupMaxCount = 30;
@@ -158,6 +159,28 @@ class SettingsService {
 
   Future<void> setAiTagSuggestionsEnabled(bool value) async {
     await _prefs.setBool(_keyAiTagSuggestionsEnabled, value);
+  }
+
+  String get aiProvider {
+    final raw = _prefs.getString(_keyAiProvider)?.trim().toLowerCase();
+    switch (raw) {
+      case 'openai':
+      case 'claude':
+      case 'gemini':
+        return raw!;
+      default:
+        return 'gemini';
+    }
+  }
+
+  Future<void> setAiProvider(String value) async {
+    final normalized = value.trim().toLowerCase();
+    final safe = switch (normalized) {
+      'openai' => 'openai',
+      'claude' => 'claude',
+      _ => 'gemini',
+    };
+    await _prefs.setString(_keyAiProvider, safe);
   }
 
   DateTime? _readDateTime(String key) {

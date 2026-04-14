@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 
 typedef EmbeddingGenerator = Future<List<double>> Function(String text);
 
@@ -11,14 +12,17 @@ class SemanticIndexerService {
   SemanticIndexerService({
     required AppDatabase database,
     required ApiKeyStore apiKeyStore,
+    required SettingsService settingsService,
     required EmbeddingGenerator embeddingGenerator,
     this.embeddingModel = 'mock-embedding-v1',
   }) : _database = database,
        _apiKeyStore = apiKeyStore,
+       _settingsService = settingsService,
        _embeddingGenerator = embeddingGenerator;
 
   final AppDatabase _database;
   final ApiKeyStore _apiKeyStore;
+  final SettingsService _settingsService;
   final EmbeddingGenerator _embeddingGenerator;
   final String embeddingModel;
 
@@ -29,7 +33,8 @@ class SemanticIndexerService {
     if (item.type != 'url' || content.isEmpty) {
       return;
     }
-    if (!await _apiKeyStore.hasKey()) {
+    final provider = _settingsService.aiProvider;
+    if (!await _apiKeyStore.hasKeyForProvider(provider)) {
       return;
     }
 
@@ -76,7 +81,9 @@ class SemanticIndexerService {
     const maxLen = 400;
     final chunks = <String>[];
     for (var i = 0; i < normalized.length; i += maxLen) {
-      final end = (i + maxLen < normalized.length) ? i + maxLen : normalized.length;
+      final end = (i + maxLen < normalized.length)
+          ? i + maxLen
+          : normalized.length;
       chunks.add(normalized.substring(i, end));
     }
     return chunks;

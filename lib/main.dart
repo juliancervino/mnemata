@@ -15,7 +15,6 @@ import 'package:mnemata/features/backup/services/network_power_signal_service.da
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
-import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
@@ -45,17 +44,13 @@ Future<void> setupLocator() async {
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SettingsService>(SettingsService(prefs));
   getIt.registerLazySingleton<ApiKeyStore>(ApiKeyStore.new);
-  getIt.registerLazySingleton<AIProviderClient>(
-    () => AIProviderClient(
-      executor: (_) async =>
-          throw const IntelligenceProviderException.unavailable(),
-    ),
-  );
+  getIt.registerLazySingleton<AIProviderClient>(AIProviderClient.new);
   getIt.registerLazySingleton<SummaryService>(
     () => SummaryService(
       database: getIt<AppDatabase>(),
       apiKeyStore: getIt<ApiKeyStore>(),
       providerClient: getIt<AIProviderClient>(),
+      settingsService: getIt<SettingsService>(),
     ),
   );
   getIt.registerLazySingleton<TagSuggestionService>(
@@ -63,12 +58,14 @@ Future<void> setupLocator() async {
       database: getIt<AppDatabase>(),
       apiKeyStore: getIt<ApiKeyStore>(),
       providerClient: getIt<AIProviderClient>(),
+      settingsService: getIt<SettingsService>(),
     ),
   );
   getIt.registerLazySingleton<SemanticIndexerService>(
     () => SemanticIndexerService(
       database: getIt<AppDatabase>(),
       apiKeyStore: getIt<ApiKeyStore>(),
+      settingsService: getIt<SettingsService>(),
       embeddingGenerator: (_) async => const <double>[0.01, 0.02, 0.03],
     ),
   );
@@ -76,6 +73,7 @@ Future<void> setupLocator() async {
     () => SemanticSearchService(
       database: getIt<AppDatabase>(),
       apiKeyStore: getIt<ApiKeyStore>(),
+      settingsService: getIt<SettingsService>(),
     ),
   );
   getIt.registerLazySingleton<AnnotationService>(

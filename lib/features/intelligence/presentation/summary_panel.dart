@@ -21,54 +21,88 @@ class _SummaryPanelState extends State<SummaryPanel> {
   SummaryResult? _result;
 
   @override
+  void initState() {
+    super.initState();
+    _loadSaved();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('AI Summary', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _isLoading ? null : _generate,
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('Generate summary'),
-          ),
-          const SizedBox(height: 12),
-          if (_isLoading) const LinearProgressIndicator(),
-          if (_result != null) ...[
-            if (!_result!.isSuccess)
-              Text(
-                _result!.guidance,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              )
-            else ...[
-              Text('TL;DR', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(_result!.tldr),
-              const SizedBox(height: 10),
-              Text(
-                'Key Points',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              ..._result!.keyPoints.map(
-                (point) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('• $point'),
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('AI Summary', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _isLoading ? null : _generate,
+                  icon: const Icon(Icons.auto_awesome),
+                  label: Text(
+                    _result?.isSuccess == true
+                        ? 'Regenerate summary'
+                        : 'Generate summary',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Why it matters',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(_result!.whyItMatters),
+                if (_result?.isSuccess == true)
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _regenerate,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Force refresh'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_isLoading) const LinearProgressIndicator(),
+            if (_result != null) ...[
+              if (!_result!.isSuccess)
+                Text(
+                  _result!.guidance,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                )
+              else ...[
+                if (_result!.fromCache)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Chip(
+                      avatar: const Icon(Icons.save_outlined, size: 16),
+                      label: const Text('Saved summary'),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                Text('TL;DR', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(_result!.tldr),
+                const SizedBox(height: 10),
+                Text(
+                  'Key Points',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                ..._result!.keyPoints.map(
+                  (point) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $point'),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Why it matters',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(_result!.whyItMatters),
+              ],
             ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -86,6 +120,41 @@ class _SummaryPanelState extends State<SummaryPanel> {
     setState(() {
       _isLoading = false;
       _result = result;
+    });
+  }
+
+  Future<void> _regenerate() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final result = await widget.summaryService.generateSummary(
+      widget.item,
+      forceRefresh: true,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isLoading = false;
+      _result = result;
+    });
+  }
+
+  Future<void> _loadSaved() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final saved = await widget.summaryService.loadSavedSummary(widget.item);
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isLoading = false;
+      _result = saved;
     });
   }
 }

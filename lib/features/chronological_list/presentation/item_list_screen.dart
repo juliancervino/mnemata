@@ -43,6 +43,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   bool _showSearchHistory = false;
   bool _semanticMode = false;
   bool _semanticModeAvailable = false;
+  bool _semanticSettingEnabled = false;
 
   @override
   void initState() {
@@ -59,11 +60,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
   Future<void> _loadSemanticAvailability() async {
     final keyStore = GetIt.instance<ApiKeyStore>();
     final settings = GetIt.instance<SettingsService>();
-    final hasKey = await keyStore.hasKey();
+    final hasKey = await keyStore.hasKeyForProvider(settings.aiProvider);
     if (!mounted) {
       return;
     }
     setState(() {
+      _semanticSettingEnabled = settings.semanticSearchEnabled;
       _semanticModeAvailable = hasKey && settings.semanticSearchEnabled;
       if (!_semanticModeAvailable) {
         _semanticMode = false;
@@ -120,12 +122,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
     });
   }
 
-  Future<void> _confirmBulkDelete(BuildContext context, AppDatabase database) async {
+  Future<void> _confirmBulkDelete(
+    BuildContext context,
+    AppDatabase database,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Items?'),
-        content: Text('Are you sure you want to delete ${_selectedItemIds.length} items?'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedItemIds.length} items?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -146,9 +153,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
         _selectedItemIds.clear();
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Items deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Items deleted')));
       }
     }
   }
@@ -160,13 +167,18 @@ class _ItemListScreenState extends State<ItemListScreen> {
     // Actually, sharing multiple links natively might just be sharing a text block with multiple URLs.
     // Let's build a combined text.
     final itemsStream = await database.watchAllItems().first;
-    final itemsToShare = itemsStream.where((item) => ids.contains(item.id)).toList();
-    
-    final shareLines = itemsToShare.map((item) {
-      if (item.url != null) return item.url!;
-      if (item.title != null) return item.title!;
-      return '';
-    }).where((s) => s.isNotEmpty).join('\n\n');
+    final itemsToShare = itemsStream
+        .where((item) => ids.contains(item.id))
+        .toList();
+
+    final shareLines = itemsToShare
+        .map((item) {
+          if (item.url != null) return item.url!;
+          if (item.title != null) return item.title!;
+          return '';
+        })
+        .where((s) => s.isNotEmpty)
+        .join('\n\n');
 
     if (shareLines.isNotEmpty) {
       await Share.share(shareLines);
@@ -185,9 +197,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         title: const Text('Add URL'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'https://example.com',
-          ),
+          decoration: const InputDecoration(hintText: 'https://example.com'),
           autofocus: true,
           keyboardType: TextInputType.url,
         ),
@@ -232,7 +242,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
           labelIds: _selectedLabelIds.toList(),
         );
       }
-      return database.searchItems(_searchQuery, labelIds: _selectedLabelIds.toList());
+      return database.searchItems(
+        _searchQuery,
+        labelIds: _selectedLabelIds.toList(),
+      );
     }
     if (_isHistoryMode) {
       if (_selectedLabelIds.isNotEmpty) {
@@ -284,11 +297,15 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       decoration: InputDecoration(
                         hintText: 'Search...',
                         hintStyle: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary.withValues(alpha: 0.7),
                         ),
                         border: InputBorder.none,
                       ),
-                      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                       cursorColor: Theme.of(context).colorScheme.onPrimary,
                       onChanged: _updateSearch,
                       onSubmitted: _saveSearchToHistory,
@@ -326,7 +343,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const LabelManagerScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const LabelManagerScreen(),
+                        ),
                       );
                     },
                   ),
@@ -358,32 +377,47 @@ class _ItemListScreenState extends State<ItemListScreen> {
             ),
       bottomNavigationBar: _isMultiSelectMode
           ? BottomAppBar(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    label: const Text('Delete', style: TextStyle(color: Colors.red)),
-                    onPressed: _selectedItemIds.isEmpty ? null : () => _confirmBulkDelete(context, database),
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.label),
-                    label: const Text('Tags'),
-                    onPressed: _selectedItemIds.isEmpty ? null : () {
-                      BulkLabelSelectorSheet.show(context, _selectedItemIds.toList()).then((_) {
-                        setState(() {
-                          _isMultiSelectMode = false;
-                          _selectedItemIds.clear();
-                        });
-                      });
-                    },
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.share),
-                    label: const Text('Share'),
-                    onPressed: _selectedItemIds.isEmpty ? null : () => _bulkShare(database),
-                  ),
-                ],
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                      onPressed: _selectedItemIds.isEmpty
+                          ? null
+                          : () => _confirmBulkDelete(context, database),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.label),
+                      label: const Text('Tags'),
+                      onPressed: _selectedItemIds.isEmpty
+                          ? null
+                          : () {
+                              BulkLabelSelectorSheet.show(
+                                context,
+                                _selectedItemIds.toList(),
+                              ).then((_) {
+                                setState(() {
+                                  _isMultiSelectMode = false;
+                                  _selectedItemIds.clear();
+                                });
+                              });
+                            },
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.share),
+                      label: const Text('Share'),
+                      onPressed: _selectedItemIds.isEmpty
+                          ? null
+                          : () => _bulkShare(database),
+                    ),
+                  ],
+                ),
               ),
             )
           : null,
@@ -393,9 +427,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
             Column(
               children: [
                 _buildQuickFilterBar(context, database),
-                if (_isSearching && _searchQuery.isNotEmpty)
+                if (_isSearching && _semanticSettingEnabled)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         SemanticModeToggle(
@@ -412,7 +449,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                             child: Padding(
                               padding: EdgeInsets.only(left: 12),
                               child: Text(
-                                'Semantic mode unavailable without API key.',
+                                'Set API key + enable semantic search in Settings.',
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -425,92 +462,99 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     stream: _getStream(database),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                          const SizedBox(height: 16),
-                          Text('Error: ${snapshot.error}'),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final items = snapshot.data ?? [];
-
-                  if (items.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.inventory_2_outlined,
-                            size: 64,
-                            color: Theme.of(context).disabledColor,
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text('Error: ${snapshot.error}'),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No items found.',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                        );
+                      }
 
-                  return _buildItemsList(database, items);
-                },
-              ),
+                      final items = snapshot.data ?? [];
+
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inventory_2_outlined,
+                                size: 64,
+                                color: Theme.of(context).disabledColor,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No items found.',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return _buildItemsList(database, items);
+                    },
+                  ),
+                ),
+              ],
             ),
+            if (_showSearchHistory && _searchHistory.isNotEmpty)
+              Positioned(
+                top: 60,
+                left: 0,
+                right: 0,
+                child: Material(
+                  elevation: 4,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _searchHistory.length,
+                    itemBuilder: (context, index) {
+                      final historyItem = _searchHistory[index];
+                      return ListTile(
+                        leading: const Icon(Icons.history),
+                        title: Text(historyItem),
+                        onTap: () {
+                          _searchController.text = historyItem;
+                          _updateSearch(historyItem);
+                          _saveSearchToHistory(historyItem);
+                          FocusScope.of(context).unfocus();
+                        },
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            setState(() {
+                              _searchHistory.removeAt(index);
+                            });
+                            await prefs.setStringList(
+                              'search_history',
+                              _searchHistory,
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
           ],
         ),
-        if (_showSearchHistory && _searchHistory.isNotEmpty)
-          Positioned(
-            top: 60,
-            left: 0,
-            right: 0,
-            child: Material(
-              elevation: 4,
-              color: Theme.of(context).colorScheme.surface,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _searchHistory.length,
-                itemBuilder: (context, index) {
-                  final historyItem = _searchHistory[index];
-                  return ListTile(
-                    leading: const Icon(Icons.history),
-                    title: Text(historyItem),
-                    onTap: () {
-                      _searchController.text = historyItem;
-                      _updateSearch(historyItem);
-                      _saveSearchToHistory(historyItem);
-                      FocusScope.of(context).unfocus();
-                    },
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        setState(() {
-                          _searchHistory.removeAt(index);
-                        });
-                        await prefs.setStringList('search_history', _searchHistory);
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-      ],
-    ),
-  ),
-);
-}
+      ),
+    );
+  }
 
   Widget _buildQuickFilterBar(BuildContext context, AppDatabase database) {
     return Container(
@@ -619,7 +663,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
               isSelected: _selectedItemIds.contains(item.id),
               isMultiSelectMode: _isMultiSelectMode,
               onLongPress: () => _enterMultiSelectMode(item.id),
-              onTap: () => _isMultiSelectMode ? _toggleSelection(item.id) : null,
+              onTap: () =>
+                  _isMultiSelectMode ? _toggleSelection(item.id) : null,
             );
           },
         );
@@ -664,80 +709,89 @@ class _ItemListScreenState extends State<ItemListScreen> {
               ),
             ),
             ListTile(
-            leading: const Icon(Icons.all_inbox),
-            title: const Text('All Items'),
-            selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
-            onTap: () {
-              setState(() {
-                _selectedLabelIds.clear();
-                _isHistoryMode = false;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Recently Opened'),
-            selected: _isHistoryMode,
-            onTap: () {
-              setState(() {
-                _selectedLabelIds.clear();
-                _isHistoryMode = true;
-              });
-              Navigator.pop(context);
-            },
-          ),
-          const Divider(),
-          Expanded(
-            child: StreamBuilder<List<Label>>(
-              stream: database.watchAllLabels(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const SizedBox.shrink();
+              leading: const Icon(Icons.all_inbox),
+              title: const Text('All Items'),
+              selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
+              onTap: () {
+                setState(() {
+                  _selectedLabelIds.clear();
+                  _isHistoryMode = false;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Recently Opened'),
+              selected: _isHistoryMode,
+              onTap: () {
+                setState(() {
+                  _selectedLabelIds.clear();
+                  _isHistoryMode = true;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            Expanded(
+              child: StreamBuilder<List<Label>>(
+                stream: database.watchAllLabels(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox.shrink();
 
-                final labels = snapshot.data!;
+                  final labels = snapshot.data!;
 
-                return ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    ...labels.map((l) => _buildLabelTile(context, l)),
-                  ],
+                  return ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          'Tags',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ...labels.map((l) => _buildLabelTile(context, l)),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+                await _loadSemanticAvailability();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('About'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AboutScreen()),
                 );
               },
             ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Settings'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AboutScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildLabelTile(BuildContext context, Label label) {
     final isSelected = _selectedLabelIds.contains(label.id);
@@ -786,23 +840,32 @@ class _ItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isUrl = item.type == 'url';
-    final String title = item.title ?? (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
-    
+    final String title =
+        item.title ??
+        (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
+
     String subtitle = '';
     if (isUrl && item.url != null) {
       try {
         final uri = Uri.parse(item.url!);
         String host = uri.host.replaceFirst('www.', '');
-        
+
         // Archive.today / archive.ph logic: extract original domain
-        if (host.startsWith('archive.') || host == 'archive.today' || host == 'archive.ph' || host == 'archive.is' || host == 'archive.li' || host == 'archive.vn') {
+        if (host.startsWith('archive.') ||
+            host == 'archive.today' ||
+            host == 'archive.ph' ||
+            host == 'archive.is' ||
+            host == 'archive.li' ||
+            host == 'archive.vn') {
           final segments = uri.pathSegments;
           if (segments.isNotEmpty) {
             // Usually the last segment or the one after the timestamp is the original URL
             for (final segment in segments.reversed) {
               if (segment.contains('.')) {
                 try {
-                  final potentialUri = Uri.parse(segment.startsWith('http') ? segment : 'https://$segment');
+                  final potentialUri = Uri.parse(
+                    segment.startsWith('http') ? segment : 'https://$segment',
+                  );
                   if (potentialUri.host.isNotEmpty) {
                     host = potentialUri.host.replaceFirst('www.', '');
                     break;
@@ -835,7 +898,9 @@ class _ItemTile extends StatelessWidget {
               if (context.mounted) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+                  MaterialPageRoute(
+                    builder: (context) => ItemEditorScreen(item: item),
+                  ),
                 );
               }
             });
@@ -850,7 +915,9 @@ class _ItemTile extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ItemEditorScreen(item: item)),
+                    MaterialPageRoute(
+                      builder: (context) => ItemEditorScreen(item: item),
+                    ),
                   );
                 }
               });
@@ -899,13 +966,18 @@ class _ItemTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         elevation: isSelected ? 4 : 0.5,
         color: isSelected
-            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
+            ? Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.5)
             : null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: isSelected 
-            ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
-            : BorderSide(color: Colors.grey.shade200),
+          side: isSelected
+              ? BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                )
+              : BorderSide(color: Colors.grey.shade200),
         ),
         child: InkWell(
           onLongPress: isMultiSelectMode ? null : onLongPress,
@@ -916,10 +988,7 @@ class _ItemTile extends StatelessWidget {
             child: Row(
               children: [
                 if (isMultiSelectMode)
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => onTap(),
-                  )
+                  Checkbox(value: isSelected, onChanged: (_) => onTap())
                 else
                   item.thumbnailUrl != null
                       ? ClipRRect(
@@ -931,8 +1000,10 @@ class _ItemTile extends StatelessWidget {
                             fit: BoxFit.cover,
                             memCacheWidth: 100,
                             memCacheHeight: 100,
-                            placeholder: (context, url) => _buildThumbnailPlaceholder(context, size: 36),
-                            errorWidget: (context, url, error) => _buildThumbnailFallback(context, size: 36),
+                            placeholder: (context, url) =>
+                                _buildThumbnailPlaceholder(context, size: 36),
+                            errorWidget: (context, url, error) =>
+                                _buildThumbnailFallback(context, size: 36),
                           ),
                         )
                       : _buildThumbnailFallback(context, size: 36),
@@ -946,7 +1017,10 @@ class _ItemTile extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Row(
@@ -961,10 +1035,18 @@ class _ItemTile extends StatelessWidget {
                               ),
                             ),
                           if (subtitle.isNotEmpty)
-                            const Text(' • ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            const Text(
+                              ' • ',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
                           Text(
                             dateStr,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(fontSize: 11),
                           ),
                         ],
                       ),
@@ -993,7 +1075,11 @@ class _ItemTile extends StatelessWidget {
                     ),
                   ReorderableDragStartListener(
                     index: index,
-                    child: const Icon(Icons.drag_handle, color: Colors.grey, size: 20),
+                    child: const Icon(
+                      Icons.drag_handle,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
                   ),
                 ],
               ],
@@ -1041,9 +1127,7 @@ class _ItemTile extends StatelessWidget {
         if (context.mounted) {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => ReaderScreen(item: item),
-            ),
+            MaterialPageRoute(builder: (context) => ReaderScreen(item: item)),
           );
         }
       } else if (item.type == 'file' && item.filePath != null) {

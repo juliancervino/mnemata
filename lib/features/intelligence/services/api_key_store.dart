@@ -50,23 +50,47 @@ class ApiKeyStore {
 
   static const String intelligenceApiKeyStorageKey =
       'mnemata.intelligence.apiKey';
+  static const String _intelligenceApiKeyByProviderPrefix =
+      'mnemata.intelligence.apiKey.';
 
   final SecureKeyValueStore _secureStore;
 
   Future<void> saveKey(String apiKey) async {
+    await saveKeyForProvider(provider: 'gemini', apiKey: apiKey);
+  }
+
+  Future<void> saveKeyForProvider({
+    required String provider,
+    required String apiKey,
+  }) async {
     final normalized = apiKey.trim();
     if (normalized.isEmpty) {
-      await clearKey();
+      await clearKeyForProvider(provider: provider);
       return;
     }
-    await _secureStore.write(
-      key: intelligenceApiKeyStorageKey,
-      value: normalized,
-    );
+
+    final key = _providerStorageKey(provider);
+    await _secureStore.write(key: key, value: normalized);
+
+    if (provider.trim().toLowerCase() == 'gemini') {
+      await _secureStore.write(
+        key: intelligenceApiKeyStorageKey,
+        value: normalized,
+      );
+    }
   }
 
   Future<String?> readKey() async {
-    final value = await _secureStore.read(intelligenceApiKeyStorageKey);
+    return readKeyForProvider('gemini');
+  }
+
+  Future<String?> readKeyForProvider(String provider) async {
+    final key = _providerStorageKey(provider);
+    String? value = await _secureStore.read(key);
+    if ((value == null || value.trim().isEmpty) &&
+        provider.trim().toLowerCase() == 'gemini') {
+      value = await _secureStore.read(intelligenceApiKeyStorageKey);
+    }
     if (value == null) {
       return null;
     }
@@ -75,11 +99,23 @@ class ApiKeyStore {
   }
 
   Future<void> clearKey() {
-    return _secureStore.delete(intelligenceApiKeyStorageKey);
+    return clearKeyForProvider(provider: 'gemini');
+  }
+
+  Future<void> clearKeyForProvider({required String provider}) async {
+    final key = _providerStorageKey(provider);
+    await _secureStore.delete(key);
+    if (provider.trim().toLowerCase() == 'gemini') {
+      await _secureStore.delete(intelligenceApiKeyStorageKey);
+    }
   }
 
   Future<bool> hasKey() async {
-    return (await readKey()) != null;
+    return hasKeyForProvider('gemini');
+  }
+
+  Future<bool> hasKeyForProvider(String provider) async {
+    return (await readKeyForProvider(provider)) != null;
   }
 
   Future<IntelligenceCapabilityStatus> readCapabilityStatus() async {
@@ -99,5 +135,13 @@ class ApiKeyStore {
       tagSuggestionAvailable: true,
       reason: IntelligenceCapabilityReason.available,
     );
+  }
+
+  String _providerStorageKey(String provider) {
+    final normalized = provider.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return '${_intelligenceApiKeyByProviderPrefix}gemini';
+    }
+    return '$_intelligenceApiKeyByProviderPrefix$normalized';
   }
 }

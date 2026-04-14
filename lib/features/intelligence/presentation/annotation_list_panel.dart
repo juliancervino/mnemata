@@ -8,11 +8,13 @@ class AnnotationListPanel extends StatelessWidget {
     required this.itemId,
     required this.service,
     this.onNavigate,
+    this.onChanged,
   });
 
   final int itemId;
   final AnnotationService service;
   final ValueChanged<AnnotationRecord>? onNavigate;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,11 @@ class AnnotationListPanel extends StatelessWidget {
               .map(
                 (record) => ListTile(
                   dense: true,
-                  title: Text(record.quoteText, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    record.quoteText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: record.note == null || record.note!.isEmpty
                       ? const Text('Highlight only')
                       : Text(record.note!),
@@ -41,6 +47,7 @@ class AnnotationListPanel extends StatelessWidget {
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () async {
                       await service.deleteAnnotation(record.id);
+                      onChanged?.call();
                       if (!context.mounted) {
                         return;
                       }

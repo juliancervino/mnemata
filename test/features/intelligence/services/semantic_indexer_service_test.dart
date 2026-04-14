@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 
 class _Store implements SecureKeyValueStore {
@@ -27,6 +29,7 @@ class _Store implements SecureKeyValueStore {
 void main() {
   late AppDatabase database;
   late ApiKeyStore keyStore;
+  late SettingsService settingsService;
   late MnemataItem item;
 
   setUpAll(() {
@@ -41,17 +44,25 @@ void main() {
   setUp(() async {
     database = AppDatabase.forTesting(NativeDatabase.memory());
     keyStore = ApiKeyStore(secureStore: _Store());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    settingsService = SettingsService(prefs);
+    await settingsService.setAiProvider('gemini');
 
     final itemId = await database.insertItem(
       MnemataItemsCompanion.insert(
         title: const drift.Value('Semantic article'),
         url: const drift.Value('https://example.com/article'),
-        content: const drift.Value('Automobile research with concept relationships.'),
+        content: const drift.Value(
+          'Automobile research with concept relationships.',
+        ),
         type: 'url',
         createdAt: DateTime.now(),
       ),
     );
-    item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
+    item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == itemId,
+    );
   });
 
   tearDown(() async {
@@ -64,6 +75,7 @@ void main() {
     final service = SemanticIndexerService(
       database: database,
       apiKeyStore: keyStore,
+      settingsService: settingsService,
       embeddingGenerator: (text) async {
         calls += 1;
         return <double>[text.length / 100, 0.2, 0.3];

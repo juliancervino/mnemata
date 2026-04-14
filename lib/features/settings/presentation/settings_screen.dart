@@ -43,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _aiSummaryEnabled;
   late bool _semanticSearchEnabled;
   late bool _aiTagSuggestionsEnabled;
+  late String _selectedAiProvider;
   late final SettingsService _settingsService;
   late final ApiKeyStore _apiKeyStore;
   bool _hasApiKey = false;
@@ -64,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _aiSummaryEnabled = _settingsService.aiSummaryEnabled;
     _semanticSearchEnabled = _settingsService.semanticSearchEnabled;
     _aiTagSuggestionsEnabled = _settingsService.aiTagSuggestionsEnabled;
+    _selectedAiProvider = _settingsService.aiProvider;
     _apiKeyStore = widget.apiKeyStore ?? GetIt.instance<ApiKeyStore>();
     _loadApiKeyState();
 
@@ -194,12 +196,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           ListTile(
+            leading: const Icon(Icons.hub_outlined),
+            title: const Text('LLM provider'),
+            subtitle: const Text(
+              'Choose which provider your API key and AI calls will use.',
+            ),
+            trailing: DropdownButton<String>(
+              value: _selectedAiProvider,
+              items: const [
+                DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
+                DropdownMenuItem(value: 'openai', child: Text('ChatGPT')),
+                DropdownMenuItem(value: 'claude', child: Text('Claude')),
+              ],
+              onChanged: (value) async {
+                if (value == null || value == _selectedAiProvider) {
+                  return;
+                }
+                await _settingsService.setAiProvider(value);
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _selectedAiProvider = value;
+                });
+                await _loadApiKeyState();
+              },
+            ),
+          ),
+          ListTile(
             leading: const Icon(Icons.key_outlined),
             title: const Text('LLM provider API key'),
             subtitle: Text(
               _hasApiKey
-                  ? 'Configured in secure storage'
-                  : 'Required for AI summaries and semantic search',
+                  ? 'Configured for ${_providerDisplayName(_selectedAiProvider)} in secure storage'
+                  : 'Required for AI summaries, semantic search, and tag suggestions',
             ),
             trailing: TextButton(
               onPressed: _hasApiKey ? _removeApiKey : _promptForApiKey,
@@ -809,7 +839,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadApiKeyState() async {
-    final hasKey = await _apiKeyStore.hasKey();
+    final hasKey = await _apiKeyStore.hasKeyForProvider(_selectedAiProvider);
     if (!mounted) {
       return;
     }
@@ -823,7 +853,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Set provider API key'),
+        title: Text('Set ${_providerDisplayName(_selectedAiProvider)} API key'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -847,18 +877,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    await _apiKeyStore.saveKey(value);
+    await _apiKeyStore.saveKeyForProvider(
+      provider: _selectedAiProvider,
+      apiKey: value,
+    );
     await _loadApiKeyState();
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('API key saved to secure storage.')),
+      SnackBar(
+        content: Text(
+          'API key for ${_providerDisplayName(_selectedAiProvider)} saved to secure storage.',
+        ),
+      ),
     );
   }
 
   Future<void> _removeApiKey() async {
-    await _apiKeyStore.clearKey();
+    await _apiKeyStore.clearKeyForProvider(provider: _selectedAiProvider);
     await _settingsService.setAiSummaryEnabled(false);
     await _settingsService.setSemanticSearchEnabled(false);
     await _settingsService.setAiTagSuggestionsEnabled(false);
@@ -872,9 +909,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _aiTagSuggestionsEnabled = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'API key removed. Intelligence features remain disabled until key is configured again.',
+          '${_providerDisplayName(_selectedAiProvider)} API key removed. Intelligence features remain disabled until key is configured again.',
         ),
       ),
     );
@@ -889,9 +926,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Configure an API key in Intelligence settings to enable AI summaries and semantic search.',
+            'Configure a ${_providerDisplayName(_selectedAiProvider)} API key to enable intelligence features.',
           ),
         ),
       );
@@ -899,5 +936,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     await currentSetter(value);
+  }
+
+  String _providerDisplayName(String provider) {
+    switch (provider) {
+      case 'openai':
+        return 'ChatGPT';
+      case 'claude':
+        return 'Claude';
+      case 'gemini':
+      default:
+        return 'Gemini';
+    }
   }
 }

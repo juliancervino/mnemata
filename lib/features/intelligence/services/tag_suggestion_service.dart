@@ -2,6 +2,7 @@ import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 
 enum TagSuggestionStatus { success, unsupported, error }
 
@@ -26,22 +27,25 @@ class TagSuggestionService {
     required AppDatabase database,
     required ApiKeyStore apiKeyStore,
     required AIProviderClient providerClient,
+    required SettingsService settingsService,
   }) : _database = database,
        _apiKeyStore = apiKeyStore,
-       _providerClient = providerClient;
+       _providerClient = providerClient,
+       _settingsService = settingsService;
 
   final AppDatabase _database;
   final ApiKeyStore _apiKeyStore;
   final AIProviderClient _providerClient;
+  final SettingsService _settingsService;
 
   Future<TagSuggestionResult> suggestForItem(MnemataItem item) async {
-    final apiKey = await _apiKeyStore.readKey();
+    final provider = _settingsService.aiProvider;
+    final apiKey = await _apiKeyStore.readKeyForProvider(provider);
     if (apiKey == null) {
-      return const TagSuggestionResult(
+      return TagSuggestionResult(
         status: TagSuggestionStatus.error,
         errorCode: IntelligenceErrorCode.missingApiKey,
-        guidance:
-            'Add your provider API key in Settings > Intelligence to enable AI suggestions.',
+        guidance: 'Add your $provider API key in Settings > Intelligence.',
       );
     }
 
@@ -65,13 +69,16 @@ class TagSuggestionService {
       ..writeln('Suggest existing labels only from this allowed set:')
       ..writeln(labels.map((label) => label.name).join(', '))
       ..writeln('Title: ${item.title ?? ''}')
-      ..writeln('Content excerpt: ${content.length > 1200 ? content.substring(0, 1200) : content}')
+      ..writeln(
+        'Content excerpt: ${content.length > 1200 ? content.substring(0, 1200) : content}',
+      )
       ..writeln('Return JSON: {"tagNames": ["name1", "name2"]}');
 
     try {
       final response = await _providerClient.runPrompt(
         apiKey: apiKey,
         prompt: prompt.toString(),
+        provider: parseProviderType(provider),
       );
       final dynamic raw = response['tagNames'];
       final requestedNames = raw is List

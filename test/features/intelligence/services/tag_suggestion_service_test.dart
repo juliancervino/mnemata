@@ -9,6 +9,8 @@ import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart';
 
 class _Store implements SecureKeyValueStore {
@@ -29,6 +31,7 @@ class _Store implements SecureKeyValueStore {
 void main() {
   late AppDatabase database;
   late ApiKeyStore keyStore;
+  late SettingsService settingsService;
   late MnemataItem item;
 
   setUpAll(() {
@@ -43,6 +46,10 @@ void main() {
   setUp(() async {
     database = AppDatabase.forTesting(NativeDatabase.memory());
     keyStore = ApiKeyStore(secureStore: _Store());
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    settingsService = SettingsService(prefs);
+    await settingsService.setAiProvider('gemini');
 
     await database.insertLabel(
       LabelsCompanion.insert(name: 'science', isFolder: const Value(false)),
@@ -55,13 +62,17 @@ void main() {
       MnemataItemsCompanion.insert(
         title: const Value('A history of electric cars'),
         url: const Value('https://example.com/cars'),
-        content: const Value('Automobile batteries and electric vehicle trends.'),
+        content: const Value(
+          'Automobile batteries and electric vehicle trends.',
+        ),
         type: 'url',
         createdAt: DateTime.now(),
       ),
     );
 
-    item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
+    item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == itemId,
+    );
   });
 
   tearDown(() async {
@@ -74,7 +85,9 @@ void main() {
     final client = AIProviderClient(
       executor: (request) async {
         prompt = request.prompt;
-        return <String, dynamic>{'tagNames': <String>['science']};
+        return <String, dynamic>{
+          'tagNames': <String>['science'],
+        };
       },
     );
 
@@ -82,6 +95,7 @@ void main() {
       database: database,
       apiKeyStore: keyStore,
       providerClient: client,
+      settingsService: settingsService,
     );
 
     await service.suggestForItem(item);
@@ -104,6 +118,7 @@ void main() {
       database: database,
       apiKeyStore: keyStore,
       providerClient: client,
+      settingsService: settingsService,
     );
 
     final result = await service.suggestForItem(item);
@@ -122,6 +137,7 @@ void main() {
       database: database,
       apiKeyStore: keyStore,
       providerClient: client,
+      settingsService: settingsService,
     );
 
     final result = await service.suggestForItem(item);

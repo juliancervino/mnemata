@@ -2,13 +2,9 @@ import 'dart:convert';
 
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 
-enum SemanticFallbackReason {
-  none,
-  missingApiKey,
-  noSemanticIndex,
-  weakRecall,
-}
+enum SemanticFallbackReason { none, missingApiKey, noSemanticIndex, weakRecall }
 
 class SemanticSearchResult {
   const SemanticSearchResult({
@@ -26,27 +22,35 @@ class SemanticSearchService {
   SemanticSearchService({
     required AppDatabase database,
     required ApiKeyStore apiKeyStore,
+    required SettingsService settingsService,
     this.minimumScore = 0.12,
   }) : _database = database,
-       _apiKeyStore = apiKeyStore;
+       _apiKeyStore = apiKeyStore,
+       _settingsService = settingsService;
 
   final AppDatabase _database;
   final ApiKeyStore _apiKeyStore;
+  final SettingsService _settingsService;
   final double minimumScore;
 
   Stream<List<MnemataItem>> searchAsStream(
     String query, {
     List<int> labelIds = const <int>[],
   }) {
-    return Stream.fromFuture(search(query, labelIds: labelIds)).map((r) => r.items);
+    return Stream.fromFuture(
+      search(query, labelIds: labelIds),
+    ).map((r) => r.items);
   }
 
   Future<SemanticSearchResult> search(
     String query, {
     List<int> labelIds = const <int>[],
   }) async {
-    final keywordItems = await _database.searchItems(query, labelIds: labelIds).first;
-    if (!await _apiKeyStore.hasKey()) {
+    final keywordItems = await _database
+        .searchItems(query, labelIds: labelIds)
+        .first;
+    final provider = _settingsService.aiProvider;
+    if (!await _apiKeyStore.hasKeyForProvider(provider)) {
       return SemanticSearchResult(
         items: keywordItems,
         fallbackReason: SemanticFallbackReason.missingApiKey,
@@ -63,7 +67,11 @@ class SemanticSearchService {
 
     final scores = <int, double>{};
     for (final chunk in chunks) {
-      final score = _semanticScore(query, chunk.chunkText, chunk.embeddingVectorJson);
+      final score = _semanticScore(
+        query,
+        chunk.chunkText,
+        chunk.embeddingVectorJson,
+      );
       if (score <= 0) {
         continue;
       }
@@ -141,7 +149,10 @@ class SemanticSearchService {
   }
 
   Set<String> _tokenize(String value) {
-    final normalized = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9\s]'), ' ');
+    final normalized = value.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9\s]'),
+      ' ',
+    );
     return normalized
         .split(RegExp(r'\s+'))
         .map((token) => token.trim())

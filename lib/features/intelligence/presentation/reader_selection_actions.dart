@@ -6,27 +6,33 @@ import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 class ReaderSelectionActions {
   ReaderSelectionActions._();
 
-  static Future<void> promptAddAnnotation(
+  static Future<void> promptAddAnnotationFromSelection(
     BuildContext context, {
     required AnnotationService service,
     required int itemId,
+    required String selectedText,
+    required int selectionStart,
+    required int selectionEnd,
   }) async {
-    final quoteController = TextEditingController();
     final noteController = TextEditingController();
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add highlight or note'),
+        title: const Text('Add note to highlight (optional)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: quoteController,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Quoted text',
-                hintText: 'Paste selected text from the article',
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.yellowAccent.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                selectedText,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(height: 8),
@@ -34,9 +40,7 @@ class ReaderSelectionActions {
               controller: noteController,
               minLines: 1,
               maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Note (optional)',
-              ),
+              decoration: const InputDecoration(labelText: 'Note (optional)'),
             ),
           ],
         ),
@@ -57,13 +61,8 @@ class ReaderSelectionActions {
       return;
     }
 
-    final quote = quoteController.text.trim();
-    if (quote.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quoted text is required.')),
-        );
-      }
+    final quote = selectedText.trim();
+    if (quote.isEmpty || selectionEnd <= selectionStart) {
       return;
     }
 
@@ -71,17 +70,19 @@ class ReaderSelectionActions {
       itemId: itemId,
       quoteText: quote,
       anchorJson: jsonEncode(<String, dynamic>{
-        'start': 0,
-        'end': quote.length,
+        'start': selectionStart,
+        'end': selectionEnd,
       }),
-      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+      note: noteController.text.trim().isEmpty
+          ? null
+          : noteController.text.trim(),
     );
 
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Annotation saved.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Annotation saved.')));
   }
 }
