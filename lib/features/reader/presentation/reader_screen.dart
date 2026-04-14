@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
+import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
+import 'package:mnemata/features/intelligence/presentation/tag_suggestion_sheet.dart';
+import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
+import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 
@@ -47,6 +52,31 @@ class ReaderScreen extends StatelessWidget {
                 isScrollControlled: true,
                 builder: (_) =>
                     SummaryPanel(item: item, summaryService: summaryService),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.label_outline),
+            tooltip: 'AI Tag Suggestions',
+            onPressed: () {
+              final suggestionService = GetIt.instance<TagSuggestionService>();
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) =>
+                    TagSuggestionSheet(item: item, service: suggestionService),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.highlight_alt),
+            tooltip: 'Add highlight or note',
+            onPressed: () {
+              final annotationService = GetIt.instance<AnnotationService>();
+              ReaderSelectionActions.promptAddAnnotation(
+                context,
+                service: annotationService,
+                itemId: item.id,
               );
             },
           ),
@@ -167,6 +197,17 @@ class ReaderScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                       ],
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text('Highlights & Notes'),
+                        children: [
+                          AnnotationListPanel(
+                            itemId: item.id,
+                            service: GetIt.instance<AnnotationService>(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       const Divider(),
                       const SizedBox(height: 16),
                       HtmlWidget(

@@ -155,11 +155,28 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<int> deleteItem(int id) {
-    return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
+    return transaction(() async {
+      await (delete(annotationRecords)..where((t) => t.itemId.equals(id))).go();
+      await (delete(semanticChunks)..where((t) => t.itemId.equals(id))).go();
+      await (delete(semanticIndexStates)..where((t) => t.itemId.equals(id))).go();
+      await (delete(summaryCaches)..where((t) => t.itemId.equals(id))).go();
+      await (delete(itemLabels)..where((t) => t.itemId.equals(id))).go();
+      return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   Future<int> deleteItems(List<int> ids) {
-    return (delete(mnemataItems)..where((t) => t.id.isIn(ids))).go();
+    if (ids.isEmpty) {
+      return Future<int>.value(0);
+    }
+    return transaction(() async {
+      await (delete(annotationRecords)..where((t) => t.itemId.isIn(ids))).go();
+      await (delete(semanticChunks)..where((t) => t.itemId.isIn(ids))).go();
+      await (delete(semanticIndexStates)..where((t) => t.itemId.isIn(ids))).go();
+      await (delete(summaryCaches)..where((t) => t.itemId.isIn(ids))).go();
+      await (delete(itemLabels)..where((t) => t.itemId.isIn(ids))).go();
+      return (delete(mnemataItems)..where((t) => t.id.isIn(ids))).go();
+    });
   }
 
   Future<void> updateItemContent(int id, String content, String? title, String? thumbnailUrl) {
@@ -413,6 +430,54 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
+  Future<List<SemanticChunk>> listAllSemanticChunks() {
+    return (select(semanticChunks)
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.itemId),
+            (t) => OrderingTerm(expression: t.chunkIndex),
+          ]))
+        .get();
+  }
+
+  Future<SemanticIndexState?> readSemanticIndexState(int itemId) {
+    return (select(semanticIndexStates)..where((t) => t.itemId.equals(itemId)))
+        .getSingleOrNull();
+  }
+
+  Future<List<MnemataItem>> getItemsByIds(List<int> itemIds) async {
+    if (itemIds.isEmpty) {
+      return const <MnemataItem>[];
+    }
+
+    final rows = await (select(mnemataItems)
+          ..where((t) => t.id.isIn(itemIds)))
+        .get();
+    final byId = <int, MnemataItem>{for (final row in rows) row.id: row};
+    return itemIds
+        .where(byId.containsKey)
+        .map((id) => byId[id]!)
+        .toList(growable: false);
+  }
+
+  Future<List<Label>> getLabelsByNames(List<String> names) async {
+    if (names.isEmpty) {
+      return const <Label>[];
+    }
+
+    final normalized = names
+        .map((name) => name.trim().toLowerCase())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    if (normalized.isEmpty) {
+      return const <Label>[];
+    }
+
+    final allLabels = await watchAllLabels().first;
+    return allLabels
+        .where((label) => normalized.contains(label.name.trim().toLowerCase()))
+        .toList(growable: false);
+  }
+
   Future<int> insertAnnotation({
     required int itemId,
     required String quoteText,
@@ -435,6 +500,29 @@ class AppDatabase extends _$AppDatabase {
           ..where((t) => t.itemId.equals(itemId))
           ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
         .get();
+  }
+
+  Future<int> updateAnnotation({
+    required int annotationId,
+    required String quoteText,
+    required String anchorJson,
+    String? note,
+  }) {
+    return (update(annotationRecords)
+          ..where((t) => t.id.equals(annotationId)))
+        .write(
+          AnnotationRecordsCompanion(
+            quoteText: Value(quoteText),
+            anchorJson: Value(anchorJson),
+            note: Value(note),
+            updatedAt: Value(DateTime.now().toUtc()),
+          ),
+        );
+  }
+
+  Future<int> deleteAnnotation(int annotationId) {
+    return (delete(annotationRecords)..where((t) => t.id.equals(annotationId)))
+        .go();
   }
 
   Stream<List<MnemataItem>> watchItemsByMultipleLabels(List<int> labelIds) {

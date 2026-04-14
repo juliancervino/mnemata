@@ -17,8 +17,12 @@ import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
+import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
+import 'package:mnemata/features/intelligence/services/semantic_search_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
+import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
 
@@ -53,6 +57,29 @@ Future<void> setupLocator() async {
       apiKeyStore: getIt<ApiKeyStore>(),
       providerClient: getIt<AIProviderClient>(),
     ),
+  );
+  getIt.registerLazySingleton<TagSuggestionService>(
+    () => TagSuggestionService(
+      database: getIt<AppDatabase>(),
+      apiKeyStore: getIt<ApiKeyStore>(),
+      providerClient: getIt<AIProviderClient>(),
+    ),
+  );
+  getIt.registerLazySingleton<SemanticIndexerService>(
+    () => SemanticIndexerService(
+      database: getIt<AppDatabase>(),
+      apiKeyStore: getIt<ApiKeyStore>(),
+      embeddingGenerator: (_) async => const <double>[0.01, 0.02, 0.03],
+    ),
+  );
+  getIt.registerLazySingleton<SemanticSearchService>(
+    () => SemanticSearchService(
+      database: getIt<AppDatabase>(),
+      apiKeyStore: getIt<ApiKeyStore>(),
+    ),
+  );
+  getIt.registerLazySingleton<AnnotationService>(
+    () => AnnotationService(database: getIt<AppDatabase>()),
   );
 
   getIt.registerLazySingleton<BackupStorageService>(BackupStorageService.new);

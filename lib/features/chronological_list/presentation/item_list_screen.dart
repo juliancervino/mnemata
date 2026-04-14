@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -6,11 +8,15 @@ import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
+import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
+import 'package:mnemata/features/intelligence/services/api_key_store.dart';
+import 'package:mnemata/features/intelligence/services/semantic_search_service.dart';
 import 'package:mnemata/features/organization/presentation/label_manager_screen.dart';
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
 import 'package:mnemata/features/settings/presentation/settings_screen.dart';
 import 'package:mnemata/features/settings/presentation/about_screen.dart';
+import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
@@ -35,15 +41,33 @@ class _ItemListScreenState extends State<ItemListScreen> {
   final Set<int> _selectedItemIds = {};
   List<String> _searchHistory = [];
   bool _showSearchHistory = false;
+  bool _semanticMode = false;
+  bool _semanticModeAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _loadSearchHistory();
+    unawaited(_loadSemanticAvailability());
     _searchFocusNode.addListener(() {
       setState(() {
         _showSearchHistory = _searchFocusNode.hasFocus;
       });
+    });
+  }
+
+  Future<void> _loadSemanticAvailability() async {
+    final keyStore = GetIt.instance<ApiKeyStore>();
+    final settings = GetIt.instance<SettingsService>();
+    final hasKey = await keyStore.hasKey();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _semanticModeAvailable = hasKey && settings.semanticSearchEnabled;
+      if (!_semanticModeAvailable) {
+        _semanticMode = false;
+      }
     });
   }
 
@@ -201,6 +225,13 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   Stream<List<MnemataItem>> _getStream(AppDatabase database) {
     if (_searchQuery.isNotEmpty) {
+      if (_semanticMode && _semanticModeAvailable) {
+        final semanticSearch = GetIt.instance<SemanticSearchService>();
+        return semanticSearch.searchAsStream(
+          _searchQuery,
+          labelIds: _selectedLabelIds.toList(),
+        );
+      }
       return database.searchItems(_searchQuery, labelIds: _selectedLabelIds.toList());
     }
     if (_isHistoryMode) {
@@ -362,6 +393,33 @@ class _ItemListScreenState extends State<ItemListScreen> {
             Column(
               children: [
                 _buildQuickFilterBar(context, database),
+                if (_isSearching && _searchQuery.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        SemanticModeToggle(
+                          enabled: _semanticModeAvailable,
+                          semanticSelected: _semanticMode,
+                          onChanged: (isSemantic) {
+                            setState(() {
+                              _semanticMode = isSemantic;
+                            });
+                          },
+                        ),
+                        if (!_semanticModeAvailable)
+                          const Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(left: 12),
+                              child: Text(
+                                'Semantic mode unavailable without API key.',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 Expanded(
                   child: StreamBuilder<List<MnemataItem>>(
                     stream: _getStream(database),

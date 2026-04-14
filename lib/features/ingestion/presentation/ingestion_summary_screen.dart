@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 
 enum IngestionSummaryResult { saved, discarded }
@@ -77,6 +80,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
   Future<void> _handleSave() async {
     final database = GetIt.instance<AppDatabase>();
+    final semanticIndexer = GetIt.instance<SemanticIndexerService>();
     
     // 1. Insert the item
     final id = await database.insertItem(MnemataItemsCompanion.insert(
@@ -93,6 +97,11 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     for (final labelId in _selectedLabelIds) {
       await database.assignLabelToItem(id, labelId);
     }
+
+    final savedItem = (await database.watchAllItems().first).firstWhere(
+      (item) => item.id == id,
+    );
+    unawaited(semanticIndexer.enqueueIndexing(savedItem));
 
     if (mounted) {
       _isClosing = true;
