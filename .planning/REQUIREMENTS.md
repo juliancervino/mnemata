@@ -85,4 +85,4 @@
 | POR-01 | Phase 11 | Completed |
 | POR-02 | Phase 11 | Completed |
 | POR-03 | Phase 12 | Research |
-| POR-04 | Phase 12 | Research |
+| POR-04 | Phase 12 | Completed |

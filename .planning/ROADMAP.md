@@ -64,7 +64,7 @@
 - [ ] **Phase 9: Utility & Control (v2 Foundation)** - About view, reader deletion, settings infrastructure, and auto-tagging.
 - [ ] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
 - [x] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability. (completed 2026-04-05)
-- [ ] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations.
+- [x] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations. (completed 2026-04-14)
 
 ## Phase Details
 
@@ -133,10 +133,10 @@
   4. AI-assisted tag suggestions that only use existing tags.
   5. AI summaries and semantic search remain unavailable until a user API key is configured.
 **Plans**: 4 plans
-- [ ] 12-01-PLAN — Intelligence Foundation: Secure API Key, AI Boundary, and Persistence Contracts
-- [ ] 12-02-PLAN — Reader AI Summaries and Existing-Tag Suggestions
-- [ ] 12-03-PLAN — Hybrid Semantic Search with Async Indexing and Fallback
-- [ ] 12-04-PLAN — Persistent Highlights and Annotation UX
+- [x] 12-01-PLAN — Intelligence Foundation: Secure API Key, AI Boundary, and Persistence Contracts
+- [x] 12-02-PLAN — Reader AI Summaries and Existing-Tag Suggestions
+- [x] 12-03-PLAN — Hybrid Semantic Search with Async Indexing and Fallback
+- [x] 12-04-PLAN — Persistent Highlights and Annotation UX
 
 ## Progress Table
 
@@ -153,5 +153,5 @@
 | 9. Utility & Control | 1/1 | Completed | 2026-03-28 |
 | 10. Bulk Operations | 4/4 | Completed | 2026-03-28 |
 | 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
-| 12. Intelligence | 0/0 | Research | - |
+| 12. Intelligence | 4/4 | Complete   | 2026-04-14 |
 
