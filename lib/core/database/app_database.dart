@@ -4,7 +4,30 @@ import 'package:mnemata/core/database/tables.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [MnemataItems, Labels, ItemLabels], include: {'tables.drift'})
+class SemanticChunkInput {
+  const SemanticChunkInput({
+    required this.chunkIndex,
+    required this.text,
+    required this.embeddingVectorJson,
+  });
+
+  final int chunkIndex;
+  final String text;
+  final String embeddingVectorJson;
+}
+
+@DriftDatabase(
+  tables: [
+    MnemataItems,
+    Labels,
+    ItemLabels,
+    SummaryCaches,
+    SemanticIndexStates,
+    SemanticChunks,
+    AnnotationRecords,
+  ],
+  include: {'tables.drift'},
+)
 class AppDatabase extends _$AppDatabase {
   static const String databaseName = 'mnemata_db';
 
@@ -13,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   Future<void> _createPerformanceIndexes() async {
     await customStatement(
@@ -55,6 +78,12 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 6) {
           await _createPerformanceIndexes();
+        }
+        if (from < 7) {
+          await m.createTable(summaryCaches);
+          await m.createTable(semanticIndexStates);
+          await m.createTable(semanticChunks);
+          await m.createTable(annotationRecords);
         }
       },
     );
@@ -283,6 +312,129 @@ class AppDatabase extends _$AppDatabase {
         );
       }
     });
+  }
+
+  Future<void> upsertSummaryCache({
+    required int itemId,
+    required String contentHash,
+    required String tldr,
+    required List<String> keyPoints,
+    required String whyItMatters,
+  }) async {
+    final existing = await (select(summaryCaches)
+          ..where(
+            (t) => t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
+          ))
+        .getSingleOrNull();
+
+    final companion = SummaryCachesCompanion(
+      itemId: Value(itemId),
+      contentHash: Value(contentHash),
+      tldr: Value(tldr),
+      keyPointsJson: Value(keyPoints.join('\n')),
+      whyItMatters: Value(whyItMatters),
+      createdAt: Value(DateTime.now().toUtc()),
+    );
+
+    if (existing == null) {
+      await into(summaryCaches).insert(companion);
+      return;
+    }
+
+    await (update(summaryCaches)..where((t) => t.id.equals(existing.id))).write(
+      companion,
+    );
+  }
+
+  Future<SummaryCache?> getSummaryCache({
+    required int itemId,
+    required String contentHash,
+  }) {
+    return (select(summaryCaches)
+          ..where(
+            (t) => t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
+          ))
+        .getSingleOrNull();
+  }
+
+  Future<void> upsertSemanticIndexMetadata({
+    required int itemId,
+    required String contentHash,
+    required String embeddingModel,
+    required int chunkCount,
+  }) async {
+    final existing = await (select(semanticIndexStates)
+          ..where((t) => t.itemId.equals(itemId)))
+        .getSingleOrNull();
+    final companion = SemanticIndexStatesCompanion(
+      itemId: Value(itemId),
+      contentHash: Value(contentHash),
+      embeddingModel: Value(embeddingModel),
+      chunkCount: Value(chunkCount),
+      indexedAt: Value(DateTime.now().toUtc()),
+    );
+    if (existing == null) {
+      await into(semanticIndexStates).insert(companion);
+      return;
+    }
+    await (update(semanticIndexStates)..where((t) => t.id.equals(existing.id)))
+        .write(companion);
+  }
+
+  Future<void> replaceSemanticChunks({
+    required int itemId,
+    required List<SemanticChunkInput> chunks,
+  }) async {
+    await transaction(() async {
+      await (delete(semanticChunks)..where((t) => t.itemId.equals(itemId))).go();
+      if (chunks.isEmpty) {
+        return;
+      }
+      await batch((b) {
+        for (final chunk in chunks) {
+          b.insert(
+            semanticChunks,
+            SemanticChunksCompanion.insert(
+              itemId: itemId,
+              chunkIndex: chunk.chunkIndex,
+              chunkText: chunk.text,
+              embeddingVectorJson: chunk.embeddingVectorJson,
+            ),
+          );
+        }
+      });
+    });
+  }
+
+  Future<List<SemanticChunk>> readSemanticChunks(int itemId) {
+    return (select(semanticChunks)
+          ..where((t) => t.itemId.equals(itemId))
+          ..orderBy([(t) => OrderingTerm(expression: t.chunkIndex)]))
+        .get();
+  }
+
+  Future<int> insertAnnotation({
+    required int itemId,
+    required String quoteText,
+    required String anchorJson,
+    String? note,
+  }) {
+    return into(annotationRecords).insert(
+      AnnotationRecordsCompanion.insert(
+        itemId: itemId,
+        quoteText: quoteText,
+        anchorJson: anchorJson,
+        note: Value(note),
+        createdAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  Future<List<AnnotationRecord>> listAnnotationsForItem(int itemId) {
+    return (select(annotationRecords)
+          ..where((t) => t.itemId.equals(itemId))
+          ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
+        .get();
   }
 
   Stream<List<MnemataItem>> watchItemsByMultipleLabels(List<int> labelIds) {

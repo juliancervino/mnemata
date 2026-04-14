@@ -1394,6 +1394,1718 @@ class ItemLabelsCompanion extends UpdateCompanion<ItemLabel> {
   }
 }
 
+class $SummaryCachesTable extends SummaryCaches
+    with TableInfo<$SummaryCachesTable, SummaryCache> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SummaryCachesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<int> itemId = GeneratedColumn<int>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES mnemata_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _contentHashMeta = const VerificationMeta(
+    'contentHash',
+  );
+  @override
+  late final GeneratedColumn<String> contentHash = GeneratedColumn<String>(
+    'content_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tldrMeta = const VerificationMeta('tldr');
+  @override
+  late final GeneratedColumn<String> tldr = GeneratedColumn<String>(
+    'tldr',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _keyPointsJsonMeta = const VerificationMeta(
+    'keyPointsJson',
+  );
+  @override
+  late final GeneratedColumn<String> keyPointsJson = GeneratedColumn<String>(
+    'key_points_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _whyItMattersMeta = const VerificationMeta(
+    'whyItMatters',
+  );
+  @override
+  late final GeneratedColumn<String> whyItMatters = GeneratedColumn<String>(
+    'why_it_matters',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    contentHash,
+    tldr,
+    keyPointsJson,
+    whyItMatters,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'summary_caches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SummaryCache> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('content_hash')) {
+      context.handle(
+        _contentHashMeta,
+        contentHash.isAcceptableOrUnknown(
+          data['content_hash']!,
+          _contentHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentHashMeta);
+    }
+    if (data.containsKey('tldr')) {
+      context.handle(
+        _tldrMeta,
+        tldr.isAcceptableOrUnknown(data['tldr']!, _tldrMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tldrMeta);
+    }
+    if (data.containsKey('key_points_json')) {
+      context.handle(
+        _keyPointsJsonMeta,
+        keyPointsJson.isAcceptableOrUnknown(
+          data['key_points_json']!,
+          _keyPointsJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_keyPointsJsonMeta);
+    }
+    if (data.containsKey('why_it_matters')) {
+      context.handle(
+        _whyItMattersMeta,
+        whyItMatters.isAcceptableOrUnknown(
+          data['why_it_matters']!,
+          _whyItMattersMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_whyItMattersMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {itemId, contentHash},
+  ];
+  @override
+  SummaryCache map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SummaryCache(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_id'],
+      )!,
+      contentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash'],
+      )!,
+      tldr: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tldr'],
+      )!,
+      keyPointsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key_points_json'],
+      )!,
+      whyItMatters: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}why_it_matters'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SummaryCachesTable createAlias(String alias) {
+    return $SummaryCachesTable(attachedDatabase, alias);
+  }
+}
+
+class SummaryCache extends DataClass implements Insertable<SummaryCache> {
+  final int id;
+  final int itemId;
+  final String contentHash;
+  final String tldr;
+  final String keyPointsJson;
+  final String whyItMatters;
+  final DateTime createdAt;
+  const SummaryCache({
+    required this.id,
+    required this.itemId,
+    required this.contentHash,
+    required this.tldr,
+    required this.keyPointsJson,
+    required this.whyItMatters,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['item_id'] = Variable<int>(itemId);
+    map['content_hash'] = Variable<String>(contentHash);
+    map['tldr'] = Variable<String>(tldr);
+    map['key_points_json'] = Variable<String>(keyPointsJson);
+    map['why_it_matters'] = Variable<String>(whyItMatters);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SummaryCachesCompanion toCompanion(bool nullToAbsent) {
+    return SummaryCachesCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      contentHash: Value(contentHash),
+      tldr: Value(tldr),
+      keyPointsJson: Value(keyPointsJson),
+      whyItMatters: Value(whyItMatters),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SummaryCache.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SummaryCache(
+      id: serializer.fromJson<int>(json['id']),
+      itemId: serializer.fromJson<int>(json['itemId']),
+      contentHash: serializer.fromJson<String>(json['contentHash']),
+      tldr: serializer.fromJson<String>(json['tldr']),
+      keyPointsJson: serializer.fromJson<String>(json['keyPointsJson']),
+      whyItMatters: serializer.fromJson<String>(json['whyItMatters']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'itemId': serializer.toJson<int>(itemId),
+      'contentHash': serializer.toJson<String>(contentHash),
+      'tldr': serializer.toJson<String>(tldr),
+      'keyPointsJson': serializer.toJson<String>(keyPointsJson),
+      'whyItMatters': serializer.toJson<String>(whyItMatters),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SummaryCache copyWith({
+    int? id,
+    int? itemId,
+    String? contentHash,
+    String? tldr,
+    String? keyPointsJson,
+    String? whyItMatters,
+    DateTime? createdAt,
+  }) => SummaryCache(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    contentHash: contentHash ?? this.contentHash,
+    tldr: tldr ?? this.tldr,
+    keyPointsJson: keyPointsJson ?? this.keyPointsJson,
+    whyItMatters: whyItMatters ?? this.whyItMatters,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SummaryCache copyWithCompanion(SummaryCachesCompanion data) {
+    return SummaryCache(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      contentHash: data.contentHash.present
+          ? data.contentHash.value
+          : this.contentHash,
+      tldr: data.tldr.present ? data.tldr.value : this.tldr,
+      keyPointsJson: data.keyPointsJson.present
+          ? data.keyPointsJson.value
+          : this.keyPointsJson,
+      whyItMatters: data.whyItMatters.present
+          ? data.whyItMatters.value
+          : this.whyItMatters,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SummaryCache(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('tldr: $tldr, ')
+          ..write('keyPointsJson: $keyPointsJson, ')
+          ..write('whyItMatters: $whyItMatters, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    contentHash,
+    tldr,
+    keyPointsJson,
+    whyItMatters,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SummaryCache &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.contentHash == this.contentHash &&
+          other.tldr == this.tldr &&
+          other.keyPointsJson == this.keyPointsJson &&
+          other.whyItMatters == this.whyItMatters &&
+          other.createdAt == this.createdAt);
+}
+
+class SummaryCachesCompanion extends UpdateCompanion<SummaryCache> {
+  final Value<int> id;
+  final Value<int> itemId;
+  final Value<String> contentHash;
+  final Value<String> tldr;
+  final Value<String> keyPointsJson;
+  final Value<String> whyItMatters;
+  final Value<DateTime> createdAt;
+  const SummaryCachesCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.tldr = const Value.absent(),
+    this.keyPointsJson = const Value.absent(),
+    this.whyItMatters = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SummaryCachesCompanion.insert({
+    this.id = const Value.absent(),
+    required int itemId,
+    required String contentHash,
+    required String tldr,
+    required String keyPointsJson,
+    required String whyItMatters,
+    this.createdAt = const Value.absent(),
+  }) : itemId = Value(itemId),
+       contentHash = Value(contentHash),
+       tldr = Value(tldr),
+       keyPointsJson = Value(keyPointsJson),
+       whyItMatters = Value(whyItMatters);
+  static Insertable<SummaryCache> custom({
+    Expression<int>? id,
+    Expression<int>? itemId,
+    Expression<String>? contentHash,
+    Expression<String>? tldr,
+    Expression<String>? keyPointsJson,
+    Expression<String>? whyItMatters,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (contentHash != null) 'content_hash': contentHash,
+      if (tldr != null) 'tldr': tldr,
+      if (keyPointsJson != null) 'key_points_json': keyPointsJson,
+      if (whyItMatters != null) 'why_it_matters': whyItMatters,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SummaryCachesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? itemId,
+    Value<String>? contentHash,
+    Value<String>? tldr,
+    Value<String>? keyPointsJson,
+    Value<String>? whyItMatters,
+    Value<DateTime>? createdAt,
+  }) {
+    return SummaryCachesCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      contentHash: contentHash ?? this.contentHash,
+      tldr: tldr ?? this.tldr,
+      keyPointsJson: keyPointsJson ?? this.keyPointsJson,
+      whyItMatters: whyItMatters ?? this.whyItMatters,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<int>(itemId.value);
+    }
+    if (contentHash.present) {
+      map['content_hash'] = Variable<String>(contentHash.value);
+    }
+    if (tldr.present) {
+      map['tldr'] = Variable<String>(tldr.value);
+    }
+    if (keyPointsJson.present) {
+      map['key_points_json'] = Variable<String>(keyPointsJson.value);
+    }
+    if (whyItMatters.present) {
+      map['why_it_matters'] = Variable<String>(whyItMatters.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SummaryCachesCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('tldr: $tldr, ')
+          ..write('keyPointsJson: $keyPointsJson, ')
+          ..write('whyItMatters: $whyItMatters, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SemanticIndexStatesTable extends SemanticIndexStates
+    with TableInfo<$SemanticIndexStatesTable, SemanticIndexState> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SemanticIndexStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<int> itemId = GeneratedColumn<int>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES mnemata_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _contentHashMeta = const VerificationMeta(
+    'contentHash',
+  );
+  @override
+  late final GeneratedColumn<String> contentHash = GeneratedColumn<String>(
+    'content_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _embeddingModelMeta = const VerificationMeta(
+    'embeddingModel',
+  );
+  @override
+  late final GeneratedColumn<String> embeddingModel = GeneratedColumn<String>(
+    'embedding_model',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chunkCountMeta = const VerificationMeta(
+    'chunkCount',
+  );
+  @override
+  late final GeneratedColumn<int> chunkCount = GeneratedColumn<int>(
+    'chunk_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _indexedAtMeta = const VerificationMeta(
+    'indexedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> indexedAt = GeneratedColumn<DateTime>(
+    'indexed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    contentHash,
+    embeddingModel,
+    chunkCount,
+    indexedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'semantic_index_states';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SemanticIndexState> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('content_hash')) {
+      context.handle(
+        _contentHashMeta,
+        contentHash.isAcceptableOrUnknown(
+          data['content_hash']!,
+          _contentHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentHashMeta);
+    }
+    if (data.containsKey('embedding_model')) {
+      context.handle(
+        _embeddingModelMeta,
+        embeddingModel.isAcceptableOrUnknown(
+          data['embedding_model']!,
+          _embeddingModelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_embeddingModelMeta);
+    }
+    if (data.containsKey('chunk_count')) {
+      context.handle(
+        _chunkCountMeta,
+        chunkCount.isAcceptableOrUnknown(data['chunk_count']!, _chunkCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkCountMeta);
+    }
+    if (data.containsKey('indexed_at')) {
+      context.handle(
+        _indexedAtMeta,
+        indexedAt.isAcceptableOrUnknown(data['indexed_at']!, _indexedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {itemId},
+  ];
+  @override
+  SemanticIndexState map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SemanticIndexState(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_id'],
+      )!,
+      contentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash'],
+      )!,
+      embeddingModel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}embedding_model'],
+      )!,
+      chunkCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chunk_count'],
+      )!,
+      indexedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}indexed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SemanticIndexStatesTable createAlias(String alias) {
+    return $SemanticIndexStatesTable(attachedDatabase, alias);
+  }
+}
+
+class SemanticIndexState extends DataClass
+    implements Insertable<SemanticIndexState> {
+  final int id;
+  final int itemId;
+  final String contentHash;
+  final String embeddingModel;
+  final int chunkCount;
+  final DateTime indexedAt;
+  const SemanticIndexState({
+    required this.id,
+    required this.itemId,
+    required this.contentHash,
+    required this.embeddingModel,
+    required this.chunkCount,
+    required this.indexedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['item_id'] = Variable<int>(itemId);
+    map['content_hash'] = Variable<String>(contentHash);
+    map['embedding_model'] = Variable<String>(embeddingModel);
+    map['chunk_count'] = Variable<int>(chunkCount);
+    map['indexed_at'] = Variable<DateTime>(indexedAt);
+    return map;
+  }
+
+  SemanticIndexStatesCompanion toCompanion(bool nullToAbsent) {
+    return SemanticIndexStatesCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      contentHash: Value(contentHash),
+      embeddingModel: Value(embeddingModel),
+      chunkCount: Value(chunkCount),
+      indexedAt: Value(indexedAt),
+    );
+  }
+
+  factory SemanticIndexState.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SemanticIndexState(
+      id: serializer.fromJson<int>(json['id']),
+      itemId: serializer.fromJson<int>(json['itemId']),
+      contentHash: serializer.fromJson<String>(json['contentHash']),
+      embeddingModel: serializer.fromJson<String>(json['embeddingModel']),
+      chunkCount: serializer.fromJson<int>(json['chunkCount']),
+      indexedAt: serializer.fromJson<DateTime>(json['indexedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'itemId': serializer.toJson<int>(itemId),
+      'contentHash': serializer.toJson<String>(contentHash),
+      'embeddingModel': serializer.toJson<String>(embeddingModel),
+      'chunkCount': serializer.toJson<int>(chunkCount),
+      'indexedAt': serializer.toJson<DateTime>(indexedAt),
+    };
+  }
+
+  SemanticIndexState copyWith({
+    int? id,
+    int? itemId,
+    String? contentHash,
+    String? embeddingModel,
+    int? chunkCount,
+    DateTime? indexedAt,
+  }) => SemanticIndexState(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    contentHash: contentHash ?? this.contentHash,
+    embeddingModel: embeddingModel ?? this.embeddingModel,
+    chunkCount: chunkCount ?? this.chunkCount,
+    indexedAt: indexedAt ?? this.indexedAt,
+  );
+  SemanticIndexState copyWithCompanion(SemanticIndexStatesCompanion data) {
+    return SemanticIndexState(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      contentHash: data.contentHash.present
+          ? data.contentHash.value
+          : this.contentHash,
+      embeddingModel: data.embeddingModel.present
+          ? data.embeddingModel.value
+          : this.embeddingModel,
+      chunkCount: data.chunkCount.present
+          ? data.chunkCount.value
+          : this.chunkCount,
+      indexedAt: data.indexedAt.present ? data.indexedAt.value : this.indexedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemanticIndexState(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('embeddingModel: $embeddingModel, ')
+          ..write('chunkCount: $chunkCount, ')
+          ..write('indexedAt: $indexedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    contentHash,
+    embeddingModel,
+    chunkCount,
+    indexedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SemanticIndexState &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.contentHash == this.contentHash &&
+          other.embeddingModel == this.embeddingModel &&
+          other.chunkCount == this.chunkCount &&
+          other.indexedAt == this.indexedAt);
+}
+
+class SemanticIndexStatesCompanion extends UpdateCompanion<SemanticIndexState> {
+  final Value<int> id;
+  final Value<int> itemId;
+  final Value<String> contentHash;
+  final Value<String> embeddingModel;
+  final Value<int> chunkCount;
+  final Value<DateTime> indexedAt;
+  const SemanticIndexStatesCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.embeddingModel = const Value.absent(),
+    this.chunkCount = const Value.absent(),
+    this.indexedAt = const Value.absent(),
+  });
+  SemanticIndexStatesCompanion.insert({
+    this.id = const Value.absent(),
+    required int itemId,
+    required String contentHash,
+    required String embeddingModel,
+    required int chunkCount,
+    this.indexedAt = const Value.absent(),
+  }) : itemId = Value(itemId),
+       contentHash = Value(contentHash),
+       embeddingModel = Value(embeddingModel),
+       chunkCount = Value(chunkCount);
+  static Insertable<SemanticIndexState> custom({
+    Expression<int>? id,
+    Expression<int>? itemId,
+    Expression<String>? contentHash,
+    Expression<String>? embeddingModel,
+    Expression<int>? chunkCount,
+    Expression<DateTime>? indexedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (contentHash != null) 'content_hash': contentHash,
+      if (embeddingModel != null) 'embedding_model': embeddingModel,
+      if (chunkCount != null) 'chunk_count': chunkCount,
+      if (indexedAt != null) 'indexed_at': indexedAt,
+    });
+  }
+
+  SemanticIndexStatesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? itemId,
+    Value<String>? contentHash,
+    Value<String>? embeddingModel,
+    Value<int>? chunkCount,
+    Value<DateTime>? indexedAt,
+  }) {
+    return SemanticIndexStatesCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      contentHash: contentHash ?? this.contentHash,
+      embeddingModel: embeddingModel ?? this.embeddingModel,
+      chunkCount: chunkCount ?? this.chunkCount,
+      indexedAt: indexedAt ?? this.indexedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<int>(itemId.value);
+    }
+    if (contentHash.present) {
+      map['content_hash'] = Variable<String>(contentHash.value);
+    }
+    if (embeddingModel.present) {
+      map['embedding_model'] = Variable<String>(embeddingModel.value);
+    }
+    if (chunkCount.present) {
+      map['chunk_count'] = Variable<int>(chunkCount.value);
+    }
+    if (indexedAt.present) {
+      map['indexed_at'] = Variable<DateTime>(indexedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemanticIndexStatesCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('embeddingModel: $embeddingModel, ')
+          ..write('chunkCount: $chunkCount, ')
+          ..write('indexedAt: $indexedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SemanticChunksTable extends SemanticChunks
+    with TableInfo<$SemanticChunksTable, SemanticChunk> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SemanticChunksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<int> itemId = GeneratedColumn<int>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES mnemata_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _chunkIndexMeta = const VerificationMeta(
+    'chunkIndex',
+  );
+  @override
+  late final GeneratedColumn<int> chunkIndex = GeneratedColumn<int>(
+    'chunk_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chunkTextMeta = const VerificationMeta(
+    'chunkText',
+  );
+  @override
+  late final GeneratedColumn<String> chunkText = GeneratedColumn<String>(
+    'chunk_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _embeddingVectorJsonMeta =
+      const VerificationMeta('embeddingVectorJson');
+  @override
+  late final GeneratedColumn<String> embeddingVectorJson =
+      GeneratedColumn<String>(
+        'embedding_vector_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    chunkIndex,
+    chunkText,
+    embeddingVectorJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'semantic_chunks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SemanticChunk> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('chunk_index')) {
+      context.handle(
+        _chunkIndexMeta,
+        chunkIndex.isAcceptableOrUnknown(data['chunk_index']!, _chunkIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkIndexMeta);
+    }
+    if (data.containsKey('chunk_text')) {
+      context.handle(
+        _chunkTextMeta,
+        chunkText.isAcceptableOrUnknown(data['chunk_text']!, _chunkTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkTextMeta);
+    }
+    if (data.containsKey('embedding_vector_json')) {
+      context.handle(
+        _embeddingVectorJsonMeta,
+        embeddingVectorJson.isAcceptableOrUnknown(
+          data['embedding_vector_json']!,
+          _embeddingVectorJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_embeddingVectorJsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SemanticChunk map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SemanticChunk(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_id'],
+      )!,
+      chunkIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chunk_index'],
+      )!,
+      chunkText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chunk_text'],
+      )!,
+      embeddingVectorJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}embedding_vector_json'],
+      )!,
+    );
+  }
+
+  @override
+  $SemanticChunksTable createAlias(String alias) {
+    return $SemanticChunksTable(attachedDatabase, alias);
+  }
+}
+
+class SemanticChunk extends DataClass implements Insertable<SemanticChunk> {
+  final int id;
+  final int itemId;
+  final int chunkIndex;
+  final String chunkText;
+  final String embeddingVectorJson;
+  const SemanticChunk({
+    required this.id,
+    required this.itemId,
+    required this.chunkIndex,
+    required this.chunkText,
+    required this.embeddingVectorJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['item_id'] = Variable<int>(itemId);
+    map['chunk_index'] = Variable<int>(chunkIndex);
+    map['chunk_text'] = Variable<String>(chunkText);
+    map['embedding_vector_json'] = Variable<String>(embeddingVectorJson);
+    return map;
+  }
+
+  SemanticChunksCompanion toCompanion(bool nullToAbsent) {
+    return SemanticChunksCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      chunkIndex: Value(chunkIndex),
+      chunkText: Value(chunkText),
+      embeddingVectorJson: Value(embeddingVectorJson),
+    );
+  }
+
+  factory SemanticChunk.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SemanticChunk(
+      id: serializer.fromJson<int>(json['id']),
+      itemId: serializer.fromJson<int>(json['itemId']),
+      chunkIndex: serializer.fromJson<int>(json['chunkIndex']),
+      chunkText: serializer.fromJson<String>(json['chunkText']),
+      embeddingVectorJson: serializer.fromJson<String>(
+        json['embeddingVectorJson'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'itemId': serializer.toJson<int>(itemId),
+      'chunkIndex': serializer.toJson<int>(chunkIndex),
+      'chunkText': serializer.toJson<String>(chunkText),
+      'embeddingVectorJson': serializer.toJson<String>(embeddingVectorJson),
+    };
+  }
+
+  SemanticChunk copyWith({
+    int? id,
+    int? itemId,
+    int? chunkIndex,
+    String? chunkText,
+    String? embeddingVectorJson,
+  }) => SemanticChunk(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    chunkIndex: chunkIndex ?? this.chunkIndex,
+    chunkText: chunkText ?? this.chunkText,
+    embeddingVectorJson: embeddingVectorJson ?? this.embeddingVectorJson,
+  );
+  SemanticChunk copyWithCompanion(SemanticChunksCompanion data) {
+    return SemanticChunk(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      chunkIndex: data.chunkIndex.present
+          ? data.chunkIndex.value
+          : this.chunkIndex,
+      chunkText: data.chunkText.present ? data.chunkText.value : this.chunkText,
+      embeddingVectorJson: data.embeddingVectorJson.present
+          ? data.embeddingVectorJson.value
+          : this.embeddingVectorJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemanticChunk(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('chunkText: $chunkText, ')
+          ..write('embeddingVectorJson: $embeddingVectorJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, itemId, chunkIndex, chunkText, embeddingVectorJson);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SemanticChunk &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.chunkIndex == this.chunkIndex &&
+          other.chunkText == this.chunkText &&
+          other.embeddingVectorJson == this.embeddingVectorJson);
+}
+
+class SemanticChunksCompanion extends UpdateCompanion<SemanticChunk> {
+  final Value<int> id;
+  final Value<int> itemId;
+  final Value<int> chunkIndex;
+  final Value<String> chunkText;
+  final Value<String> embeddingVectorJson;
+  const SemanticChunksCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.chunkIndex = const Value.absent(),
+    this.chunkText = const Value.absent(),
+    this.embeddingVectorJson = const Value.absent(),
+  });
+  SemanticChunksCompanion.insert({
+    this.id = const Value.absent(),
+    required int itemId,
+    required int chunkIndex,
+    required String chunkText,
+    required String embeddingVectorJson,
+  }) : itemId = Value(itemId),
+       chunkIndex = Value(chunkIndex),
+       chunkText = Value(chunkText),
+       embeddingVectorJson = Value(embeddingVectorJson);
+  static Insertable<SemanticChunk> custom({
+    Expression<int>? id,
+    Expression<int>? itemId,
+    Expression<int>? chunkIndex,
+    Expression<String>? chunkText,
+    Expression<String>? embeddingVectorJson,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (chunkIndex != null) 'chunk_index': chunkIndex,
+      if (chunkText != null) 'chunk_text': chunkText,
+      if (embeddingVectorJson != null)
+        'embedding_vector_json': embeddingVectorJson,
+    });
+  }
+
+  SemanticChunksCompanion copyWith({
+    Value<int>? id,
+    Value<int>? itemId,
+    Value<int>? chunkIndex,
+    Value<String>? chunkText,
+    Value<String>? embeddingVectorJson,
+  }) {
+    return SemanticChunksCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      chunkIndex: chunkIndex ?? this.chunkIndex,
+      chunkText: chunkText ?? this.chunkText,
+      embeddingVectorJson: embeddingVectorJson ?? this.embeddingVectorJson,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<int>(itemId.value);
+    }
+    if (chunkIndex.present) {
+      map['chunk_index'] = Variable<int>(chunkIndex.value);
+    }
+    if (chunkText.present) {
+      map['chunk_text'] = Variable<String>(chunkText.value);
+    }
+    if (embeddingVectorJson.present) {
+      map['embedding_vector_json'] = Variable<String>(
+        embeddingVectorJson.value,
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemanticChunksCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('chunkText: $chunkText, ')
+          ..write('embeddingVectorJson: $embeddingVectorJson')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AnnotationRecordsTable extends AnnotationRecords
+    with TableInfo<$AnnotationRecordsTable, AnnotationRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AnnotationRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<int> itemId = GeneratedColumn<int>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES mnemata_items (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _quoteTextMeta = const VerificationMeta(
+    'quoteText',
+  );
+  @override
+  late final GeneratedColumn<String> quoteText = GeneratedColumn<String>(
+    'quote_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _anchorJsonMeta = const VerificationMeta(
+    'anchorJson',
+  );
+  @override
+  late final GeneratedColumn<String> anchorJson = GeneratedColumn<String>(
+    'anchor_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    quoteText,
+    anchorJson,
+    note,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'annotation_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AnnotationRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('quote_text')) {
+      context.handle(
+        _quoteTextMeta,
+        quoteText.isAcceptableOrUnknown(data['quote_text']!, _quoteTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_quoteTextMeta);
+    }
+    if (data.containsKey('anchor_json')) {
+      context.handle(
+        _anchorJsonMeta,
+        anchorJson.isAcceptableOrUnknown(data['anchor_json']!, _anchorJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_anchorJsonMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AnnotationRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AnnotationRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_id'],
+      )!,
+      quoteText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}quote_text'],
+      )!,
+      anchorJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}anchor_json'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $AnnotationRecordsTable createAlias(String alias) {
+    return $AnnotationRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class AnnotationRecord extends DataClass
+    implements Insertable<AnnotationRecord> {
+  final int id;
+  final int itemId;
+  final String quoteText;
+  final String anchorJson;
+  final String? note;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  const AnnotationRecord({
+    required this.id,
+    required this.itemId,
+    required this.quoteText,
+    required this.anchorJson,
+    this.note,
+    required this.createdAt,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['item_id'] = Variable<int>(itemId);
+    map['quote_text'] = Variable<String>(quoteText);
+    map['anchor_json'] = Variable<String>(anchorJson);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  AnnotationRecordsCompanion toCompanion(bool nullToAbsent) {
+    return AnnotationRecordsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      quoteText: Value(quoteText),
+      anchorJson: Value(anchorJson),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory AnnotationRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AnnotationRecord(
+      id: serializer.fromJson<int>(json['id']),
+      itemId: serializer.fromJson<int>(json['itemId']),
+      quoteText: serializer.fromJson<String>(json['quoteText']),
+      anchorJson: serializer.fromJson<String>(json['anchorJson']),
+      note: serializer.fromJson<String?>(json['note']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'itemId': serializer.toJson<int>(itemId),
+      'quoteText': serializer.toJson<String>(quoteText),
+      'anchorJson': serializer.toJson<String>(anchorJson),
+      'note': serializer.toJson<String?>(note),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  AnnotationRecord copyWith({
+    int? id,
+    int? itemId,
+    String? quoteText,
+    String? anchorJson,
+    Value<String?> note = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => AnnotationRecord(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    quoteText: quoteText ?? this.quoteText,
+    anchorJson: anchorJson ?? this.anchorJson,
+    note: note.present ? note.value : this.note,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  AnnotationRecord copyWithCompanion(AnnotationRecordsCompanion data) {
+    return AnnotationRecord(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      quoteText: data.quoteText.present ? data.quoteText.value : this.quoteText,
+      anchorJson: data.anchorJson.present
+          ? data.anchorJson.value
+          : this.anchorJson,
+      note: data.note.present ? data.note.value : this.note,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnnotationRecord(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('quoteText: $quoteText, ')
+          ..write('anchorJson: $anchorJson, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    quoteText,
+    anchorJson,
+    note,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AnnotationRecord &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.quoteText == this.quoteText &&
+          other.anchorJson == this.anchorJson &&
+          other.note == this.note &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AnnotationRecordsCompanion extends UpdateCompanion<AnnotationRecord> {
+  final Value<int> id;
+  final Value<int> itemId;
+  final Value<String> quoteText;
+  final Value<String> anchorJson;
+  final Value<String?> note;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  const AnnotationRecordsCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.quoteText = const Value.absent(),
+    this.anchorJson = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  AnnotationRecordsCompanion.insert({
+    this.id = const Value.absent(),
+    required int itemId,
+    required String quoteText,
+    required String anchorJson,
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : itemId = Value(itemId),
+       quoteText = Value(quoteText),
+       anchorJson = Value(anchorJson);
+  static Insertable<AnnotationRecord> custom({
+    Expression<int>? id,
+    Expression<int>? itemId,
+    Expression<String>? quoteText,
+    Expression<String>? anchorJson,
+    Expression<String>? note,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (quoteText != null) 'quote_text': quoteText,
+      if (anchorJson != null) 'anchor_json': anchorJson,
+      if (note != null) 'note': note,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  AnnotationRecordsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? itemId,
+    Value<String>? quoteText,
+    Value<String>? anchorJson,
+    Value<String?>? note,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+  }) {
+    return AnnotationRecordsCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      quoteText: quoteText ?? this.quoteText,
+      anchorJson: anchorJson ?? this.anchorJson,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<int>(itemId.value);
+    }
+    if (quoteText.present) {
+      map['quote_text'] = Variable<String>(quoteText.value);
+    }
+    if (anchorJson.present) {
+      map['anchor_json'] = Variable<String>(anchorJson.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnnotationRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('quoteText: $quoteText, ')
+          ..write('anchorJson: $anchorJson, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1413,6 +3125,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $LabelsTable labels = $LabelsTable(this);
   late final $ItemLabelsTable itemLabels = $ItemLabelsTable(this);
+  late final $SummaryCachesTable summaryCaches = $SummaryCachesTable(this);
+  late final $SemanticIndexStatesTable semanticIndexStates =
+      $SemanticIndexStatesTable(this);
+  late final $SemanticChunksTable semanticChunks = $SemanticChunksTable(this);
+  late final $AnnotationRecordsTable annotationRecords =
+      $AnnotationRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1425,6 +3143,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     mnemataItemsAu,
     labels,
     itemLabels,
+    summaryCaches,
+    semanticIndexStates,
+    semanticChunks,
+    annotationRecords,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -1448,6 +3170,34 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.update,
       ),
       result: [TableUpdate('mnemata_search', kind: UpdateKind.insert)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'mnemata_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('summary_caches', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'mnemata_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('semantic_index_states', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'mnemata_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('semantic_chunks', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'mnemata_items',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('annotation_records', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -1496,6 +3246,99 @@ final class $$MnemataItemsTableReferences
     ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_itemLabelsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$SummaryCachesTable, List<SummaryCache>>
+  _summaryCachesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.summaryCaches,
+    aliasName: $_aliasNameGenerator(
+      db.mnemataItems.id,
+      db.summaryCaches.itemId,
+    ),
+  );
+
+  $$SummaryCachesTableProcessedTableManager get summaryCachesRefs {
+    final manager = $$SummaryCachesTableTableManager(
+      $_db,
+      $_db.summaryCaches,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_summaryCachesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $SemanticIndexStatesTable,
+    List<SemanticIndexState>
+  >
+  _semanticIndexStatesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.semanticIndexStates,
+        aliasName: $_aliasNameGenerator(
+          db.mnemataItems.id,
+          db.semanticIndexStates.itemId,
+        ),
+      );
+
+  $$SemanticIndexStatesTableProcessedTableManager get semanticIndexStatesRefs {
+    final manager = $$SemanticIndexStatesTableTableManager(
+      $_db,
+      $_db.semanticIndexStates,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _semanticIndexStatesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$SemanticChunksTable, List<SemanticChunk>>
+  _semanticChunksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.semanticChunks,
+    aliasName: $_aliasNameGenerator(
+      db.mnemataItems.id,
+      db.semanticChunks.itemId,
+    ),
+  );
+
+  $$SemanticChunksTableProcessedTableManager get semanticChunksRefs {
+    final manager = $$SemanticChunksTableTableManager(
+      $_db,
+      $_db.semanticChunks,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_semanticChunksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AnnotationRecordsTable, List<AnnotationRecord>>
+  _annotationRecordsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.annotationRecords,
+        aliasName: $_aliasNameGenerator(
+          db.mnemataItems.id,
+          db.annotationRecords.itemId,
+        ),
+      );
+
+  $$AnnotationRecordsTableProcessedTableManager get annotationRecordsRefs {
+    final manager = $$AnnotationRecordsTableTableManager(
+      $_db,
+      $_db.annotationRecords,
+    ).filter((f) => f.itemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _annotationRecordsRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -1577,6 +3420,106 @@ class $$MnemataItemsTableFilterComposer
           }) => $$ItemLabelsTableFilterComposer(
             $db: $db,
             $table: $db.itemLabels,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> summaryCachesRefs(
+    Expression<bool> Function($$SummaryCachesTableFilterComposer f) f,
+  ) {
+    final $$SummaryCachesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.summaryCaches,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SummaryCachesTableFilterComposer(
+            $db: $db,
+            $table: $db.summaryCaches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> semanticIndexStatesRefs(
+    Expression<bool> Function($$SemanticIndexStatesTableFilterComposer f) f,
+  ) {
+    final $$SemanticIndexStatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.semanticIndexStates,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemanticIndexStatesTableFilterComposer(
+            $db: $db,
+            $table: $db.semanticIndexStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> semanticChunksRefs(
+    Expression<bool> Function($$SemanticChunksTableFilterComposer f) f,
+  ) {
+    final $$SemanticChunksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.semanticChunks,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemanticChunksTableFilterComposer(
+            $db: $db,
+            $table: $db.semanticChunks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> annotationRecordsRefs(
+    Expression<bool> Function($$AnnotationRecordsTableFilterComposer f) f,
+  ) {
+    final $$AnnotationRecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.annotationRecords,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnnotationRecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.annotationRecords,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -1714,6 +3657,108 @@ class $$MnemataItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> summaryCachesRefs<T extends Object>(
+    Expression<T> Function($$SummaryCachesTableAnnotationComposer a) f,
+  ) {
+    final $$SummaryCachesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.summaryCaches,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SummaryCachesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.summaryCaches,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> semanticIndexStatesRefs<T extends Object>(
+    Expression<T> Function($$SemanticIndexStatesTableAnnotationComposer a) f,
+  ) {
+    final $$SemanticIndexStatesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.semanticIndexStates,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$SemanticIndexStatesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.semanticIndexStates,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> semanticChunksRefs<T extends Object>(
+    Expression<T> Function($$SemanticChunksTableAnnotationComposer a) f,
+  ) {
+    final $$SemanticChunksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.semanticChunks,
+      getReferencedColumn: (t) => t.itemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemanticChunksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.semanticChunks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> annotationRecordsRefs<T extends Object>(
+    Expression<T> Function($$AnnotationRecordsTableAnnotationComposer a) f,
+  ) {
+    final $$AnnotationRecordsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.annotationRecords,
+          getReferencedColumn: (t) => t.itemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AnnotationRecordsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.annotationRecords,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$MnemataItemsTableTableManager
@@ -1729,7 +3774,13 @@ class $$MnemataItemsTableTableManager
           $$MnemataItemsTableUpdateCompanionBuilder,
           (MnemataItem, $$MnemataItemsTableReferences),
           MnemataItem,
-          PrefetchHooks Function({bool itemLabelsRefs})
+          PrefetchHooks Function({
+            bool itemLabelsRefs,
+            bool summaryCachesRefs,
+            bool semanticIndexStatesRefs,
+            bool semanticChunksRefs,
+            bool annotationRecordsRefs,
+          })
         > {
   $$MnemataItemsTableTableManager(_$AppDatabase db, $MnemataItemsTable table)
     : super(
@@ -1798,36 +3849,135 @@ class $$MnemataItemsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({itemLabelsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (itemLabelsRefs) db.itemLabels],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (itemLabelsRefs)
-                    await $_getPrefetchedData<
-                      MnemataItem,
-                      $MnemataItemsTable,
-                      ItemLabel
-                    >(
-                      currentTable: table,
-                      referencedTable: $$MnemataItemsTableReferences
-                          ._itemLabelsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$MnemataItemsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).itemLabelsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.itemId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                itemLabelsRefs = false,
+                summaryCachesRefs = false,
+                semanticIndexStatesRefs = false,
+                semanticChunksRefs = false,
+                annotationRecordsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (itemLabelsRefs) db.itemLabels,
+                    if (summaryCachesRefs) db.summaryCaches,
+                    if (semanticIndexStatesRefs) db.semanticIndexStates,
+                    if (semanticChunksRefs) db.semanticChunks,
+                    if (annotationRecordsRefs) db.annotationRecords,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (itemLabelsRefs)
+                        await $_getPrefetchedData<
+                          MnemataItem,
+                          $MnemataItemsTable,
+                          ItemLabel
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MnemataItemsTableReferences
+                              ._itemLabelsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MnemataItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).itemLabelsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (summaryCachesRefs)
+                        await $_getPrefetchedData<
+                          MnemataItem,
+                          $MnemataItemsTable,
+                          SummaryCache
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MnemataItemsTableReferences
+                              ._summaryCachesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MnemataItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).summaryCachesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (semanticIndexStatesRefs)
+                        await $_getPrefetchedData<
+                          MnemataItem,
+                          $MnemataItemsTable,
+                          SemanticIndexState
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MnemataItemsTableReferences
+                              ._semanticIndexStatesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MnemataItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).semanticIndexStatesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (semanticChunksRefs)
+                        await $_getPrefetchedData<
+                          MnemataItem,
+                          $MnemataItemsTable,
+                          SemanticChunk
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MnemataItemsTableReferences
+                              ._semanticChunksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MnemataItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).semanticChunksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (annotationRecordsRefs)
+                        await $_getPrefetchedData<
+                          MnemataItem,
+                          $MnemataItemsTable,
+                          AnnotationRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MnemataItemsTableReferences
+                              ._annotationRecordsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MnemataItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).annotationRecordsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.itemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -1844,7 +3994,13 @@ typedef $$MnemataItemsTableProcessedTableManager =
       $$MnemataItemsTableUpdateCompanionBuilder,
       (MnemataItem, $$MnemataItemsTableReferences),
       MnemataItem,
-      PrefetchHooks Function({bool itemLabelsRefs})
+      PrefetchHooks Function({
+        bool itemLabelsRefs,
+        bool summaryCachesRefs,
+        bool semanticIndexStatesRefs,
+        bool semanticChunksRefs,
+        bool annotationRecordsRefs,
+      })
     >;
 typedef $MnemataSearchCreateCompanionBuilder =
     MnemataSearchCompanion Function({
@@ -2728,6 +4884,1417 @@ typedef $$ItemLabelsTableProcessedTableManager =
       ItemLabel,
       PrefetchHooks Function({bool itemId, bool labelId})
     >;
+typedef $$SummaryCachesTableCreateCompanionBuilder =
+    SummaryCachesCompanion Function({
+      Value<int> id,
+      required int itemId,
+      required String contentHash,
+      required String tldr,
+      required String keyPointsJson,
+      required String whyItMatters,
+      Value<DateTime> createdAt,
+    });
+typedef $$SummaryCachesTableUpdateCompanionBuilder =
+    SummaryCachesCompanion Function({
+      Value<int> id,
+      Value<int> itemId,
+      Value<String> contentHash,
+      Value<String> tldr,
+      Value<String> keyPointsJson,
+      Value<String> whyItMatters,
+      Value<DateTime> createdAt,
+    });
+
+final class $$SummaryCachesTableReferences
+    extends BaseReferences<_$AppDatabase, $SummaryCachesTable, SummaryCache> {
+  $$SummaryCachesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MnemataItemsTable _itemIdTable(_$AppDatabase db) =>
+      db.mnemataItems.createAlias(
+        $_aliasNameGenerator(db.summaryCaches.itemId, db.mnemataItems.id),
+      );
+
+  $$MnemataItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<int>('item_id')!;
+
+    final manager = $$MnemataItemsTableTableManager(
+      $_db,
+      $_db.mnemataItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SummaryCachesTableFilterComposer
+    extends Composer<_$AppDatabase, $SummaryCachesTable> {
+  $$SummaryCachesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tldr => $composableBuilder(
+    column: $table.tldr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get keyPointsJson => $composableBuilder(
+    column: $table.keyPointsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get whyItMatters => $composableBuilder(
+    column: $table.whyItMatters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MnemataItemsTableFilterComposer get itemId {
+    final $$MnemataItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SummaryCachesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SummaryCachesTable> {
+  $$SummaryCachesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tldr => $composableBuilder(
+    column: $table.tldr,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get keyPointsJson => $composableBuilder(
+    column: $table.keyPointsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get whyItMatters => $composableBuilder(
+    column: $table.whyItMatters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MnemataItemsTableOrderingComposer get itemId {
+    final $$MnemataItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SummaryCachesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SummaryCachesTable> {
+  $$SummaryCachesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tldr =>
+      $composableBuilder(column: $table.tldr, builder: (column) => column);
+
+  GeneratedColumn<String> get keyPointsJson => $composableBuilder(
+    column: $table.keyPointsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get whyItMatters => $composableBuilder(
+    column: $table.whyItMatters,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$MnemataItemsTableAnnotationComposer get itemId {
+    final $$MnemataItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SummaryCachesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SummaryCachesTable,
+          SummaryCache,
+          $$SummaryCachesTableFilterComposer,
+          $$SummaryCachesTableOrderingComposer,
+          $$SummaryCachesTableAnnotationComposer,
+          $$SummaryCachesTableCreateCompanionBuilder,
+          $$SummaryCachesTableUpdateCompanionBuilder,
+          (SummaryCache, $$SummaryCachesTableReferences),
+          SummaryCache,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$SummaryCachesTableTableManager(_$AppDatabase db, $SummaryCachesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SummaryCachesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SummaryCachesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SummaryCachesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> itemId = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<String> tldr = const Value.absent(),
+                Value<String> keyPointsJson = const Value.absent(),
+                Value<String> whyItMatters = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SummaryCachesCompanion(
+                id: id,
+                itemId: itemId,
+                contentHash: contentHash,
+                tldr: tldr,
+                keyPointsJson: keyPointsJson,
+                whyItMatters: whyItMatters,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int itemId,
+                required String contentHash,
+                required String tldr,
+                required String keyPointsJson,
+                required String whyItMatters,
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SummaryCachesCompanion.insert(
+                id: id,
+                itemId: itemId,
+                contentHash: contentHash,
+                tldr: tldr,
+                keyPointsJson: keyPointsJson,
+                whyItMatters: whyItMatters,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SummaryCachesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable: $$SummaryCachesTableReferences
+                                    ._itemIdTable(db),
+                                referencedColumn: $$SummaryCachesTableReferences
+                                    ._itemIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SummaryCachesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SummaryCachesTable,
+      SummaryCache,
+      $$SummaryCachesTableFilterComposer,
+      $$SummaryCachesTableOrderingComposer,
+      $$SummaryCachesTableAnnotationComposer,
+      $$SummaryCachesTableCreateCompanionBuilder,
+      $$SummaryCachesTableUpdateCompanionBuilder,
+      (SummaryCache, $$SummaryCachesTableReferences),
+      SummaryCache,
+      PrefetchHooks Function({bool itemId})
+    >;
+typedef $$SemanticIndexStatesTableCreateCompanionBuilder =
+    SemanticIndexStatesCompanion Function({
+      Value<int> id,
+      required int itemId,
+      required String contentHash,
+      required String embeddingModel,
+      required int chunkCount,
+      Value<DateTime> indexedAt,
+    });
+typedef $$SemanticIndexStatesTableUpdateCompanionBuilder =
+    SemanticIndexStatesCompanion Function({
+      Value<int> id,
+      Value<int> itemId,
+      Value<String> contentHash,
+      Value<String> embeddingModel,
+      Value<int> chunkCount,
+      Value<DateTime> indexedAt,
+    });
+
+final class $$SemanticIndexStatesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $SemanticIndexStatesTable,
+          SemanticIndexState
+        > {
+  $$SemanticIndexStatesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MnemataItemsTable _itemIdTable(_$AppDatabase db) =>
+      db.mnemataItems.createAlias(
+        $_aliasNameGenerator(db.semanticIndexStates.itemId, db.mnemataItems.id),
+      );
+
+  $$MnemataItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<int>('item_id')!;
+
+    final manager = $$MnemataItemsTableTableManager(
+      $_db,
+      $_db.mnemataItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SemanticIndexStatesTableFilterComposer
+    extends Composer<_$AppDatabase, $SemanticIndexStatesTable> {
+  $$SemanticIndexStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get embeddingModel => $composableBuilder(
+    column: $table.embeddingModel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get indexedAt => $composableBuilder(
+    column: $table.indexedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MnemataItemsTableFilterComposer get itemId {
+    final $$MnemataItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticIndexStatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SemanticIndexStatesTable> {
+  $$SemanticIndexStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get embeddingModel => $composableBuilder(
+    column: $table.embeddingModel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get indexedAt => $composableBuilder(
+    column: $table.indexedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MnemataItemsTableOrderingComposer get itemId {
+    final $$MnemataItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticIndexStatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SemanticIndexStatesTable> {
+  $$SemanticIndexStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get embeddingModel => $composableBuilder(
+    column: $table.embeddingModel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get indexedAt =>
+      $composableBuilder(column: $table.indexedAt, builder: (column) => column);
+
+  $$MnemataItemsTableAnnotationComposer get itemId {
+    final $$MnemataItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticIndexStatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SemanticIndexStatesTable,
+          SemanticIndexState,
+          $$SemanticIndexStatesTableFilterComposer,
+          $$SemanticIndexStatesTableOrderingComposer,
+          $$SemanticIndexStatesTableAnnotationComposer,
+          $$SemanticIndexStatesTableCreateCompanionBuilder,
+          $$SemanticIndexStatesTableUpdateCompanionBuilder,
+          (SemanticIndexState, $$SemanticIndexStatesTableReferences),
+          SemanticIndexState,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$SemanticIndexStatesTableTableManager(
+    _$AppDatabase db,
+    $SemanticIndexStatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SemanticIndexStatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SemanticIndexStatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SemanticIndexStatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> itemId = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<String> embeddingModel = const Value.absent(),
+                Value<int> chunkCount = const Value.absent(),
+                Value<DateTime> indexedAt = const Value.absent(),
+              }) => SemanticIndexStatesCompanion(
+                id: id,
+                itemId: itemId,
+                contentHash: contentHash,
+                embeddingModel: embeddingModel,
+                chunkCount: chunkCount,
+                indexedAt: indexedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int itemId,
+                required String contentHash,
+                required String embeddingModel,
+                required int chunkCount,
+                Value<DateTime> indexedAt = const Value.absent(),
+              }) => SemanticIndexStatesCompanion.insert(
+                id: id,
+                itemId: itemId,
+                contentHash: contentHash,
+                embeddingModel: embeddingModel,
+                chunkCount: chunkCount,
+                indexedAt: indexedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SemanticIndexStatesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable:
+                                    $$SemanticIndexStatesTableReferences
+                                        ._itemIdTable(db),
+                                referencedColumn:
+                                    $$SemanticIndexStatesTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SemanticIndexStatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SemanticIndexStatesTable,
+      SemanticIndexState,
+      $$SemanticIndexStatesTableFilterComposer,
+      $$SemanticIndexStatesTableOrderingComposer,
+      $$SemanticIndexStatesTableAnnotationComposer,
+      $$SemanticIndexStatesTableCreateCompanionBuilder,
+      $$SemanticIndexStatesTableUpdateCompanionBuilder,
+      (SemanticIndexState, $$SemanticIndexStatesTableReferences),
+      SemanticIndexState,
+      PrefetchHooks Function({bool itemId})
+    >;
+typedef $$SemanticChunksTableCreateCompanionBuilder =
+    SemanticChunksCompanion Function({
+      Value<int> id,
+      required int itemId,
+      required int chunkIndex,
+      required String chunkText,
+      required String embeddingVectorJson,
+    });
+typedef $$SemanticChunksTableUpdateCompanionBuilder =
+    SemanticChunksCompanion Function({
+      Value<int> id,
+      Value<int> itemId,
+      Value<int> chunkIndex,
+      Value<String> chunkText,
+      Value<String> embeddingVectorJson,
+    });
+
+final class $$SemanticChunksTableReferences
+    extends BaseReferences<_$AppDatabase, $SemanticChunksTable, SemanticChunk> {
+  $$SemanticChunksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MnemataItemsTable _itemIdTable(_$AppDatabase db) =>
+      db.mnemataItems.createAlias(
+        $_aliasNameGenerator(db.semanticChunks.itemId, db.mnemataItems.id),
+      );
+
+  $$MnemataItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<int>('item_id')!;
+
+    final manager = $$MnemataItemsTableTableManager(
+      $_db,
+      $_db.mnemataItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SemanticChunksTableFilterComposer
+    extends Composer<_$AppDatabase, $SemanticChunksTable> {
+  $$SemanticChunksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chunkText => $composableBuilder(
+    column: $table.chunkText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get embeddingVectorJson => $composableBuilder(
+    column: $table.embeddingVectorJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MnemataItemsTableFilterComposer get itemId {
+    final $$MnemataItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticChunksTableOrderingComposer
+    extends Composer<_$AppDatabase, $SemanticChunksTable> {
+  $$SemanticChunksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chunkText => $composableBuilder(
+    column: $table.chunkText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get embeddingVectorJson => $composableBuilder(
+    column: $table.embeddingVectorJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MnemataItemsTableOrderingComposer get itemId {
+    final $$MnemataItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticChunksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SemanticChunksTable> {
+  $$SemanticChunksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get chunkText =>
+      $composableBuilder(column: $table.chunkText, builder: (column) => column);
+
+  GeneratedColumn<String> get embeddingVectorJson => $composableBuilder(
+    column: $table.embeddingVectorJson,
+    builder: (column) => column,
+  );
+
+  $$MnemataItemsTableAnnotationComposer get itemId {
+    final $$MnemataItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SemanticChunksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SemanticChunksTable,
+          SemanticChunk,
+          $$SemanticChunksTableFilterComposer,
+          $$SemanticChunksTableOrderingComposer,
+          $$SemanticChunksTableAnnotationComposer,
+          $$SemanticChunksTableCreateCompanionBuilder,
+          $$SemanticChunksTableUpdateCompanionBuilder,
+          (SemanticChunk, $$SemanticChunksTableReferences),
+          SemanticChunk,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$SemanticChunksTableTableManager(
+    _$AppDatabase db,
+    $SemanticChunksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SemanticChunksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SemanticChunksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SemanticChunksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> itemId = const Value.absent(),
+                Value<int> chunkIndex = const Value.absent(),
+                Value<String> chunkText = const Value.absent(),
+                Value<String> embeddingVectorJson = const Value.absent(),
+              }) => SemanticChunksCompanion(
+                id: id,
+                itemId: itemId,
+                chunkIndex: chunkIndex,
+                chunkText: chunkText,
+                embeddingVectorJson: embeddingVectorJson,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int itemId,
+                required int chunkIndex,
+                required String chunkText,
+                required String embeddingVectorJson,
+              }) => SemanticChunksCompanion.insert(
+                id: id,
+                itemId: itemId,
+                chunkIndex: chunkIndex,
+                chunkText: chunkText,
+                embeddingVectorJson: embeddingVectorJson,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SemanticChunksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable: $$SemanticChunksTableReferences
+                                    ._itemIdTable(db),
+                                referencedColumn:
+                                    $$SemanticChunksTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SemanticChunksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SemanticChunksTable,
+      SemanticChunk,
+      $$SemanticChunksTableFilterComposer,
+      $$SemanticChunksTableOrderingComposer,
+      $$SemanticChunksTableAnnotationComposer,
+      $$SemanticChunksTableCreateCompanionBuilder,
+      $$SemanticChunksTableUpdateCompanionBuilder,
+      (SemanticChunk, $$SemanticChunksTableReferences),
+      SemanticChunk,
+      PrefetchHooks Function({bool itemId})
+    >;
+typedef $$AnnotationRecordsTableCreateCompanionBuilder =
+    AnnotationRecordsCompanion Function({
+      Value<int> id,
+      required int itemId,
+      required String quoteText,
+      required String anchorJson,
+      Value<String?> note,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+    });
+typedef $$AnnotationRecordsTableUpdateCompanionBuilder =
+    AnnotationRecordsCompanion Function({
+      Value<int> id,
+      Value<int> itemId,
+      Value<String> quoteText,
+      Value<String> anchorJson,
+      Value<String?> note,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+    });
+
+final class $$AnnotationRecordsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $AnnotationRecordsTable,
+          AnnotationRecord
+        > {
+  $$AnnotationRecordsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $MnemataItemsTable _itemIdTable(_$AppDatabase db) =>
+      db.mnemataItems.createAlias(
+        $_aliasNameGenerator(db.annotationRecords.itemId, db.mnemataItems.id),
+      );
+
+  $$MnemataItemsTableProcessedTableManager get itemId {
+    final $_column = $_itemColumn<int>('item_id')!;
+
+    final manager = $$MnemataItemsTableTableManager(
+      $_db,
+      $_db.mnemataItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_itemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AnnotationRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $AnnotationRecordsTable> {
+  $$AnnotationRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get quoteText => $composableBuilder(
+    column: $table.quoteText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get anchorJson => $composableBuilder(
+    column: $table.anchorJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MnemataItemsTableFilterComposer get itemId {
+    final $$MnemataItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnnotationRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AnnotationRecordsTable> {
+  $$AnnotationRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get quoteText => $composableBuilder(
+    column: $table.quoteText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get anchorJson => $composableBuilder(
+    column: $table.anchorJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MnemataItemsTableOrderingComposer get itemId {
+    final $$MnemataItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnnotationRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AnnotationRecordsTable> {
+  $$AnnotationRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get quoteText =>
+      $composableBuilder(column: $table.quoteText, builder: (column) => column);
+
+  GeneratedColumn<String> get anchorJson => $composableBuilder(
+    column: $table.anchorJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$MnemataItemsTableAnnotationComposer get itemId {
+    final $$MnemataItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.itemId,
+      referencedTable: $db.mnemataItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MnemataItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.mnemataItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnnotationRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AnnotationRecordsTable,
+          AnnotationRecord,
+          $$AnnotationRecordsTableFilterComposer,
+          $$AnnotationRecordsTableOrderingComposer,
+          $$AnnotationRecordsTableAnnotationComposer,
+          $$AnnotationRecordsTableCreateCompanionBuilder,
+          $$AnnotationRecordsTableUpdateCompanionBuilder,
+          (AnnotationRecord, $$AnnotationRecordsTableReferences),
+          AnnotationRecord,
+          PrefetchHooks Function({bool itemId})
+        > {
+  $$AnnotationRecordsTableTableManager(
+    _$AppDatabase db,
+    $AnnotationRecordsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AnnotationRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AnnotationRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AnnotationRecordsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> itemId = const Value.absent(),
+                Value<String> quoteText = const Value.absent(),
+                Value<String> anchorJson = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+              }) => AnnotationRecordsCompanion(
+                id: id,
+                itemId: itemId,
+                quoteText: quoteText,
+                anchorJson: anchorJson,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int itemId,
+                required String quoteText,
+                required String anchorJson,
+                Value<String?> note = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+              }) => AnnotationRecordsCompanion.insert(
+                id: id,
+                itemId: itemId,
+                quoteText: quoteText,
+                anchorJson: anchorJson,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AnnotationRecordsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({itemId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (itemId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.itemId,
+                                referencedTable:
+                                    $$AnnotationRecordsTableReferences
+                                        ._itemIdTable(db),
+                                referencedColumn:
+                                    $$AnnotationRecordsTableReferences
+                                        ._itemIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AnnotationRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AnnotationRecordsTable,
+      AnnotationRecord,
+      $$AnnotationRecordsTableFilterComposer,
+      $$AnnotationRecordsTableOrderingComposer,
+      $$AnnotationRecordsTableAnnotationComposer,
+      $$AnnotationRecordsTableCreateCompanionBuilder,
+      $$AnnotationRecordsTableUpdateCompanionBuilder,
+      (AnnotationRecord, $$AnnotationRecordsTableReferences),
+      AnnotationRecord,
+      PrefetchHooks Function({bool itemId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2740,4 +6307,12 @@ class $AppDatabaseManager {
       $$LabelsTableTableManager(_db, _db.labels);
   $$ItemLabelsTableTableManager get itemLabels =>
       $$ItemLabelsTableTableManager(_db, _db.itemLabels);
+  $$SummaryCachesTableTableManager get summaryCaches =>
+      $$SummaryCachesTableTableManager(_db, _db.summaryCaches);
+  $$SemanticIndexStatesTableTableManager get semanticIndexStates =>
+      $$SemanticIndexStatesTableTableManager(_db, _db.semanticIndexStates);
+  $$SemanticChunksTableTableManager get semanticChunks =>
+      $$SemanticChunksTableTableManager(_db, _db.semanticChunks);
+  $$AnnotationRecordsTableTableManager get annotationRecords =>
+      $$AnnotationRecordsTableTableManager(_db, _db.annotationRecords);
 }

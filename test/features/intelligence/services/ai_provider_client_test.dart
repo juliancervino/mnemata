@@ -13,7 +13,7 @@ void main() {
   group('AIProviderClient error mapping', () {
     test('maps timeout/auth/rate-limit/network/invalid failures deterministically', () {
       expect(
-        mapProviderError(const TimeoutException('timeout')).code,
+        mapProviderError(TimeoutException('timeout')).code,
         IntelligenceErrorCode.timeout,
       );
       expect(

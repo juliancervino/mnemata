@@ -24,7 +24,58 @@ class Labels extends Table {
 class ItemLabels extends Table {
   IntColumn get itemId => integer().references(MnemataItems, #id)();
   IntColumn get labelId => integer().references(Labels, #id)();
-  
+
   @override
   Set<Column> get primaryKey => {itemId, labelId};
+}
+
+class SummaryCaches extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get itemId =>
+      integer().references(MnemataItems, #id, onDelete: KeyAction.cascade)();
+  TextColumn get contentHash => text()();
+  TextColumn get tldr => text()();
+  TextColumn get keyPointsJson => text()();
+  TextColumn get whyItMatters => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {itemId, contentHash},
+  ];
+}
+
+class SemanticIndexStates extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get itemId =>
+      integer().references(MnemataItems, #id, onDelete: KeyAction.cascade)();
+  TextColumn get contentHash => text()();
+  TextColumn get embeddingModel => text()();
+  IntColumn get chunkCount => integer()();
+  DateTimeColumn get indexedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {itemId},
+  ];
+}
+
+class SemanticChunks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get itemId =>
+      integer().references(MnemataItems, #id, onDelete: KeyAction.cascade)();
+  IntColumn get chunkIndex => integer()();
+  TextColumn get chunkText => text()();
+  TextColumn get embeddingVectorJson => text()();
+}
+
+class AnnotationRecords extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get itemId =>
+      integer().references(MnemataItems, #id, onDelete: KeyAction.cascade)();
+  TextColumn get quoteText => text()();
+  TextColumn get anchorJson => text()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
 }
