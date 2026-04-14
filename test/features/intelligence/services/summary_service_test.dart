@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mnemata/core/database/app_database.dart';
@@ -58,14 +59,18 @@ void main() {
   });
 
   test('missing API key returns missingApiKey with setup guidance', () async {
-    final provider = AIProviderClient(executor: (_) async => <String, dynamic>{});
+    final provider = AIProviderClient(
+      executor: (_) async => <String, dynamic>{},
+    );
     final service = SummaryService(
       database: database,
       apiKeyStore: apiKeyStore,
       providerClient: provider,
     );
 
-    final item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
+    final item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == itemId,
+    );
     final result = await service.generateSummary(item);
 
     expect(result.isSuccess, isFalse);
@@ -83,79 +88,99 @@ void main() {
     );
     await apiKeyStore.saveKey('test-key');
 
-    final provider = AIProviderClient(executor: (_) async => <String, dynamic>{});
+    final provider = AIProviderClient(
+      executor: (_) async => <String, dynamic>{},
+    );
     final service = SummaryService(
       database: database,
       apiKeyStore: apiKeyStore,
       providerClient: provider,
     );
 
-    final fileItem = (await database.watchAllItems().first)
-        .firstWhere((i) => i.id == fileItemId);
+    final fileItem = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == fileItemId,
+    );
     final result = await service.generateSummary(fileItem);
 
     expect(result.status, SummaryStatus.unsupported);
     expect(result.guidance.toLowerCase(), contains('url'));
   });
 
-  test('unchanged content hash reuses cache, changed hash regenerates', () async {
-    await apiKeyStore.saveKey('test-key');
-    var providerCalls = 0;
-    final provider = AIProviderClient(
-      executor: (_) async {
-        providerCalls += 1;
-        return <String, dynamic>{
+  test(
+    'unchanged content hash reuses cache, changed hash regenerates',
+    () async {
+      await apiKeyStore.saveKey('test-key');
+      var providerCalls = 0;
+      final provider = AIProviderClient(
+        executor: (_) async {
+          providerCalls += 1;
+          return <String, dynamic>{
+            'tldr': 'Quick summary',
+            'keyPoints': <String>['One', 'Two', 'Three'],
+            'whyItMatters': 'Because context matters.',
+          };
+        },
+      );
+
+      final service = SummaryService(
+        database: database,
+        apiKeyStore: apiKeyStore,
+        providerClient: provider,
+      );
+
+      var item = (await database.watchAllItems().first).firstWhere(
+        (i) => i.id == itemId,
+      );
+      final first = await service.generateSummary(item);
+      final second = await service.generateSummary(item);
+
+      expect(first.isSuccess, isTrue);
+      expect(second.fromCache, isTrue);
+      expect(providerCalls, 1);
+
+      await database.updateItemContent(
+        itemId,
+        'changed article content',
+        item.title,
+        null,
+      );
+      item = (await database.watchAllItems().first).firstWhere(
+        (i) => i.id == itemId,
+      );
+
+      final third = await service.generateSummary(item);
+      expect(third.isSuccess, isTrue);
+      expect(providerCalls, 2);
+    },
+  );
+
+  test(
+    'result always includes TLDR, key points (3-5), and why-it-matters',
+    () async {
+      await apiKeyStore.saveKey('test-key');
+      final provider = AIProviderClient(
+        executor: (_) async => <String, dynamic>{
           'tldr': 'Quick summary',
-          'keyPoints': <String>['One', 'Two', 'Three'],
+          'keyPoints': <String>['One', 'Two', 'Three', 'Four'],
           'whyItMatters': 'Because context matters.',
-        };
-      },
-    );
+        },
+      );
 
-    final service = SummaryService(
-      database: database,
-      apiKeyStore: apiKeyStore,
-      providerClient: provider,
-    );
+      final service = SummaryService(
+        database: database,
+        apiKeyStore: apiKeyStore,
+        providerClient: provider,
+      );
 
-    var item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
-    final first = await service.generateSummary(item);
-    final second = await service.generateSummary(item);
+      final item = (await database.watchAllItems().first).firstWhere(
+        (i) => i.id == itemId,
+      );
+      final result = await service.generateSummary(item);
 
-    expect(first.isSuccess, isTrue);
-    expect(second.fromCache, isTrue);
-    expect(providerCalls, 1);
-
-    await database.updateItemContent(itemId, 'changed article content', item.title, null);
-    item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
-
-    final third = await service.generateSummary(item);
-    expect(third.isSuccess, isTrue);
-    expect(providerCalls, 2);
-  });
-
-  test('result always includes TLDR, key points (3-5), and why-it-matters', () async {
-    await apiKeyStore.saveKey('test-key');
-    final provider = AIProviderClient(
-      executor: (_) async => <String, dynamic>{
-        'tldr': 'Quick summary',
-        'keyPoints': <String>['One', 'Two', 'Three', 'Four'],
-        'whyItMatters': 'Because context matters.',
-      },
-    );
-
-    final service = SummaryService(
-      database: database,
-      apiKeyStore: apiKeyStore,
-      providerClient: provider,
-    );
-
-    final item = (await database.watchAllItems().first).firstWhere((i) => i.id == itemId);
-    final result = await service.generateSummary(item);
-
-    expect(result.isSuccess, isTrue);
-    expect(result.tldr, isNotEmpty);
-    expect(result.keyPoints.length, inInclusiveRange(3, 5));
-    expect(result.whyItMatters, isNotEmpty);
-  });
+      expect(result.isSuccess, isTrue);
+      expect(result.tldr, isNotEmpty);
+      expect(result.keyPoints.length, inInclusiveRange(3, 5));
+      expect(result.whyItMatters, isNotEmpty);
+    },
+  );
 }

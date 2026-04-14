@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
+import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 
@@ -13,7 +15,7 @@ class ReaderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(item.title ?? 'Article'),
@@ -35,6 +37,19 @@ class ReaderScreen extends StatelessWidget {
               await ShareUtils.shareItem(context, item);
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'AI Summary',
+            onPressed: () {
+              final summaryService = GetIt.instance<SummaryService>();
+              showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) =>
+                    SummaryPanel(item: item, summaryService: summaryService),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'delete') {
@@ -42,7 +57,9 @@ class ReaderScreen extends StatelessWidget {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Delete Item'),
-                    content: const Text('Are you sure you want to delete this item?'),
+                    content: const Text(
+                      'Are you sure you want to delete this item?',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -50,7 +67,9 @@ class ReaderScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
                         child: const Text('DELETE'),
                       ),
                     ],
@@ -97,9 +116,8 @@ class ReaderScreen extends StatelessWidget {
                       if (item.title != null) ...[
                         Text(
                           item.title!,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -113,15 +131,28 @@ class ReaderScreen extends StatelessWidget {
                             child: Wrap(
                               spacing: 8,
                               runSpacing: 4,
-                              children: labels.map((label) => Chip(
-                                label: Text(label.name, style: const TextStyle(fontSize: 12)),
-                                backgroundColor: label.color != null
-                                    ? Color(label.color!).withValues(alpha: 0.2)
-                                    : null,
-                                side: BorderSide(color: label.color != null ? Color(label.color!) : Colors.blue),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                              )).toList(),
+                              children: labels
+                                  .map(
+                                    (label) => Chip(
+                                      label: Text(
+                                        label.name,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      backgroundColor: label.color != null
+                                          ? Color(
+                                              label.color!,
+                                            ).withValues(alpha: 0.2)
+                                          : null,
+                                      side: BorderSide(
+                                        color: label.color != null
+                                            ? Color(label.color!)
+                                            : Colors.blue,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  )
+                                  .toList(),
                             ),
                           );
                         },
@@ -129,7 +160,8 @@ class ReaderScreen extends StatelessWidget {
                       if (item.url != null) ...[
                         Text(
                           _safeHost(item.url!),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                         ),
@@ -139,14 +171,17 @@ class ReaderScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       HtmlWidget(
                         item.content!,
-                        textStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              height: 1.6,
-                            ),
+                        textStyle: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(height: 1.6),
                         onTapUrl: (url) async {
                           await database.updateLastOpenedAt(item.id);
                           final uri = Uri.parse(url);
                           if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
                             return true;
                           }
                           return false;
@@ -158,24 +193,28 @@ class ReaderScreen extends StatelessWidget {
                 ),
               )
             : Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.article_outlined, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('No content extracted yet.'),
-                  if (item.url != null) ...[
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        await _openItemUrl(context, database);
-                      },
-                      child: const Text('Open in Browser'),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.article_outlined,
+                      size: 64,
+                      color: Colors.grey,
                     ),
+                    const SizedBox(height: 16),
+                    const Text('No content extracted yet.'),
+                    if (item.url != null) ...[
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          await _openItemUrl(context, database);
+                        },
+                        child: const Text('Open in Browser'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
       ),
     );
   }
@@ -210,9 +249,9 @@ class ReaderScreen extends StatelessWidget {
     final uri = _parseLaunchableUri(rawUrl);
     if (uri == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid URL')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid URL')));
       }
       return;
     }
