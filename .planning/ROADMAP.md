@@ -125,11 +125,18 @@
 ### Phase 12: Intelligence & Advanced Reading
 **Goal**: Use AI and rich interactions to extract more value from content.
 **Depends on**: Phase 2
+**Requirements**: POR-04
 **Success Criteria**:
   1. Generative AI summaries for articles (TL;DR).
   2. Semantic search (search by concept, not just keywords).
   3. Highlighting and persistent annotations within the Reader View.
-  4. Text-to-Speech (TTS) for hands-free consumption.
+  4. AI-assisted tag suggestions that only use existing tags.
+  5. AI summaries and semantic search remain unavailable until a user API key is configured.
+**Plans**: 4 plans
+- [ ] 12-01-PLAN — Intelligence Foundation: Secure API Key, AI Boundary, and Persistence Contracts
+- [ ] 12-02-PLAN — Reader AI Summaries and Existing-Tag Suggestions
+- [ ] 12-03-PLAN — Hybrid Semantic Search with Async Indexing and Fallback
+- [ ] 12-04-PLAN — Persistent Highlights and Annotation UX
 
 ## Progress Table
 
