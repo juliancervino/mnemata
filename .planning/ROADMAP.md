@@ -175,5 +175,5 @@
 | 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
 | 12. Intelligence | 4/4 | Complete   | 2026-04-14 |
 | 13. Verification Backfill | 1/1 | Complete   | 2026-04-15 |
-| 14. Intelligence Closure | 1/1 | Complete | 2026-04-15 |
+| 14. Intelligence Closure | 1/1 | Complete   | 2026-04-15 |
 
