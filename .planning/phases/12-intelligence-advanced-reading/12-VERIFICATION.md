@@ -1,6 +1,6 @@
 ---
 phase: 12-intelligence-advanced-reading
-verified: 2026-04-15T15:28:48Z
+verified: 2026-04-15T15:45:48Z
 status: passed
 score: 6/6 must-haves verified
 ---
@@ -8,7 +8,7 @@ score: 6/6 must-haves verified
 # Phase 12: Intelligence & Advanced Reading Verification Report
 
 **Phase Goal:** Use AI and rich interactions to extract more value from saved content while preserving strict capability gating.
-**Verified:** 2026-04-15T15:28:48Z
+**Verified:** 2026-04-15T15:45:48Z
 **Status:** passed
 
 ## Goal Achievement
@@ -49,8 +49,8 @@ score: 6/6 must-haves verified
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| POR-04 | 12-01, 12-02, 12-03, 12-04 | Generative AI summarization for extracted article content (plus gated semantic and reader intelligence interactions) | ✓ SATISFIED | Phase 12 summaries reference implemented services/UI/tests for summary, semantic retrieval, annotations, and existing-tag suggestions with API-key gating. |
-| POR-03 | Deferred scope decision tracked in 11-05 and 12 context artifacts | Research/prototype browser extension for cross-platform ingestion | ✓ SATISFIED (deferred research traceability) | Ownership and deferred scope rationale are explicit in roadmap/context/discussion artifacts; implementation intentionally remains out of this phase and is traceable, not orphaned. |
+| POR-04 | 12-01, 12-02, 12-03, 12-04 | Generative AI summarization for extracted article content (plus gated semantic and reader intelligence interactions) | ✓ SATISFIED | `.planning/phases/12-intelligence-advanced-reading/12-02-SUMMARY.md`, `.planning/phases/12-intelligence-advanced-reading/12-03-SUMMARY.md`, and `.planning/phases/12-intelligence-advanced-reading/12-04-SUMMARY.md` cross-reference concrete tests for summary (`summary_service_test.dart`), semantic fallback (`semantic_search_service_test.dart`), annotations (`annotation_service_test.dart`), and existing-tag suggestions (`tag_suggestion_service_test.dart`) under API-key gating. |
+| POR-03 | Deferred scope decision tracked in 11-05 and 12 context artifacts | Research/prototype browser extension for cross-platform ingestion | ✓ DEFERRED (traceable research scope) | Ownership and deferred scope rationale are explicit in `.planning/phases/11-cloud-data-portability/11-05-SUMMARY.md`, `.planning/phases/12-intelligence-advanced-reading/12-CONTEXT.md`, and `.planning/phases/12-intelligence-advanced-reading/12-DISCUSSION-LOG.md`; implementation remains intentionally out of this milestone scope and is not orphaned. |
 
 ## Anti-Patterns Found
 
@@ -71,5 +71,5 @@ No open Phase 12 verification gaps remain for POR-03/POR-04 traceability.
 **Human checks required:** 0
 
 ---
-_Verified: 2026-04-15T15:28:48Z_
+_Verified: 2026-04-15T15:45:48Z_
 _Verifier: the agent (gsd-executor)_

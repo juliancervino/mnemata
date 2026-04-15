@@ -84,5 +84,5 @@
 | PRO-05 | Phase 10 | Completed |
 | POR-01 | Phase 11 | Completed |
 | POR-02 | Phase 11 | Completed |
-| POR-03 | Phase 14 | Research (Deferred) |
+| POR-03 | Phase 14 | Deferred (Traceable Research) |
 | POR-04 | Phase 14 | Completed |
