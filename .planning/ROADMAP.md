@@ -66,7 +66,7 @@
 - [x] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability. (completed 2026-04-05)
 - [x] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations. (completed 2026-04-14)
 - [x] **Phase 13: Milestone Verification Backfill** - Recover missing verification artifacts and requirement traceability for Phases 6-10.
-- [ ] **Phase 14: Intelligence & Integration Closure** - Close POR-03/POR-04 evidence gaps and re-verify milestone-level integration/flows.
+- [x] **Phase 14: Intelligence & Integration Closure** - Close POR-03/POR-04 evidence gaps and re-verify milestone-level integration/flows. (completed 2026-04-15)
 
 ## Phase Details
 
@@ -155,7 +155,8 @@
 **Depends on**: Phase 13
 **Requirements**: POR-03, POR-04
 **Gap Closure**: Addresses unsatisfied/partial POR gaps plus integration and E2E flow audit blockers.
-**Plans**: 0 plans
+**Plans**: 1 plan
+- [x] 14-01-PLAN — Intelligence Evidence Backfill, Audit Refresh, and Planning State Sync
 
 ## Progress Table
 
@@ -174,5 +175,5 @@
 | 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
 | 12. Intelligence | 4/4 | Complete   | 2026-04-14 |
 | 13. Verification Backfill | 1/1 | Complete   | 2026-04-15 |
-| 14. Intelligence Closure | 0/0 | Planned | — |
+| 14. Intelligence Closure | 1/1 | Complete | 2026-04-15 |
 
