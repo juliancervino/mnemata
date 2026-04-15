@@ -72,8 +72,8 @@ class AIProviderClient {
     http.Client? httpClient,
     this.timeout = const Duration(seconds: 15),
     this.geminiModel = 'gemini-2.5-flash-lite',
-    this.openAiModel = 'gpt-4o-mini',
-    this.claudeModel = 'claude-3-5-haiku-latest',
+    this.openAiModel = 'gpt-5-nano',
+    this.claudeModel = 'claude-haiku-4-5-20251001',
   }) : _executor = executor,
        _httpClient = httpClient;
 
