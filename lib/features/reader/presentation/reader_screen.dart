@@ -70,34 +70,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
           IconButton(
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'AI Summary',
-            onPressed: () {
-              final summaryService = GetIt.instance<SummaryService>();
-              showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (_) => SummaryPanel(
-                  item: widget.item,
-                  summaryService: summaryService,
-                ),
-              );
-            },
+            onPressed: _openSummary,
           ),
           IconButton(
             icon: const Icon(Icons.label_outline),
             tooltip: 'AI Tag Suggestions',
-            onPressed: () {
-              final suggestionService = GetIt.instance<TagSuggestionService>();
-              showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (_) => TagSuggestionSheet(
-                  item: widget.item,
-                  service: suggestionService,
-                ),
-              );
-            },
+            onPressed: _openTagSuggestions,
           ),
           PopupMenuButton<String>(
             onSelected: (value) async {
@@ -518,6 +496,40 @@ class _ReaderScreenState extends State<ReaderScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Item deleted')));
+  }
+
+  Future<void> _openSummary() async {
+    final summaryService = GetIt.instance<SummaryService>();
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
+          child: SummaryPanel(
+            item: widget.item,
+            summaryService: summaryService,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTagSuggestions() async {
+    final suggestionService = GetIt.instance<TagSuggestionService>();
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
+          child: TagSuggestionSheet(
+            item: widget.item,
+            service: suggestionService,
+          ),
+        ),
+      ),
+    );
   }
 }
 

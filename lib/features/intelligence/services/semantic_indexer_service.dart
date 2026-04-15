@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 
@@ -29,7 +30,7 @@ class SemanticIndexerService {
   final List<Future<void>> _pending = <Future<void>>[];
 
   Future<void> enqueueIndexing(MnemataItem item) async {
-    final content = item.content?.trim() ?? '';
+    final content = toAiPlainText(item.content ?? '');
     if (item.type != 'url' || content.isEmpty) {
       return;
     }

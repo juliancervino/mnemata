@@ -19,6 +19,13 @@ class TagSuggestionSheet extends StatefulWidget {
 class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
   bool _isLoading = false;
   TagSuggestionResult? _result;
+  final Set<int> _selectedLabelIds = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _generate();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,28 +42,69 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _generate,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Suggest from existing tags'),
-            ),
-            const SizedBox(height: 12),
             if (_isLoading) const LinearProgressIndicator(),
             if (_result != null) ...[
               if (!_result!.isSuccess)
-                Text(
-                  _result!.guidance,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _result!.guidance,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _generate,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
                 )
               else if (_result!.suggestedLabels.isEmpty)
                 const Text('No matching existing tags found for this content.')
               else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _result!.suggestedLabels
-                      .map((label) => Chip(label: Text(label.name)))
-                      .toList(growable: false),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select tags to apply',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _result!.suggestedLabels
+                          .map((label) {
+                            final isSelected = _selectedLabelIds.contains(
+                              label.id,
+                            );
+                            return FilterChip(
+                              label: Text(label.name),
+                              selected: isSelected,
+                              avatar: Icon(
+                                Icons.label,
+                                size: 16,
+                                color: label.color != null
+                                    ? Color(label.color!)
+                                    : Colors.blue,
+                              ),
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedLabelIds.add(label.id);
+                                  } else {
+                                    _selectedLabelIds.remove(label.id);
+                                  }
+                                });
+                              },
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 12),
               Row(
@@ -69,10 +117,10 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
                   FilledButton(
                     onPressed:
                         (_result?.isSuccess == true &&
-                            (_result?.suggestedLabels.isNotEmpty ?? false))
+                            _selectedLabelIds.isNotEmpty)
                         ? _apply
                         : null,
-                    child: const Text('Apply'),
+                    child: Text('Apply (${_selectedLabelIds.length})'),
                   ),
                 ],
               ),
@@ -92,11 +140,16 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
     setState(() {
       _isLoading = false;
       _result = result;
+      _selectedLabelIds
+        ..clear()
+        ..addAll(result.suggestedLabels.map((label) => label.id));
     });
   }
 
   Future<void> _apply() async {
-    final labels = _result?.suggestedLabels ?? const <Label>[];
+    final labels = (_result?.suggestedLabels ?? const <Label>[])
+        .where((label) => _selectedLabelIds.contains(label.id))
+        .toList(growable: false);
     await widget.service.applySuggestions(
       itemId: widget.item.id,
       labels: labels,

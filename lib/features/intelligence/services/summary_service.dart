@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
@@ -54,7 +55,7 @@ class SummaryService {
 
     final cached = await _database.getSummaryCache(
       itemId: item.id,
-      contentHash: _contentHash(item.content!),
+      contentHash: _contentHash(toAiPlainText(item.content!)),
     );
     if (cached == null) {
       return null;
@@ -76,7 +77,7 @@ class SummaryService {
       );
     }
 
-    final content = item.content!.trim();
+    final content = toAiPlainText(item.content!);
     final contentHash = _contentHash(content);
 
     if (!forceRefresh) {
@@ -102,7 +103,19 @@ class SummaryService {
       final response = await _providerClient.runPrompt(
         apiKey: apiKey,
         prompt:
-            'Summarize this article into JSON with keys tldr, keyPoints, whyItMatters: $content',
+            '''
+Resume este articulo en CASTELLANO.
+Devuelve SOLO JSON valido con este formato exacto:
+{"tldr":"...","keyPoints":["...","...","..."],"whyItMatters":"..."}
+
+Requisitos:
+- Todo el contenido de salida debe estar en castellano.
+- keyPoints debe incluir entre 3 y 5 puntos.
+- No incluyas markdown ni texto fuera del JSON.
+
+Articulo:
+$content
+''',
         provider: parseProviderType(provider),
       );
       final parsed = _parseResponse(response);
@@ -129,9 +142,10 @@ class SummaryService {
   }
 
   bool _supportsSummary(MnemataItem item) {
-    return item.type == 'url' &&
-        item.content != null &&
-        item.content!.trim().isNotEmpty;
+    if (item.type != 'url' || item.content == null) {
+      return false;
+    }
+    return toAiPlainText(item.content!).isNotEmpty;
   }
 
   String _contentHash(String content) {

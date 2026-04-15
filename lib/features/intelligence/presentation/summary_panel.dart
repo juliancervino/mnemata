@@ -23,7 +23,7 @@ class _SummaryPanelState extends State<SummaryPanel> {
   @override
   void initState() {
     super.initState();
-    _loadSaved();
+    _loadOrGenerate();
   }
 
   @override
@@ -38,26 +38,10 @@ class _SummaryPanelState extends State<SummaryPanel> {
           children: [
             Text('AI Summary', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: _isLoading ? null : _generate,
-                  icon: const Icon(Icons.auto_awesome),
-                  label: Text(
-                    _result?.isSuccess == true
-                        ? 'Regenerate summary'
-                        : 'Generate summary',
-                  ),
-                ),
-                if (_result?.isSuccess == true)
-                  OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _regenerate,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Force refresh'),
-                  ),
-              ],
+            FilledButton.icon(
+              onPressed: _isLoading ? null : _regenerate,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Regenerate'),
             ),
             const SizedBox(height: 12),
             if (_isLoading) const LinearProgressIndicator(),
@@ -107,10 +91,26 @@ class _SummaryPanelState extends State<SummaryPanel> {
     );
   }
 
-  Future<void> _generate() async {
+  Future<void> _regenerate() async {
+    await _runGeneration(forceRefresh: true);
+  }
+
+  Future<void> _loadOrGenerate() async {
     setState(() {
       _isLoading = true;
     });
+
+    final saved = await widget.summaryService.loadSavedSummary(widget.item);
+    if (saved != null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoading = false;
+        _result = saved;
+      });
+      return;
+    }
 
     final result = await widget.summaryService.generateSummary(widget.item);
 
@@ -123,14 +123,14 @@ class _SummaryPanelState extends State<SummaryPanel> {
     });
   }
 
-  Future<void> _regenerate() async {
+  Future<void> _runGeneration({required bool forceRefresh}) async {
     setState(() {
       _isLoading = true;
     });
 
     final result = await widget.summaryService.generateSummary(
       widget.item,
-      forceRefresh: true,
+      forceRefresh: forceRefresh,
     );
 
     if (!mounted) {
@@ -139,22 +139,6 @@ class _SummaryPanelState extends State<SummaryPanel> {
     setState(() {
       _isLoading = false;
       _result = result;
-    });
-  }
-
-  Future<void> _loadSaved() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final saved = await widget.summaryService.loadSavedSummary(widget.item);
-
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isLoading = false;
-      _result = saved;
     });
   }
 }

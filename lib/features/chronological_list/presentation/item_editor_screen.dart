@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 
 class ItemEditorScreen extends StatefulWidget {
   final MnemataItem item;
@@ -45,7 +46,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
 
   Future<void> _handleSave({bool pop = true}) async {
     final database = GetIt.instance<AppDatabase>();
-    
+
     // 1. Update basic details
     await database.updateItemDetails(
       widget.item.id,
@@ -91,14 +92,18 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       await database.deleteItem(widget.item.id);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Item deleted')));
       }
     }
   }
 
-  void _pickColor(BuildContext context, Color initialColor, Function(Color) onColorChanged) {
+  void _pickColor(
+    BuildContext context,
+    Color initialColor,
+    Function(Color) onColorChanged,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -139,7 +144,10 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                 trailing: Container(
                   width: 24,
                   height: 24,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: selectedColor),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selectedColor,
+                  ),
                 ),
                 onTap: () => _pickColor(context, selectedColor, (color) {
                   setDialogState(() => selectedColor = color);
@@ -148,15 +156,20 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
             TextButton(
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isNotEmpty) {
-                  final id = await database.insertLabel(LabelsCompanion.insert(
-                    name: name,
-                    color: drift.Value(selectedColor.toARGB32()),
-                  ));
+                  final id = await database.insertLabel(
+                    LabelsCompanion.insert(
+                      name: name,
+                      color: drift.Value(selectedColor.toARGB32()),
+                    ),
+                  );
                   setState(() {
                     _selectedLabelIds.add(id);
                   });
@@ -192,81 +205,96 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
             ),
           ],
         ),
-        body: _isLoadingLabels 
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _urlController,
-                decoration: const InputDecoration(
-                  labelText: 'URL (optional)',
-                  border: OutlineInputBorder(),
-                ),
-                enabled: widget.item.type == 'url',
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Labels',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  TextButton.icon(
-                    onPressed: () => _showAddTagDialog(context, database),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Tag'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              StreamBuilder<List<Label>>(
-                stream: database.watchAllLabels(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
-                  final labels = snapshot.data!;
-                  if (labels.isEmpty) return const Text('No labels created yet.');
-
-                  return Wrap(
-                    spacing: 8,
-                    children: labels.map((label) {
-                      final isSelected = _selectedLabelIds.contains(label.id);
-                      return FilterChip(
-                        label: Text(label.name),
-                        selected: isSelected,
-                        avatar: Icon(
-                          Icons.label,
-                          size: 16,
-                          color: label.color != null ? Color(label.color!) : Colors.blue,
+        body: _isLoadingLabels
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'URL (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                      enabled: widget.item.type == 'url',
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Labels',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedLabelIds.add(label.id);
-                            } else {
-                              _selectedLabelIds.remove(label.id);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  );
-                },
+                        TextButton.icon(
+                          onPressed: () => _showAddTagDialog(context, database),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Tag'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StreamBuilder<List<Label>>(
+                      stream: database.watchAllLabels(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const CircularProgressIndicator();
+                        }
+
+                        final labels = snapshot.data!
+                            .where(
+                              (label) =>
+                                  _selectedLabelIds.contains(label.id) ||
+                                  !looksLikeDomainLabel(label.name),
+                            )
+                            .toList(growable: false);
+                        if (labels.isEmpty) {
+                          return const Text('No labels created yet.');
+                        }
+
+                        return Wrap(
+                          spacing: 8,
+                          children: labels.map((label) {
+                            final isSelected = _selectedLabelIds.contains(
+                              label.id,
+                            );
+                            return FilterChip(
+                              label: Text(label.name),
+                              selected: isSelected,
+                              avatar: Icon(
+                                Icons.label,
+                                size: 16,
+                                color: label.color != null
+                                    ? Color(label.color!)
+                                    : Colors.blue,
+                              ),
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedLabelIds.add(label.id);
+                                  } else {
+                                    _selectedLabelIds.remove(label.id);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -79,8 +79,55 @@ void main() {
     await database.close();
   });
 
-  test('prompt uses extracted content + title + existing tags list', () async {
+  test(
+    'prompt uses full extracted content + title + existing tags list',
+    () async {
+      await keyStore.saveKey('key');
+      const marker = 'END_OF_ARTICLE_MARKER';
+      final longContent = '${List.filled(500, 'contenido').join(' ')} $marker';
+      await database.updateItemContent(item.id, longContent, item.title, null);
+      item = (await database.watchAllItems().first).firstWhere(
+        (i) => i.id == item.id,
+      );
+
+      late String prompt;
+      final client = AIProviderClient(
+        executor: (request) async {
+          prompt = request.prompt;
+          return <String, dynamic>{
+            'tagNames': <String>['science'],
+          };
+        },
+      );
+
+      final service = TagSuggestionService(
+        database: database,
+        apiKeyStore: keyStore,
+        providerClient: client,
+        settingsService: settingsService,
+      );
+
+      await service.suggestForItem(item);
+
+      expect(prompt, contains('A history of electric cars'));
+      expect(prompt, contains(marker));
+      expect(prompt, contains('science'));
+      expect(prompt, contains('history'));
+    },
+  );
+
+  test('tag prompt strips html/css/script payloads to plain text', () async {
     await keyStore.saveKey('key');
+    await database.updateItemContent(
+      item.id,
+      '<style>.x{color:red}</style><script>alert(1)</script><div><h2>Articulo</h2><p>Cuerpo util</p></div>',
+      item.title,
+      null,
+    );
+    item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+
     late String prompt;
     final client = AIProviderClient(
       executor: (request) async {
@@ -98,13 +145,56 @@ void main() {
       settingsService: settingsService,
     );
 
-    await service.suggestForItem(item);
+    final result = await service.suggestForItem(item);
 
-    expect(prompt, contains('A history of electric cars'));
-    expect(prompt, contains('Automobile batteries'));
-    expect(prompt, contains('science'));
-    expect(prompt, contains('history'));
+    expect(result.isSuccess, isTrue);
+    expect(prompt, contains('Articulo Cuerpo util'));
+    expect(prompt.toLowerCase(), isNot(contains('<script')));
+    expect(prompt.toLowerCase(), isNot(contains('<style')));
+    expect(prompt, isNot(contains('alert(1)')));
   });
+
+  test(
+    'domain-like labels are excluded from allowed AI tag set by regex',
+    () async {
+      await keyStore.saveKey('key');
+      await database.insertLabel(
+        LabelsCompanion.insert(
+          name: 'example.com',
+          isFolder: const Value(false),
+        ),
+      );
+      await database.insertLabel(
+        LabelsCompanion.insert(
+          name: 'blog.subdomain.net',
+          isFolder: const Value(false),
+        ),
+      );
+
+      late String prompt;
+      final client = AIProviderClient(
+        executor: (request) async {
+          prompt = request.prompt;
+          return <String, dynamic>{
+            'tagNames': <String>['science', 'example.com'],
+          };
+        },
+      );
+
+      final service = TagSuggestionService(
+        database: database,
+        apiKeyStore: keyStore,
+        providerClient: client,
+        settingsService: settingsService,
+      );
+
+      final result = await service.suggestForItem(item);
+
+      expect(prompt, isNot(contains('example.com')));
+      expect(prompt, isNot(contains('blog.subdomain.net')));
+      expect(result.suggestedLabels.map((l) => l.name), <String>['science']);
+    },
+  );
 
   test('returned suggestions are filtered to existing tags only', () async {
     await keyStore.saveKey('key');

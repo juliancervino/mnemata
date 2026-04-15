@@ -1,5 +1,6 @@
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
@@ -49,7 +50,7 @@ class TagSuggestionService {
       );
     }
 
-    final content = item.content?.trim() ?? '';
+    final content = toAiPlainText(item.content ?? '');
     if (content.isEmpty) {
       return const TagSuggestionResult(
         status: TagSuggestionStatus.unsupported,
@@ -57,7 +58,8 @@ class TagSuggestionService {
       );
     }
 
-    final labels = await _database.watchAllLabels().first;
+    final allLabels = await _database.watchAllLabels().first;
+    final labels = _filterOutDomainLabels(allLabels);
     if (labels.isEmpty) {
       return const TagSuggestionResult(
         status: TagSuggestionStatus.success,
@@ -69,9 +71,8 @@ class TagSuggestionService {
       ..writeln('Suggest existing labels only from this allowed set:')
       ..writeln(labels.map((label) => label.name).join(', '))
       ..writeln('Title: ${item.title ?? ''}')
-      ..writeln(
-        'Content excerpt: ${content.length > 1200 ? content.substring(0, 1200) : content}',
-      )
+      ..writeln('Full article content:')
+      ..writeln(content)
       ..writeln('Return JSON: {"tagNames": ["name1", "name2"]}');
 
     try {
@@ -119,5 +120,11 @@ class TagSuggestionService {
     for (final label in labels) {
       await _database.assignLabelToItem(itemId, label.id);
     }
+  }
+
+  List<Label> _filterOutDomainLabels(List<Label> labels) {
+    return labels
+        .where((label) => !looksLikeDomainLabel(label.name))
+        .toList(growable: false);
   }
 }

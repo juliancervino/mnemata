@@ -93,4 +93,38 @@ void main() {
     expect(state, isNotNull);
     expect(state!.chunkCount, chunks.length);
   });
+
+  test('indexer sends plain text only to embedding generator', () async {
+    await keyStore.saveKey('abc');
+    await database.updateItemContent(
+      item.id,
+      '<style>.x{color:red}</style><script>alert(1)</script><p>Contenido util para embeddings</p>',
+      item.title,
+      null,
+    );
+    item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == item.id,
+    );
+
+    final seenInputs = <String>[];
+    final service = SemanticIndexerService(
+      database: database,
+      apiKeyStore: keyStore,
+      settingsService: settingsService,
+      embeddingGenerator: (text) async {
+        seenInputs.add(text);
+        return <double>[0.1, 0.2, 0.3];
+      },
+    );
+
+    await service.enqueueIndexing(item);
+    await service.flushPending();
+
+    expect(seenInputs, isNotEmpty);
+    final joined = seenInputs.join(' ');
+    expect(joined, contains('Contenido util para embeddings'));
+    expect(joined.toLowerCase(), isNot(contains('<script')));
+    expect(joined.toLowerCase(), isNot(contains('<style')));
+    expect(joined, isNot(contains('alert(1)')));
+  });
 }

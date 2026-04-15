@@ -213,11 +213,15 @@ void main() {
     'result always includes TLDR, key points (3-5), and why-it-matters',
     () async {
       await apiKeyStore.saveKey('test-key');
+      late String prompt;
       final provider = AIProviderClient(
-        executor: (_) async => <String, dynamic>{
-          'tldr': 'Quick summary',
-          'keyPoints': <String>['One', 'Two', 'Three', 'Four'],
-          'whyItMatters': 'Because context matters.',
+        executor: (request) async {
+          prompt = request.prompt;
+          return <String, dynamic>{
+            'tldr': 'Resumen rapido',
+            'keyPoints': <String>['Uno', 'Dos', 'Tres', 'Cuatro'],
+            'whyItMatters': 'Porque aporta contexto.',
+          };
         },
       );
 
@@ -237,6 +241,47 @@ void main() {
       expect(result.tldr, isNotEmpty);
       expect(result.keyPoints.length, inInclusiveRange(3, 5));
       expect(result.whyItMatters, isNotEmpty);
+      expect(prompt.toLowerCase(), contains('castellano'));
     },
   );
+
+  test('summary prompt strips html/css/script payloads to plain text', () async {
+    await apiKeyStore.saveKey('test-key');
+    await database.updateItemContent(
+      itemId,
+      '<style>.x{color:red}</style><script>alert(1)</script><article><h1>Titulo</h1><p>Texto util</p></article>',
+      'Test article',
+      null,
+    );
+
+    late String prompt;
+    final provider = AIProviderClient(
+      executor: (request) async {
+        prompt = request.prompt;
+        return <String, dynamic>{
+          'tldr': 'Resumen rapido',
+          'keyPoints': <String>['Uno', 'Dos', 'Tres'],
+          'whyItMatters': 'Porque aporta contexto.',
+        };
+      },
+    );
+
+    final service = SummaryService(
+      database: database,
+      apiKeyStore: apiKeyStore,
+      providerClient: provider,
+      settingsService: settingsService,
+    );
+
+    final item = (await database.watchAllItems().first).firstWhere(
+      (i) => i.id == itemId,
+    );
+    final result = await service.generateSummary(item, forceRefresh: true);
+
+    expect(result.isSuccess, isTrue);
+    expect(prompt, contains('Titulo Texto util'));
+    expect(prompt.toLowerCase(), isNot(contains('<script')));
+    expect(prompt.toLowerCase(), isNot(contains('<style')));
+    expect(prompt, isNot(contains('alert(1)')));
+  });
 }

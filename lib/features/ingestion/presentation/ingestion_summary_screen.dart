@@ -6,6 +6,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 
@@ -53,7 +54,10 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
     if (settingsService.autoTagYear) {
       final yearStr = DateTime.now().year.toString();
-      final yearTagId = await database.getOrCreateLabel(yearStr, color: Colors.blueGrey.toARGB32());
+      final yearTagId = await database.getOrCreateLabel(
+        yearStr,
+        color: Colors.blueGrey.toARGB32(),
+      );
       if (mounted) setState(() => _selectedLabelIds.add(yearTagId));
     }
 
@@ -64,7 +68,10 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
           final uri = Uri.parse(tagUrl);
           if (uri.host.isNotEmpty) {
             final hostStr = uri.host.replaceFirst('www.', '');
-            final domainTagId = await database.getOrCreateLabel(hostStr, color: Colors.teal.toARGB32());
+            final domainTagId = await database.getOrCreateLabel(
+              hostStr,
+              color: Colors.teal.toARGB32(),
+            );
             if (mounted) setState(() => _selectedLabelIds.add(domainTagId));
           }
         } catch (_) {}
@@ -81,17 +88,19 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   Future<void> _handleSave() async {
     final database = GetIt.instance<AppDatabase>();
     final semanticIndexer = GetIt.instance<SemanticIndexerService>();
-    
+
     // 1. Insert the item
-    final id = await database.insertItem(MnemataItemsCompanion.insert(
-      title: drift.Value(_titleController.text),
-      url: drift.Value(widget.url),
-      filePath: drift.Value(widget.filePath),
-      content: drift.Value(widget.content),
-      thumbnailUrl: drift.Value(widget.thumbnailUrl),
-      type: widget.type,
-      createdAt: DateTime.now(),
-    ));
+    final id = await database.insertItem(
+      MnemataItemsCompanion.insert(
+        title: drift.Value(_titleController.text),
+        url: drift.Value(widget.url),
+        filePath: drift.Value(widget.filePath),
+        content: drift.Value(widget.content),
+        thumbnailUrl: drift.Value(widget.thumbnailUrl),
+        type: widget.type,
+        createdAt: DateTime.now(),
+      ),
+    );
 
     // 2. Assign selected labels (this now includes auto-tags if selected)
     for (final labelId in _selectedLabelIds) {
@@ -106,9 +115,9 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     if (mounted) {
       _isClosing = true;
       Navigator.of(context).pop(IngestionSummaryResult.saved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item saved successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Item saved successfully')));
     }
   }
 
@@ -118,7 +127,11 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     Navigator.of(context).pop(IngestionSummaryResult.discarded);
   }
 
-  void _pickColor(BuildContext context, Color initialColor, Function(Color) onColorChanged) {
+  void _pickColor(
+    BuildContext context,
+    Color initialColor,
+    Function(Color) onColorChanged,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -159,7 +172,10 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                 trailing: Container(
                   width: 24,
                   height: 24,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: selectedColor),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selectedColor,
+                  ),
                 ),
                 onTap: () => _pickColor(context, selectedColor, (color) {
                   setDialogState(() => selectedColor = color);
@@ -168,15 +184,20 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
             TextButton(
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isNotEmpty) {
-                  final id = await database.insertLabel(LabelsCompanion.insert(
-                    name: name,
-                    color: drift.Value(selectedColor.toARGB32()),
-                  ));
+                  final id = await database.insertLabel(
+                    LabelsCompanion.insert(
+                      name: name,
+                      color: drift.Value(selectedColor.toARGB32()),
+                    ),
+                  );
                   setState(() {
                     _selectedLabelIds.add(id);
                   });
@@ -212,7 +233,13 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
           actions: [
             TextButton(
               onPressed: _handleSave,
-              child: const Text('SAVE', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'SAVE',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -230,7 +257,8 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                         widget.thumbnailUrl!,
                         height: 150,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -272,9 +300,19 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                 StreamBuilder<List<Label>>(
                   stream: database.watchAllLabels(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const CircularProgressIndicator();
-                    final labels = snapshot.data!;
-                    if (labels.isEmpty) return const Text('No labels created yet.');
+                    if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+                    final labels = snapshot.data!
+                        .where(
+                          (label) =>
+                              _selectedLabelIds.contains(label.id) ||
+                              !looksLikeDomainLabel(label.name),
+                        )
+                        .toList(growable: false);
+                    if (labels.isEmpty) {
+                      return const Text('No labels created yet.');
+                    }
 
                     return Wrap(
                       spacing: 8,
@@ -286,7 +324,9 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                           avatar: Icon(
                             Icons.label,
                             size: 16,
-                            color: label.color != null ? Color(label.color!) : Colors.blue,
+                            color: label.color != null
+                                ? Color(label.color!)
+                                : Colors.blue,
                           ),
                           onSelected: (selected) {
                             setState(() {
@@ -313,14 +353,21 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                       ),
                       Text(
                         'Length: ${widget.content!.length} chars',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
-                    style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
