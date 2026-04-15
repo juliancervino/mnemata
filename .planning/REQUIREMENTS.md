@@ -36,17 +36,17 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 ...
-| ORG-07 | Phase 7 | Completed |
-| ORG-08 | Phase 7 | Completed |
-| ORG-09 | Phase 7 | Completed |
+| ORG-07 | Phase 13 | Pending |
+| ORG-08 | Phase 13 | Pending |
+| ORG-09 | Phase 13 | Pending |
 | UX-01 | Phase 7 | Completed |
 | UX-02 | Phase 7 | Completed |
-| ING-06 | Phase 6 | Completed |
-| ING-07 | Phase 8 | Completed |
-| ORG-10 | Phase 8 | Completed |
+| ING-06 | Phase 13 | Pending |
+| ING-07 | Phase 13 | Pending |
+| ORG-10 | Phase 13 | Pending |
 | UX-03 | Phase 8 | Completed |
-| CON-06 | Phase 8 | Completed |
-| INF-01 | Phase 8 | Completed |
+| CON-06 | Phase 13 | Pending |
+| INF-01 | Phase 13 | Pending |
 
 ## v2: Optimization & Portability
 
@@ -72,17 +72,17 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 9 | Completed |
-| CFG-02 | Phase 9 | Completed |
-| CFG-03 | Phase 9 | Completed |
-| CFG-04 | Phase 9 | Completed |
-| CFG-05 | Phase 9 | Completed |
-| PRO-01 | Phase 10 | Completed |
-| PRO-02 | Phase 10 | Completed |
-| PRO-03 | Phase 10 | Completed |
-| PRO-04 | Phase 10 | Completed |
-| PRO-05 | Phase 10 | Completed |
+| CFG-01 | Phase 13 | Pending |
+| CFG-02 | Phase 13 | Pending |
+| CFG-03 | Phase 13 | Pending |
+| CFG-04 | Phase 13 | Pending |
+| CFG-05 | Phase 13 | Pending |
+| PRO-01 | Phase 13 | Pending |
+| PRO-02 | Phase 13 | Pending |
+| PRO-03 | Phase 13 | Pending |
+| PRO-04 | Phase 13 | Pending |
+| PRO-05 | Phase 13 | Pending |
 | POR-01 | Phase 11 | Completed |
 | POR-02 | Phase 11 | Completed |
-| POR-03 | Phase 12 | Research |
-| POR-04 | Phase 12 | Completed |
+| POR-03 | Phase 14 | Pending |
+| POR-04 | Phase 14 | Pending |

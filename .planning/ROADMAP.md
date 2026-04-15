@@ -65,6 +65,8 @@
 - [ ] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
 - [x] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability. (completed 2026-04-05)
 - [x] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations. (completed 2026-04-14)
+- [ ] **Phase 13: Milestone Verification Backfill** - Recover missing verification artifacts and requirement traceability for Phases 6-10.
+- [ ] **Phase 14: Intelligence & Integration Closure** - Close POR-03/POR-04 evidence gaps and re-verify milestone-level integration/flows.
 
 ## Phase Details
 
@@ -138,6 +140,20 @@
 - [x] 12-03-PLAN — Hybrid Semantic Search with Async Indexing and Fallback
 - [x] 12-04-PLAN — Persistent Highlights and Annotation UX
 
+### Phase 13: Milestone Verification Backfill
+**Goal**: Eliminate orphaned requirement gaps by creating/retrofitting verification evidence for completed work in Phases 6-10.
+**Depends on**: Phase 12
+**Requirements**: ORG-07, ORG-08, ORG-09, ING-06, ING-07, ORG-10, CON-06, INF-01, CFG-01, CFG-02, CFG-03, CFG-04, CFG-05, PRO-01, PRO-02, PRO-03, PRO-04, PRO-05
+**Gap Closure**: Addresses requirement orphaning and missing phase verification artifacts from milestone audit.
+**Plans**: 0 plans
+
+### Phase 14: Intelligence & Integration Closure
+**Goal**: Close remaining intelligence requirement evidence and milestone-level integration/flow verification gaps.
+**Depends on**: Phase 13
+**Requirements**: POR-03, POR-04
+**Gap Closure**: Addresses unsatisfied/partial POR gaps plus integration and E2E flow audit blockers.
+**Plans**: 0 plans
+
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
@@ -154,4 +170,6 @@
 | 10. Bulk Operations | 4/4 | Completed | 2026-03-28 |
 | 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
 | 12. Intelligence | 4/4 | Complete   | 2026-04-14 |
+| 13. Verification Backfill | 0/0 | Planned | — |
+| 14. Intelligence Closure | 0/0 | Planned | — |
 
