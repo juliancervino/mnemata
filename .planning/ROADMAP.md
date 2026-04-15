@@ -61,11 +61,11 @@
 **Requirements**: ING-06
 - [x] **Phase 7: Refined Control & Personalization** - Manual reordering, label customization, and improved gestures.
 - [x] **Phase 8: Refinement & Advanced Features** - Organization simplification, ingestion robustness, and multi-tag filtering.
-- [ ] **Phase 9: Utility & Control (v2 Foundation)** - About view, reader deletion, settings infrastructure, and auto-tagging.
-- [ ] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
+- [x] **Phase 9: Utility & Control (v2 Foundation)** - About view, reader deletion, settings infrastructure, and auto-tagging.
+- [x] **Phase 10: Bulk Operations & Productivity** - Multi-select mode for batch actions and UI tile optimization.
 - [x] **Phase 11: Cloud & Data Portability** - Google Drive backup and restore reliability. (completed 2026-04-05)
 - [x] **Phase 12: Intelligence & Advanced Reading** - AI summaries, semantic search, and annotations. (completed 2026-04-14)
-- [ ] **Phase 13: Milestone Verification Backfill** - Recover missing verification artifacts and requirement traceability for Phases 6-10.
+- [x] **Phase 13: Milestone Verification Backfill** - Recover missing verification artifacts and requirement traceability for Phases 6-10.
 - [ ] **Phase 14: Intelligence & Integration Closure** - Close POR-03/POR-04 evidence gaps and re-verify milestone-level integration/flows.
 
 ## Phase Details
@@ -96,7 +96,7 @@
   3. A "Settings" menu allows toggling app features.
   4. Automatic tagging system: items get auto-tagged with their domain (e.g., `elpais.com`) and year of capture (e.g., `2026`).
 **Plans**: 1 plan
-- [ ] 09-01-PLAN — Settings & Reader Actions
+- [x] 09-01-PLAN — Settings & Reader Actions
 
 ### Phase 10: Bulk Operations & Productivity
 **Goal**: Enable high-efficiency management of multiple items.
@@ -105,9 +105,11 @@
   1. Users can long-press or use a toggle to select multiple items in the main list.
   2. Bulk actions available: Delete, Assign Tags, and Share.
   3. Optimized list tile: Tighter layout giving 80%+ width to the title, reduced drag handle/tag icon footprint, and explicit "Domain" info displayed.
-**Plans**: 2 plans
-- [ ] 10-01-PLAN — Multi-select & Bulk Actions
-- [ ] 10-02-PLAN — UI List Optimization
+**Plans**: 4 plans
+- [x] 10-01-PLAN — Multi-select & Bulk Actions
+- [x] 10-02-PLAN — UI List Optimization
+- [x] 10-03-PLAN — Advanced Sharing & UI Refinements
+- [x] 10-04-PLAN — UX Refinements & Duplicate Detection
 
 ### Phase 11: Cloud & Data Portability
 **Goal**: Ensure Google Drive backup and restore reliability for data safety.
@@ -145,7 +147,8 @@
 **Depends on**: Phase 12
 **Requirements**: ORG-07, ORG-08, ORG-09, ING-06, ING-07, ORG-10, CON-06, INF-01, CFG-01, CFG-02, CFG-03, CFG-04, CFG-05, PRO-01, PRO-02, PRO-03, PRO-04, PRO-05
 **Gap Closure**: Addresses requirement orphaning and missing phase verification artifacts from milestone audit.
-**Plans**: 0 plans
+**Plans**: 1 plan
+- [x] 13-01-PLAN — Verification Backfill for Phases 6-10
 
 ### Phase 14: Intelligence & Integration Closure
 **Goal**: Close remaining intelligence requirement evidence and milestone-level integration/flow verification gaps.
@@ -170,6 +173,6 @@
 | 10. Bulk Operations | 4/4 | Completed | 2026-03-28 |
 | 11. Cloud & Portability | 6/6 | Complete   | 2026-04-05 |
 | 12. Intelligence | 4/4 | Complete   | 2026-04-14 |
-| 13. Verification Backfill | 0/0 | Planned | — |
+| 13. Verification Backfill | 1/1 | Complete | 2026-04-15 |
 | 14. Intelligence Closure | 0/0 | Planned | — |
 
