@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
@@ -185,6 +186,37 @@ void main() {
 
     expect(find.text('Jane Doe'), findsOneWidget);
     expect(find.text('fallback.example.com'), findsOneWidget);
+
+    await tester.pumpWidget(Container());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('RecycleBinScreen lists recycled items and restores them', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    final itemId = await database.insertItem(
+      MnemataItemsCompanion.insert(
+        title: const Value('Recycle candidate'),
+        type: 'url',
+        createdAt: now,
+      ),
+    );
+    await database.deleteItem(itemId);
+
+    await tester.pumpWidget(const MaterialApp(home: RecycleBinScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recycle candidate'), findsOneWidget);
+    expect(find.byIcon(Icons.restore_from_trash), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.restore_from_trash));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recycle bin is empty.'), findsOneWidget);
+
+    final activeItems = await database.watchAllItems().first;
+    expect(activeItems.map((item) => item.id), contains(itemId));
 
     await tester.pumpWidget(Container());
     await tester.pump(const Duration(seconds: 1));

@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   Future<void> _createPerformanceIndexes() async {
     await customStatement(
@@ -88,6 +88,9 @@ class AppDatabase extends _$AppDatabase {
         if (from < 8) {
           await m.addColumn(mnemataItems, mnemataItems.author);
         }
+        if (from < 9) {
+          await m.addColumn(mnemataItems, mnemataItems.deletedAt);
+        }
       },
     );
   }
@@ -98,6 +101,7 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<MnemataItem>> watchAllItems() {
     return (select(mnemataItems)
+          ..where((t) => t.deletedAt.isNull())
           ..orderBy([
             (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
             (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
@@ -105,9 +109,19 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<MnemataItem>> watchRecycleBinItems() {
+    return (select(mnemataItems)
+          ..where((t) => t.deletedAt.isNotNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.deletedAt, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
   Stream<List<MnemataItem>> watchRecentlyOpened(int limit) {
     return (select(mnemataItems)
-          ..where((t) => t.lastOpenedAt.isNotNull())
+          ..where((t) => t.lastOpenedAt.isNotNull() & t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm(expression: t.lastOpenedAt, mode: OrderingMode.desc)])
           ..limit(limit))
         .watch();
@@ -117,7 +131,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(mnemataItems).join([
       innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
     ])
-      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.lastOpenedAt.isNotNull())
+      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.lastOpenedAt.isNotNull() & mnemataItems.deletedAt.isNull())
       ..orderBy([OrderingTerm(expression: mnemataItems.lastOpenedAt, mode: OrderingMode.desc)])
       ..limit(limit);
 
@@ -131,7 +145,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<MnemataItem?> getItemByUrl(String url) {
-    return (select(mnemataItems)..where((t) => t.url.equals(url))).getSingleOrNull();
+    return (select(mnemataItems)..where((t) => t.url.equals(url) & t.deletedAt.isNull()))
+        .getSingleOrNull();
   }
 
   Future<MnemataItem?> getItemByCanonicalUrl(String rawUrl) async {
@@ -141,7 +156,7 @@ class AppDatabase extends _$AppDatabase {
     final placeholders = List<String>.filled(candidates.length, '?').join(', ');
     final rows = await customSelect(
       'SELECT * FROM mnemata_items '
-      'WHERE url IS NOT NULL AND LOWER(url) IN ($placeholders) '
+      'WHERE deleted_at IS NULL AND url IS NOT NULL AND LOWER(url) IN ($placeholders) '
       'LIMIT 1',
       variables: [
         for (final candidate in candidates) Variable<String>(candidate.toLowerCase()),
@@ -154,10 +169,46 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<MnemataItem?> getItemByFilePath(String filePath) {
-    return (select(mnemataItems)..where((t) => t.filePath.equals(filePath))).getSingleOrNull();
+    return (select(mnemataItems)
+          ..where((t) => t.filePath.equals(filePath) & t.deletedAt.isNull()))
+        .getSingleOrNull();
+  }
+
+  Future<int> markItemDeletedAt(int id, DateTime deletedAt) {
+    return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
+      MnemataItemsCompanion(
+        deletedAt: Value(deletedAt.toUtc()),
+      ),
+    );
   }
 
   Future<int> deleteItem(int id) {
+    return markItemDeletedAt(id, DateTime.now());
+  }
+
+  Future<int> deleteItems(List<int> ids) {
+    if (ids.isEmpty) {
+      return Future<int>.value(0);
+    }
+
+    return (update(mnemataItems)..where((t) => t.id.isIn(ids))).write(
+      MnemataItemsCompanion(
+        deletedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  Future<int> restoreItemFromRecycle(int id) {
+    return (update(mnemataItems)
+          ..where((t) => t.id.equals(id) & t.deletedAt.isNotNull()))
+        .write(
+          const MnemataItemsCompanion(
+            deletedAt: Value(null),
+          ),
+        );
+  }
+
+  Future<int> permanentlyDeleteItem(int id) {
     return transaction(() async {
       await (delete(annotationRecords)..where((t) => t.itemId.equals(id))).go();
       await (delete(semanticChunks)..where((t) => t.itemId.equals(id))).go();
@@ -168,10 +219,11 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  Future<int> deleteItems(List<int> ids) {
+  Future<int> permanentlyDeleteItems(List<int> ids) {
     if (ids.isEmpty) {
       return Future<int>.value(0);
     }
+
     return transaction(() async {
       await (delete(annotationRecords)..where((t) => t.itemId.isIn(ids))).go();
       await (delete(semanticChunks)..where((t) => t.itemId.isIn(ids))).go();
@@ -180,6 +232,30 @@ class AppDatabase extends _$AppDatabase {
       await (delete(itemLabels)..where((t) => t.itemId.isIn(ids))).go();
       return (delete(mnemataItems)..where((t) => t.id.isIn(ids))).go();
     });
+  }
+
+  Future<int> purgeRecycleBinBefore(DateTime cutoff, {int batchSize = 200}) async {
+    final purgedCount = await transaction(() async {
+      final idsToDelete = await (select(mnemataItems)
+            ..where((t) => t.deletedAt.isSmallerThanValue(cutoff.toUtc()))
+            ..orderBy([(t) => OrderingTerm(expression: t.deletedAt, mode: OrderingMode.asc)])
+            ..limit(batchSize))
+          .map((row) => row.id)
+          .get();
+
+      if (idsToDelete.isEmpty) {
+        return 0;
+      }
+
+      await (delete(annotationRecords)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(semanticChunks)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(semanticIndexStates)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(summaryCaches)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(itemLabels)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      return (delete(mnemataItems)..where((t) => t.id.isIn(idsToDelete))).go();
+    });
+
+    return purgedCount;
   }
 
   Future<void> updateItemContent(
@@ -321,7 +397,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(mnemataItems).join([
       innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
     ])
-      ..where(itemLabels.labelId.equals(labelId))
+      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.deletedAt.isNull())
       ..orderBy([OrderingTerm(expression: mnemataItems.createdAt, mode: OrderingMode.desc)]);
 
     return query.watch().map((rows) {
@@ -543,7 +619,8 @@ class AppDatabase extends _$AppDatabase {
     final query = customSelect(
       'SELECT i.* FROM mnemata_items i '
       'INNER JOIN item_labels il ON il.item_id = i.id '
-      'WHERE il.label_id IN (${labelIds.join(',')}) '
+      'WHERE i.deleted_at IS NULL '
+      'AND il.label_id IN (${labelIds.join(',')}) '
       'GROUP BY i.id '
       'HAVING COUNT(DISTINCT il.label_id) = ${labelIds.length} '
       'ORDER BY i.sort_order ASC, i.created_at DESC',
@@ -560,7 +637,7 @@ class AppDatabase extends _$AppDatabase {
       return customSelect(
         'SELECT i.* FROM mnemata_items i '
         'INNER JOIN mnemata_search s ON s.rowid = i.id '
-        'WHERE mnemata_search MATCH ?',
+        'WHERE i.deleted_at IS NULL AND mnemata_search MATCH ?',
         variables: [Variable(query)],
         readsFrom: {mnemataItems, mnemataSearch},
       ).watch().map((rows) {
@@ -578,7 +655,7 @@ class AppDatabase extends _$AppDatabase {
     return customSelect(
       'SELECT DISTINCT i.* FROM mnemata_items i '
       'INNER JOIN mnemata_search s ON s.rowid = i.id '
-      'WHERE mnemata_search MATCH ? '
+      'WHERE i.deleted_at IS NULL AND mnemata_search MATCH ? '
       'AND i.id IN ('
       '  SELECT item_id FROM item_labels '
       '  WHERE label_id IN ($placeholders) '

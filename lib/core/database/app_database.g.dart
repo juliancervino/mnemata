@@ -91,6 +91,17 @@ class $MnemataItemsTable extends MnemataItems
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _lastOpenedAtMeta = const VerificationMeta(
     'lastOpenedAt',
   );
@@ -135,6 +146,7 @@ class $MnemataItemsTable extends MnemataItems
     author,
     type,
     createdAt,
+    deletedAt,
     lastOpenedAt,
     thumbnailUrl,
     sortOrder,
@@ -199,6 +211,12 @@ class $MnemataItemsTable extends MnemataItems
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
     }
     if (data.containsKey('last_opened_at')) {
       context.handle(
@@ -265,6 +283,10 @@ class $MnemataItemsTable extends MnemataItems
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       lastOpenedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_opened_at'],
@@ -295,6 +317,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
   final String? author;
   final String type;
   final DateTime createdAt;
+  final DateTime? deletedAt;
   final DateTime? lastOpenedAt;
   final String? thumbnailUrl;
   final int sortOrder;
@@ -307,6 +330,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     this.author,
     required this.type,
     required this.createdAt,
+    this.deletedAt,
     this.lastOpenedAt,
     this.thumbnailUrl,
     required this.sortOrder,
@@ -332,6 +356,9 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     }
     map['type'] = Variable<String>(type);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     if (!nullToAbsent || lastOpenedAt != null) {
       map['last_opened_at'] = Variable<DateTime>(lastOpenedAt);
     }
@@ -360,6 +387,9 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
           : Value(author),
       type: Value(type),
       createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       lastOpenedAt: lastOpenedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastOpenedAt),
@@ -384,6 +414,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       author: serializer.fromJson<String?>(json['author']),
       type: serializer.fromJson<String>(json['type']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       lastOpenedAt: serializer.fromJson<DateTime?>(json['lastOpenedAt']),
       thumbnailUrl: serializer.fromJson<String?>(json['thumbnailUrl']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
@@ -401,6 +432,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       'author': serializer.toJson<String?>(author),
       'type': serializer.toJson<String>(type),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'lastOpenedAt': serializer.toJson<DateTime?>(lastOpenedAt),
       'thumbnailUrl': serializer.toJson<String?>(thumbnailUrl),
       'sortOrder': serializer.toJson<int>(sortOrder),
@@ -416,6 +448,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     Value<String?> author = const Value.absent(),
     String? type,
     DateTime? createdAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     Value<DateTime?> lastOpenedAt = const Value.absent(),
     Value<String?> thumbnailUrl = const Value.absent(),
     int? sortOrder,
@@ -428,6 +461,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     author: author.present ? author.value : this.author,
     type: type ?? this.type,
     createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
     thumbnailUrl: thumbnailUrl.present ? thumbnailUrl.value : this.thumbnailUrl,
     sortOrder: sortOrder ?? this.sortOrder,
@@ -442,6 +476,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       author: data.author.present ? data.author.value : this.author,
       type: data.type.present ? data.type.value : this.type,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       lastOpenedAt: data.lastOpenedAt.present
           ? data.lastOpenedAt.value
           : this.lastOpenedAt,
@@ -463,6 +498,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
           ..write('author: $author, ')
           ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
           ..write('thumbnailUrl: $thumbnailUrl, ')
           ..write('sortOrder: $sortOrder')
@@ -480,6 +516,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     author,
     type,
     createdAt,
+    deletedAt,
     lastOpenedAt,
     thumbnailUrl,
     sortOrder,
@@ -496,6 +533,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
           other.author == this.author &&
           other.type == this.type &&
           other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt &&
           other.lastOpenedAt == this.lastOpenedAt &&
           other.thumbnailUrl == this.thumbnailUrl &&
           other.sortOrder == this.sortOrder);
@@ -510,6 +548,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
   final Value<String?> author;
   final Value<String> type;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> deletedAt;
   final Value<DateTime?> lastOpenedAt;
   final Value<String?> thumbnailUrl;
   final Value<int> sortOrder;
@@ -522,6 +561,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     this.author = const Value.absent(),
     this.type = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.lastOpenedAt = const Value.absent(),
     this.thumbnailUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -535,6 +575,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     this.author = const Value.absent(),
     required String type,
     required DateTime createdAt,
+    this.deletedAt = const Value.absent(),
     this.lastOpenedAt = const Value.absent(),
     this.thumbnailUrl = const Value.absent(),
     this.sortOrder = const Value.absent(),
@@ -549,6 +590,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     Expression<String>? author,
     Expression<String>? type,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? deletedAt,
     Expression<DateTime>? lastOpenedAt,
     Expression<String>? thumbnailUrl,
     Expression<int>? sortOrder,
@@ -562,6 +604,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
       if (author != null) 'author': author,
       if (type != null) 'type': type,
       if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
       if (thumbnailUrl != null) 'thumbnail_url': thumbnailUrl,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -577,6 +620,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     Value<String?>? author,
     Value<String>? type,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? deletedAt,
     Value<DateTime?>? lastOpenedAt,
     Value<String?>? thumbnailUrl,
     Value<int>? sortOrder,
@@ -590,6 +634,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
       author: author ?? this.author,
       type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -623,6 +668,9 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (lastOpenedAt.present) {
       map['last_opened_at'] = Variable<DateTime>(lastOpenedAt.value);
     }
@@ -646,6 +694,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
           ..write('author: $author, ')
           ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
           ..write('thumbnailUrl: $thumbnailUrl, ')
           ..write('sortOrder: $sortOrder')
@@ -3259,6 +3308,7 @@ typedef $$MnemataItemsTableCreateCompanionBuilder =
       Value<String?> author,
       required String type,
       required DateTime createdAt,
+      Value<DateTime?> deletedAt,
       Value<DateTime?> lastOpenedAt,
       Value<String?> thumbnailUrl,
       Value<int> sortOrder,
@@ -3273,6 +3323,7 @@ typedef $$MnemataItemsTableUpdateCompanionBuilder =
       Value<String?> author,
       Value<String> type,
       Value<DateTime> createdAt,
+      Value<DateTime?> deletedAt,
       Value<DateTime?> lastOpenedAt,
       Value<String?> thumbnailUrl,
       Value<int> sortOrder,
@@ -3440,6 +3491,11 @@ class $$MnemataItemsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3633,6 +3689,11 @@ class $$MnemataItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastOpenedAt => $composableBuilder(
     column: $table.lastOpenedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3681,6 +3742,9 @@ class $$MnemataItemsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get lastOpenedAt => $composableBuilder(
     column: $table.lastOpenedAt,
@@ -3865,6 +3929,7 @@ class $$MnemataItemsTableTableManager
                 Value<String?> author = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime?> lastOpenedAt = const Value.absent(),
                 Value<String?> thumbnailUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -3877,6 +3942,7 @@ class $$MnemataItemsTableTableManager
                 author: author,
                 type: type,
                 createdAt: createdAt,
+                deletedAt: deletedAt,
                 lastOpenedAt: lastOpenedAt,
                 thumbnailUrl: thumbnailUrl,
                 sortOrder: sortOrder,
@@ -3891,6 +3957,7 @@ class $$MnemataItemsTableTableManager
                 Value<String?> author = const Value.absent(),
                 required String type,
                 required DateTime createdAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime?> lastOpenedAt = const Value.absent(),
                 Value<String?> thumbnailUrl = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
@@ -3903,6 +3970,7 @@ class $$MnemataItemsTableTableManager
                 author: author,
                 type: type,
                 createdAt: createdAt,
+                deletedAt: deletedAt,
                 lastOpenedAt: lastOpenedAt,
                 thumbnailUrl: thumbnailUrl,
                 sortOrder: sortOrder,

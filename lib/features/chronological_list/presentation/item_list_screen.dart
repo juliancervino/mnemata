@@ -7,6 +7,7 @@ import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
@@ -129,9 +130,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Items?'),
+        title: const Text('Move Items To Recycle Bin?'),
         content: Text(
-          'Are you sure you want to delete ${_selectedItemIds.length} items?',
+          'Are you sure you want to move ${_selectedItemIds.length} items to the recycle bin?',
         ),
         actions: [
           TextButton(
@@ -140,7 +141,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            child: const Text('MOVE', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -155,7 +156,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Items deleted')));
+        ).showSnackBar(
+          const SnackBar(content: Text('Items moved to recycle bin')),
+        );
       }
     }
   }
@@ -730,6 +733,19 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   _isHistoryMode = true;
                 });
                 Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Recycle Bin'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RecycleBinScreen(),
+                  ),
+                );
               },
             ),
             const Divider(),
