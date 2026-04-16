@@ -26,10 +26,11 @@
   4. Multi-selection no longer jumps scroll position when selecting additional items.
   5. Share flows support AI summary sharing (disabled if unavailable) and PDF attachment generation as an additional option.
 **Plans:** 4 plans
-- [ ] 15-01-PLAN - Author Extraction Module and Metadata Persistence
-- [ ] 15-02-PLAN - Recycle Bin, Retention Settings, and Auto Purge
-- [ ] 15-03-PLAN - Bookmark Import/Export (Universal HTML Format)
-- [ ] 15-04-PLAN - Multi-Select Scroll Stability and Share Enhancements (AI Summary + PDF)
+Plans:
+- [ ] 15-01-PLAN.md - Author Extraction Module and Metadata Persistence
+- [ ] 15-02-PLAN.md - Recycle Bin, Retention Settings, and Auto Purge
+- [ ] 15-03-PLAN.md - Bookmark Import/Export (Universal HTML Format)
+- [ ] 15-04-PLAN.md - Multi-Select Scroll Stability and Share Enhancements (AI Summary + PDF)
 
 ### Phase 16: Runtime Cloud Validation
 **Goal:** Validate end-to-end cloud reliability on real Google account/device environments.
