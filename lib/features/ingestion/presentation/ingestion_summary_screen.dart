@@ -15,6 +15,7 @@ enum IngestionSummaryResult { saved, discarded }
 class IngestionSummaryScreen extends StatefulWidget {
   final String? title;
   final String? content;
+  final String? author;
   final String? url;
   final String? originalUrl;
   final String? filePath;
@@ -25,6 +26,7 @@ class IngestionSummaryScreen extends StatefulWidget {
     super.key,
     this.title,
     this.content,
+    this.author,
     this.url,
     this.originalUrl,
     this.filePath,
@@ -96,6 +98,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
         url: drift.Value(widget.url),
         filePath: drift.Value(widget.filePath),
         content: drift.Value(widget.content),
+        author: drift.Value(widget.author),
         thumbnailUrl: drift.Value(widget.thumbnailUrl),
         type: widget.type,
         createdAt: DateTime.now(),

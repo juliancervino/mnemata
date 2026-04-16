@@ -6,6 +6,7 @@ import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/js_rendered_scraper_screen.dart';
+import 'package:mnemata/features/ingestion/services/author_extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:path/path.dart' as p;
@@ -15,6 +16,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 class ShareService {
   final AppDatabase _database;
   final ExtractionService _extractionService;
+  final AuthorExtractionService _authorExtractionService;
   final PdfExtractionService _pdfExtractionService;
   final GlobalKey<NavigatorState> _navigatorKey;
   final Future<bool?> Function(String identifier)? _duplicatePromptOverride;
@@ -31,8 +33,11 @@ class ShareService {
     this._extractionService,
     this._pdfExtractionService,
     this._navigatorKey,
-    {Future<bool?> Function(String identifier)? duplicatePromptOverride}
-  ) : _duplicatePromptOverride = duplicatePromptOverride;
+    {
+    AuthorExtractionService? authorExtractionService,
+    Future<bool?> Function(String identifier)? duplicatePromptOverride,
+  })  : _authorExtractionService = authorExtractionService ?? AuthorExtractionService(),
+        _duplicatePromptOverride = duplicatePromptOverride;
 
   void init() {
     if (_isInitialized) return;
@@ -188,6 +193,18 @@ class ShareService {
       }
 
       final result = await _extractionService.extractContent(trimmedUrl);
+      String? author;
+      try {
+        author = await _authorExtractionService.extractAuthor(
+          url: trimmedUrl,
+          metadata: <String, String>{
+            if ((result?.title ?? '').trim().isNotEmpty) 'title': result!.title,
+          },
+        );
+      } catch (e) {
+        // Author extraction is additive and must never block ingestion.
+        debugPrint('Author extraction failed for $trimmedUrl: $e');
+      }
 
       if (_looksLikeJsRequiredContent(result?.content, result?.title)) {
         _hideLoadingOverlay();
@@ -204,6 +221,7 @@ class ShareService {
           url: trimmedUrl,
           title: result?.title,
           content: result?.content,
+          author: author,
           thumbnailUrl: result?.thumbnailUrl,
         ),
       );

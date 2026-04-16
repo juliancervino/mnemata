@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   Future<void> _createPerformanceIndexes() async {
     await customStatement(
@@ -84,6 +84,9 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(semanticIndexStates);
           await m.createTable(semanticChunks);
           await m.createTable(annotationRecords);
+        }
+        if (from < 8) {
+          await m.addColumn(mnemataItems, mnemataItems.author);
         }
       },
     );
@@ -179,11 +182,18 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  Future<void> updateItemContent(int id, String content, String? title, String? thumbnailUrl) {
+  Future<void> updateItemContent(
+    int id,
+    String content,
+    String? title,
+    String? thumbnailUrl, {
+    String? author,
+  }) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
         content: Value(content),
         title: title != null ? Value(title) : const Value.absent(),
+        author: author != null ? Value(author) : const Value.absent(),
         thumbnailUrl: thumbnailUrl != null ? Value(thumbnailUrl) : const Value.absent(),
       ),
     );

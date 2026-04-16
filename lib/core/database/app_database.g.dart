@@ -62,6 +62,15 @@ class $MnemataItemsTable extends MnemataItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  @override
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+    'author',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
@@ -123,6 +132,7 @@ class $MnemataItemsTable extends MnemataItems
     url,
     filePath,
     content,
+    author,
     type,
     createdAt,
     lastOpenedAt,
@@ -166,6 +176,12 @@ class $MnemataItemsTable extends MnemataItems
       context.handle(
         _contentMeta,
         content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    }
+    if (data.containsKey('author')) {
+      context.handle(
+        _authorMeta,
+        author.isAcceptableOrUnknown(data['author']!, _authorMeta),
       );
     }
     if (data.containsKey('type')) {
@@ -237,6 +253,10 @@ class $MnemataItemsTable extends MnemataItems
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       ),
+      author: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author'],
+      ),
       type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}type'],
@@ -272,6 +292,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
   final String? url;
   final String? filePath;
   final String? content;
+  final String? author;
   final String type;
   final DateTime createdAt;
   final DateTime? lastOpenedAt;
@@ -283,6 +304,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     this.url,
     this.filePath,
     this.content,
+    this.author,
     required this.type,
     required this.createdAt,
     this.lastOpenedAt,
@@ -304,6 +326,9 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     }
     if (!nullToAbsent || content != null) {
       map['content'] = Variable<String>(content);
+    }
+    if (!nullToAbsent || author != null) {
+      map['author'] = Variable<String>(author);
     }
     map['type'] = Variable<String>(type);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -330,6 +355,9 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       content: content == null && nullToAbsent
           ? const Value.absent()
           : Value(content),
+      author: author == null && nullToAbsent
+          ? const Value.absent()
+          : Value(author),
       type: Value(type),
       createdAt: Value(createdAt),
       lastOpenedAt: lastOpenedAt == null && nullToAbsent
@@ -353,6 +381,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       url: serializer.fromJson<String?>(json['url']),
       filePath: serializer.fromJson<String?>(json['filePath']),
       content: serializer.fromJson<String?>(json['content']),
+      author: serializer.fromJson<String?>(json['author']),
       type: serializer.fromJson<String>(json['type']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       lastOpenedAt: serializer.fromJson<DateTime?>(json['lastOpenedAt']),
@@ -369,6 +398,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       'url': serializer.toJson<String?>(url),
       'filePath': serializer.toJson<String?>(filePath),
       'content': serializer.toJson<String?>(content),
+      'author': serializer.toJson<String?>(author),
       'type': serializer.toJson<String>(type),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'lastOpenedAt': serializer.toJson<DateTime?>(lastOpenedAt),
@@ -383,6 +413,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     Value<String?> url = const Value.absent(),
     Value<String?> filePath = const Value.absent(),
     Value<String?> content = const Value.absent(),
+    Value<String?> author = const Value.absent(),
     String? type,
     DateTime? createdAt,
     Value<DateTime?> lastOpenedAt = const Value.absent(),
@@ -394,6 +425,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     url: url.present ? url.value : this.url,
     filePath: filePath.present ? filePath.value : this.filePath,
     content: content.present ? content.value : this.content,
+    author: author.present ? author.value : this.author,
     type: type ?? this.type,
     createdAt: createdAt ?? this.createdAt,
     lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
@@ -407,6 +439,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
       url: data.url.present ? data.url.value : this.url,
       filePath: data.filePath.present ? data.filePath.value : this.filePath,
       content: data.content.present ? data.content.value : this.content,
+      author: data.author.present ? data.author.value : this.author,
       type: data.type.present ? data.type.value : this.type,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       lastOpenedAt: data.lastOpenedAt.present
@@ -427,6 +460,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
           ..write('url: $url, ')
           ..write('filePath: $filePath, ')
           ..write('content: $content, ')
+          ..write('author: $author, ')
           ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
@@ -443,6 +477,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
     url,
     filePath,
     content,
+    author,
     type,
     createdAt,
     lastOpenedAt,
@@ -458,6 +493,7 @@ class MnemataItem extends DataClass implements Insertable<MnemataItem> {
           other.url == this.url &&
           other.filePath == this.filePath &&
           other.content == this.content &&
+          other.author == this.author &&
           other.type == this.type &&
           other.createdAt == this.createdAt &&
           other.lastOpenedAt == this.lastOpenedAt &&
@@ -471,6 +507,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
   final Value<String?> url;
   final Value<String?> filePath;
   final Value<String?> content;
+  final Value<String?> author;
   final Value<String> type;
   final Value<DateTime> createdAt;
   final Value<DateTime?> lastOpenedAt;
@@ -482,6 +519,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     this.url = const Value.absent(),
     this.filePath = const Value.absent(),
     this.content = const Value.absent(),
+    this.author = const Value.absent(),
     this.type = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastOpenedAt = const Value.absent(),
@@ -494,6 +532,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     this.url = const Value.absent(),
     this.filePath = const Value.absent(),
     this.content = const Value.absent(),
+    this.author = const Value.absent(),
     required String type,
     required DateTime createdAt,
     this.lastOpenedAt = const Value.absent(),
@@ -507,6 +546,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     Expression<String>? url,
     Expression<String>? filePath,
     Expression<String>? content,
+    Expression<String>? author,
     Expression<String>? type,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? lastOpenedAt,
@@ -519,6 +559,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
       if (url != null) 'url': url,
       if (filePath != null) 'file_path': filePath,
       if (content != null) 'content': content,
+      if (author != null) 'author': author,
       if (type != null) 'type': type,
       if (createdAt != null) 'created_at': createdAt,
       if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
@@ -533,6 +574,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     Value<String?>? url,
     Value<String?>? filePath,
     Value<String?>? content,
+    Value<String?>? author,
     Value<String>? type,
     Value<DateTime>? createdAt,
     Value<DateTime?>? lastOpenedAt,
@@ -545,6 +587,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
       url: url ?? this.url,
       filePath: filePath ?? this.filePath,
       content: content ?? this.content,
+      author: author ?? this.author,
       type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
       lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
@@ -570,6 +613,9 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
@@ -597,6 +643,7 @@ class MnemataItemsCompanion extends UpdateCompanion<MnemataItem> {
           ..write('url: $url, ')
           ..write('filePath: $filePath, ')
           ..write('content: $content, ')
+          ..write('author: $author, ')
           ..write('type: $type, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
@@ -3209,6 +3256,7 @@ typedef $$MnemataItemsTableCreateCompanionBuilder =
       Value<String?> url,
       Value<String?> filePath,
       Value<String?> content,
+      Value<String?> author,
       required String type,
       required DateTime createdAt,
       Value<DateTime?> lastOpenedAt,
@@ -3222,6 +3270,7 @@ typedef $$MnemataItemsTableUpdateCompanionBuilder =
       Value<String?> url,
       Value<String?> filePath,
       Value<String?> content,
+      Value<String?> author,
       Value<String> type,
       Value<DateTime> createdAt,
       Value<DateTime?> lastOpenedAt,
@@ -3376,6 +3425,11 @@ class $$MnemataItemsTableFilterComposer
 
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get author => $composableBuilder(
+    column: $table.author,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3564,6 +3618,11 @@ class $$MnemataItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
@@ -3613,6 +3672,9 @@ class $$MnemataItemsTableAnnotationComposer
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
@@ -3800,6 +3862,7 @@ class $$MnemataItemsTableTableManager
                 Value<String?> url = const Value.absent(),
                 Value<String?> filePath = const Value.absent(),
                 Value<String?> content = const Value.absent(),
+                Value<String?> author = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> lastOpenedAt = const Value.absent(),
@@ -3811,6 +3874,7 @@ class $$MnemataItemsTableTableManager
                 url: url,
                 filePath: filePath,
                 content: content,
+                author: author,
                 type: type,
                 createdAt: createdAt,
                 lastOpenedAt: lastOpenedAt,
@@ -3824,6 +3888,7 @@ class $$MnemataItemsTableTableManager
                 Value<String?> url = const Value.absent(),
                 Value<String?> filePath = const Value.absent(),
                 Value<String?> content = const Value.absent(),
+                Value<String?> author = const Value.absent(),
                 required String type,
                 required DateTime createdAt,
                 Value<DateTime?> lastOpenedAt = const Value.absent(),
@@ -3835,6 +3900,7 @@ class $$MnemataItemsTableTableManager
                 url: url,
                 filePath: filePath,
                 content: content,
+                author: author,
                 type: type,
                 createdAt: createdAt,
                 lastOpenedAt: lastOpenedAt,

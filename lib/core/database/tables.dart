@@ -6,6 +6,7 @@ class MnemataItems extends Table {
   TextColumn get url => text().nullable()();
   TextColumn get filePath => text().nullable()();
   TextColumn get content => text().nullable()(); // Extracted article content
+  TextColumn get author => text().nullable()();
   TextColumn get type => text()(); // 'url' or 'file'
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get lastOpenedAt => dateTime().nullable()();

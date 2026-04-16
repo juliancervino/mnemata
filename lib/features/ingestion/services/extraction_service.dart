@@ -51,7 +51,7 @@ class ExtractionService {
     try {
       // 1. Extract metadata (Title and Open Graph Image) using the library's internal fetch
       // We still try to fetch HTML manually for the manual fallback if needed
-      final metadata = await MetadataFetch.extract(url);
+      final metadata = await _safeExtractMetadata(url);
       String? title = metadata?.title;
       String? thumbnailUrl = metadata?.image;
       String? description = metadata?.description;
@@ -63,20 +63,28 @@ class ExtractionService {
 
       // 2. If no title, try a manual fetch with User-Agent for robustness
       if (title == null || title.isEmpty) {
-        final response = await http.get(
-          Uri.parse(url),
-          headers: {'User-Agent': _userAgent},
-        ).timeout(const Duration(seconds: 10));
+        try {
+          final response = await http.get(
+            Uri.parse(url),
+            headers: {'User-Agent': _userAgent},
+          ).timeout(const Duration(seconds: 10));
 
-        if (response.statusCode == 200) {
-          title = _extractTitleManually(response.body);
+          if (response.statusCode == 200) {
+            title = _extractTitleManually(response.body);
+          }
+        } catch (_) {
+          // Keep extraction non-fatal when fallback fetch is unavailable.
         }
       }
 
       // 3. If no OG image, try fetching a high-res favicon
       if (thumbnailUrl == null || thumbnailUrl.isEmpty) {
-        final icon = await fav.FaviconFinder.getBest(url);
-        thumbnailUrl = icon?.url;
+        try {
+          final icon = await fav.FaviconFinder.getBest(url);
+          thumbnailUrl = icon?.url;
+        } catch (_) {
+          // Keep extraction non-fatal when favicon lookup fails.
+        }
       }
 
       // 4. Extract main content using readability
@@ -95,6 +103,14 @@ class ExtractionService {
       );
     } catch (e) {
       debugPrint('Extraction error for $url: $e');
+      return null;
+    }
+  }
+
+  Future<Metadata?> _safeExtractMetadata(String url) async {
+    try {
+      return await MetadataFetch.extract(url);
+    } catch (_) {
       return null;
     }
   }
