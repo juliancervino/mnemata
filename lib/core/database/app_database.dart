@@ -174,6 +174,21 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
+  Future<List<MnemataItem>> getActiveUrlItems() {
+    return (select(mnemataItems)
+          ..where(
+            (t) =>
+                t.deletedAt.isNull() &
+                t.type.equals('url') &
+                t.url.isNotNull(),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
+            (t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc),
+          ]))
+        .get();
+  }
+
   Future<int> markItemDeletedAt(int id, DateTime deletedAt) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
