@@ -1,88 +1,68 @@
 # Requirements: Mnemata
 
-## v1: MVP (The Reflective Loop)
+**Defined:** 2026-04-16
+**Core Value:** A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-### Ingestion & Storage (ING)
-- **ING-01**: Save URLs to the application database.
-- **ING-02**: Copy received documents (PDFs, images) to local secure storage.
-- **ING-03**: Native integration (iOS/Android) as a Share Intent target to receive URLs and files.
-- **ING-04**: Extract and index text content from PDF files for full-text search.
-- **ING-05**: Display a summary/editor screen after sharing an item to allow title editing and tag assignment before saving.
+## v1.1 Requirements
 
-### Content & Retrieval (CON)
-- **CON-01**: Extract title and main content from URLs, removing ads and clutter.
-- **CON-02**: Provide offline reading capability for extracted content.
-- **CON-03**: Full-text search across item titles, URLs, document names, and extracted content.
-- **CON-04**: Use representative images (Open Graph/Favicons) as thumbnails for URL items in the list.
-- **CON-05**: Open saved files (PDFs, etc.) using platform-native viewers.
+Requirements for the v1.1 milestone (Reliability & Verification).
 
-### Organization & UX (ORG)
-- **ORG-01**: Hierarchical tree structure for item organization (folders and subfolders).
-- **ORG-02**: Many-to-many tagging system with filtering/grouping capabilities.
-- **ORG-03**: Maintain a reading history of the last 20 accessed items.
-- **ORG-04**: Main view list (newest to oldest) with tap-to-open and swipe gestures (share/edit).
-- **ORG-05**: Visual tag indicators (colored dots) on list items in the main view.
-- **ORG-06**: Quick-filter bar for recently used tags on the main screen.
-- **ORG-07**: Selection of colors for labels (tags/folders) during creation and modification.
-- **ORG-08**: Ability to rename existing labels.
-- **ORG-09**: Manual reordering of items in the main list via drag-and-drop.
+### Cloud Runtime Validation (POR)
 
-### User Experience (UX)
-- **UX-01**: Direct activation of swipe actions (Share/Edit) upon reaching a threshold, without requiring a second tap.
-- **UX-02**: Item editing view to modify title, URL, and assigned labels.
+- [ ] **POR-05**: User can complete a manual Google Drive backup on a real account/device and see persisted success diagnostics.
+- [ ] **POR-06**: User can select a cloud backup and complete restore on a real account/device with integrity checks enforced.
+- [ ] **POR-07**: Scheduler runtime behavior (run/skip/fail) is verified on real-device conditions and recorded with deterministic reason codes.
 
-### Content & Retrieval (CON)
-...
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-...
-| ORG-07 | Phase 7 | Completed |
-| ORG-08 | Phase 7 | Completed |
-| ORG-09 | Phase 7 | Completed |
-| UX-01 | Phase 7 | Completed |
-| UX-02 | Phase 7 | Completed |
-| ING-06 | Phase 6 | Completed |
-| ING-07 | Phase 8 | Completed |
-| ORG-10 | Phase 8 | Completed |
-| UX-03 | Phase 8 | Completed |
-| CON-06 | Phase 8 | Completed |
-| INF-01 | Phase 8 | Completed |
+### Integration Reliability (REL)
 
-## v2: Optimization & Portability
+- [ ] **REL-01**: System has an automated integration test for backup upload/list/download/preview/apply happy-path flow.
+- [ ] **REL-02**: Restore safety is verified by automated tests for corruption classes (checksum mismatch, missing required entries) with all-or-nothing apply guarantees.
+- [ ] **REL-03**: Scheduler reliability tests are deterministic across policy branches (not due, network/power constraints, due-and-run).
+- [ ] **REL-04**: Startup-order integration test verifies share-intent initialization remains non-regressed while scheduler bootstrap stays non-blocking.
+- [ ] **REL-05**: Intelligence critical flows (summary, semantic search, tag suggestions) fail safely and fall back predictably under missing key/provider failures.
 
-### Configuration & Utilities (CFG)
-- **CFG-01**: "About" screen with app version, licenses, and project mission.
-- **CFG-02**: Delete item directly from the Reader View action menu.
-- **CFG-03**: Centralized Settings/Options menu to toggle app behaviors.
-- **CFG-04**: Automated tagging for incoming items based on domain/hostname (e.g., `medium.com`).
-- **CFG-05**: Automated tagging for incoming items based on capture year (e.g., `2026`).
+### Verification Governance (VER)
 
-### Productivity & Bulk Actions (PRO)
-- **PRO-01**: Multi-selection mode in the main list (long-press to activate).
-- **PRO-02**: Bulk "Assign Tag" operation for selected items.
-- **PRO-03**: Bulk "Delete" operation for selected items.
-- **PRO-04**: Bulk "Share" operation (concatenated URLs or file list).
-- **PRO-05**: UI optimization for list tiles: maximize title visibility (>80% width) and include domain origin tag.
+- [ ] **VER-01**: Every v1.1 phase publishes verification artifacts with explicit requirement-to-evidence mapping before phase closure.
+- [ ] **VER-02**: Milestone release gate requires both automated reliability suite pass and human cloud runtime validation completion.
 
-### Portability & Intelligence (POR)
-- **POR-01**: Full database and file backup to user's Google Drive.
-- **POR-02**: Periodic automated backup to cloud storage.
-- **POR-03**: Research and prototype browser extension for cross-platform ingestion.
-- **POR-04**: Generative AI summarization for extracted article content.
+## v2 Requirements (Deferred)
+
+### Reliability UX Enhancements
+
+- **RUX-01**: Reliability confidence scorecard in Settings (backup age, scheduler health, restore readiness).
+- **RUX-02**: Restore readiness preview with explicit risk flags before apply.
+- **RUX-03**: Audit-ready verification evidence bundle export for milestone handoff.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| New AI generation capabilities or new model providers | Expands risk surface during reliability hardening milestone. |
+| Additional cloud providers beyond Google Drive | Current provider still has human-runtime validation debt to close first. |
+| Major UX redesign unrelated to reliability observability | Increases regression noise without improving trust outcomes. |
+| Aggressive scheduler policy redesign | Prioritize deterministic validation of current policy over behavior expansion. |
+
+## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 9 | Completed |
-| CFG-02 | Phase 9 | Completed |
-| CFG-03 | Phase 9 | Completed |
-| CFG-04 | Phase 9 | Completed |
-| CFG-05 | Phase 9 | Completed |
-| PRO-01 | Phase 10 | Completed |
-| PRO-02 | Phase 10 | Completed |
-| PRO-03 | Phase 10 | Completed |
-| PRO-04 | Phase 10 | Completed |
-| PRO-05 | Phase 10 | Completed |
-| POR-01 | Phase 11 | Completed |
-| POR-02 | Phase 11 | Completed |
-| POR-03 | Phase 14 | Deferred (Traceable Research) |
-| POR-04 | Phase 14 | Completed |
+| POR-05 | Phase 15 | Pending |
+| POR-06 | Phase 15 | Pending |
+| POR-07 | Phase 15 | Pending |
+| REL-01 | Phase 16 | Pending |
+| REL-02 | Phase 16 | Pending |
+| REL-03 | Phase 16 | Pending |
+| REL-04 | Phase 16 | Pending |
+| REL-05 | Phase 16 | Pending |
+| VER-01 | Phase 17 | Pending |
+| VER-02 | Phase 17 | Pending |
+
+**Coverage:**
+- v1.1 requirements: 10 total
+- Mapped to phases: 10
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-04-16*
+*Last updated: 2026-04-16 after v1.1 milestone definition*

@@ -1,74 +1,82 @@
-# Feature Landscape: Mnemata
+# Feature Landscape: Mnemata v1.1 Reliability & Verification
 
-**Domain:** Cross-platform Knowledge and Reference Manager
-**Researched:** May 22, 2024 (Updated to 2026 Ecosystem Trends)
-**Overall Confidence:** HIGH
+**Domain:** Personal knowledge app with cloud portability and AI-assisted reading
+**Milestone:** v1.1 Reliability & Verification
+**Researched:** April 16, 2026
+**Overall Confidence:** HIGH (project-scoped reliability priorities)
 
 ## Table Stakes
 
-Features users expect in 2026. If these are missing, the product will be perceived as incomplete or unreliable compared to established players like Raindrop.io or Instapaper.
+These are baseline expectations for a reliability-focused release. If these are weak or missing, users will not trust cloud portability or intelligence outputs.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Native Share Integration** | Core workflow for saving "on the go" from browsers and other apps. | Medium | Requires platform-specific extension code (iOS Share Extension, Android Intent). |
-| **Content Extraction** | Users expect a "clean" reading experience (no ads, popups, or sidebars). | High | Needs a robust parsing engine (e.g., Mercury-style) that handles diverse site structures. |
-| **Full-Text Search (FTS)** | Modern users don't want to "browse" for everything; they expect to find any word in any saved item. | Medium | Requires indexing content locally (SQLite FTS5) or server-side. |
-| **Offline Mode** | Essential for commuting or travel; the "save for later" promise implies "available anywhere." | Medium | Requires local caching of extracted content and binary files (PDFs/Images). |
-| **Cross-Platform Sync** | Users move between phones, tablets, and desktops seamlessly. | High | Requires robust conflict resolution and background data synchronization. |
-| **Basic Organization** | Ability to categorize items via either folders or tags is standard. | Low | Must support at least one; Mnemata supports both. |
+| Feature | Why Expected for v1.1 | Complexity | Dependencies on Existing System Behavior |
+|---------|------------------------|------------|------------------------------------------|
+| **End-to-end cloud backup/restore validation on real accounts/devices** | Reliability claims are not credible without real runtime evidence beyond mocks. | Medium | Depends on existing Google Drive auth/upload/download integration, deterministic archive manifest/checksum pipeline, and restore apply confirmation gate. |
+| **Backup diagnostics with actionable reason codes** | Users expect to know whether auto backup ran, skipped, or failed, and why. | Medium | Depends on current scheduler diagnostics persistence and deterministic skip/failure reason mapping in settings state. |
+| **Deterministic restore integrity enforcement** | Portability must be safe: no partial or corrupted restore should apply. | Low-Medium | Depends on existing staged all-or-nothing restore flow and apply-time checksum re-validation behavior. |
+| **Cross-platform portability regression coverage** | Reliability requires proving the same backup artifact can move between supported platforms and still restore correctly. | High | Depends on existing versioned manifest schema, required-entry validation, and stable local secure storage mapping across iOS/Android/Web boundaries. |
+| **Release verification artifact completeness** | Teams expect auditable evidence that reliability-critical flows were tested before shipping. | Low | Depends on existing verification artifact conventions and requirement-to-evidence traceability process from v1.0 closure. |
+| **Intelligence flow safety-net integration tests** | AI features must fail safely and predictably under key/runtime errors. | Medium | Depends on API-key gating, deterministic provider error mapping, persisted intelligence contracts, and fallback behavior already implemented in v1.0. |
 
 ## Differentiators
 
-Features that set Mnemata apart from competitors and provide a unique value proposition.
+These features move v1.1 beyond "works in ideal paths" into "trustworthy under real-world conditions," which is uncommon in personal knowledge tools.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| **Hybrid Organization** | Combines hierarchical (folders) and associative (tags) mental models. | Medium | Most apps force one or the other. Mnemata's "infinite tree + tags" is a major flexibility win. |
-| **Local Secure Storage** | Ensures "Permanent Archive" / Link Rot protection by copying documents and content to private storage. | Medium | Provides privacy and data sovereignty, unlike cloud-only link savers. |
-| **Reading History (Last 20)** | Reduces friction for users jumping between recent tasks or finishing a long read. | Low | A simple but effective UX "magic moment" for power users. |
-| **Native Gesture UX** | High-performance swiping for actions (Share/Edit) makes the app feel "native" and fast. | Medium | Requires careful UI implementation to ensure zero-latency responsiveness. |
-| **Universal Reference Support**| Treating URLs, PDFs, and Images as equal citizens in a single repository. | Medium | Many apps are "URLs only" (Pocket) or "PDFs only" (Zotero/Mendeley). |
+| Feature | Value Proposition | Complexity | Dependencies on Existing System Behavior |
+|---------|-------------------|------------|------------------------------------------|
+| **Reliability confidence scorecard in Settings** | Gives users and maintainers a visible confidence snapshot (last successful backup age, restore readiness, scheduler health). | Medium | Depends on existing persisted diagnostics fields and backup history metadata; requires derived health evaluation rules. |
+| **Cloud restore readiness preview with risk flags** | Before apply, users see explicit warnings (missing entries, stale backup age, schema mismatch risk) and can abort safely. | Medium | Depends on existing restore preview pipeline, manifest inspection, and confirmation gating UX. |
+| **Verification-first release gate (must-pass reliability suite)** | Converts milestone quality from subjective to objective with a strict, repeatable pass threshold. | Medium | Depends on integration test harness and current planning verification artifact workflow. |
+| **Operational drill mode (simulate failure classes)** | Proactively validates behavior for token expiration, network loss, and interrupted restore without waiting for production incidents. | High | Depends on cloud provider abstraction seams, scheduler policy hooks, and deterministic error mapping already present. |
+| **Audit-ready evidence bundle export** | Enables milestone audits without retrospective reconstruction; improves team throughput and external confidence. | Low-Medium | Depends on existing verification artifacts and milestone traceability structure in planning docs. |
 
 ## Anti-Features
 
-Features to explicitly NOT build to maintain focus and performance.
+These are attractive but harmful for this milestone because they dilute reliability and verification outcomes.
 
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| **Social Feed / Discovery** | Causes "bloat" and distraction; Mnemata is a *personal* repository. | Focus on high-quality organization and retrieval of *user-added* content. |
-| **Full Note Editor** | Competing with Obsidian/Notion adds massive complexity and drifts from "Reference Manager." | Provide simple "Notes" or "Annotate" field on items, then allow export to note apps. |
-| **Proprietary Formats** | Increases user anxiety about "lock-in" and data loss. | Use open standards for storage and provide a robust "Export All" feature (CSV/JSON/PDF). |
-| **AI Recommendation Engine**| Can feel invasive and often suggests low-quality "clickbait" (e.g., late-stage Pocket). | Use AI for *utility* (e.g., better extraction or auto-tagging) rather than discovery. |
+| Anti-Feature | Why Avoid in v1.1 | What to Do Instead |
+|--------------|--------------------|-------------------|
+| **New AI capability expansion (new generation modes, new model integrations)** | Expands surface area and introduces new failure modes before reliability baseline is proven. | Keep existing intelligence scope stable; focus on failure-path coverage and deterministic fallback verification. |
+| **New sync providers beyond Google Drive** | Multiplies auth, conflict, and portability permutations while current provider still needs runtime confidence closure. | Fully validate Google Drive path end-to-end first, then treat additional providers as future milestone work. |
+| **Large UX redesign in reliability milestone** | Visual churn creates regression risk and verification noise unrelated to trust outcomes. | Limit UI work to reliability observability surfaces (diagnostics, readiness warnings, evidence visibility). |
+| **Background automation complexity jump (aggressive smart scheduling)** | Hard-to-debug scheduler heuristics can reduce predictability during a verification-driven milestone. | Keep deterministic scheduler policy and improve observability/tests around current decision rules. |
+| **Schema/platform refactor without reliability need** | Refactors increase migration risk and undermine portability validation comparability. | Preserve schema/runtime contracts; only make minimal changes required for verification instrumentation. |
 
-## Feature Dependencies
+## Milestone Dependency Map
 
-```mermaid
-graph TD
-    SaveURL[Save URL/Document] --> ContentExtraction[Content Extraction]
-    ContentExtraction --> FullTextSearch[Full-Text Search]
-    SaveURL --> LocalStorage[Local Secure Storage]
-    LocalStorage --> OfflineMode[Offline Mode]
-    LocalStorage --> FullTextSearch
-    HybridOrg[Folders + Tags] --> FilterGroupBy[Filter/Group by Tags]
-    ShareIntent[Share Intent Integration] --> SaveURL
+```text
+Cloud auth + provider error mapping
+    -> Backup upload/download runtime validation
+    -> Scheduler diagnostics confidence
+
+Versioned manifest + checksum pipeline
+    -> Restore preview risk flags
+    -> Deterministic restore integrity enforcement
+    -> Cross-platform portability regressions
+
+API-key gate + intelligence persistence contracts
+    -> Intelligence failure-path tests
+    -> Verification-first release gate
+
+Verification artifact conventions
+    -> Audit-ready evidence bundle
+    -> Milestone pass/fail confidence review
 ```
 
-## MVP Recommendation
+## Recommended v1.1 Prioritization
 
-Prioritize building the "Reflective Loop": Save → Extract → Search → Read.
+1. **Runtime reliability proof for cloud backup/restore/scheduler** (table stake)
+2. **Portability and intelligence integration regression safety nets** (table stake)
+3. **Verification artifact quality and release gate hardening** (table stake)
+4. **Reliability confidence scorecard + restore risk signaling** (differentiator)
 
-1. **Table Stakes: Native Share Integration** - Must be frictionless to get data *into* the app.
-2. **Table Stakes: Content Extraction & FTS** - The primary value is being able to *find* and *read* what was saved.
-3. **Differentiator: Hybrid Organization (Folders + Tags)** - Establish the unique organizational model early.
-4. **Differentiator: Reading History** - High-value, low-complexity feature for immediate UX improvement.
-
-**Defer:**
-- **AI-powered Summarization**: Valuable but high complexity; manual extraction is enough for MVP.
-- **Collaborative Folders**: High sync complexity; focus on single-user experience first.
+Defer until after v1.1 reliability closure:
+- New AI feature breadth
+- Additional cloud providers
+- Non-essential UX/system refactors
 
 ## Sources
 
-- [Raindrop.io Feature Comparison (2026)](https://raindrop.io)
-- [Readwise Reader "Reading Workflow" Best Practices](https://readwise.io/read)
-- [iOS/Android Share Intent Guidelines (2026 Update)](https://developer.apple.com)
-- [Community Feedback on Pocket Discontinuation (July 2025)](https://reddit.com/r/productivity)
+- `.planning/PROJECT.md` (v1.1 goal, active requirements)
+- `.planning/MILESTONES.md` (v1.0 shipped capabilities and residual risk context)
+- `.planning/STATE.md` (current status, key decisions, and reliability-relevant constraints)
