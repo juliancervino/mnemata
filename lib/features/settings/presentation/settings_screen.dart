@@ -40,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _autoTagDomain;
   late bool _autoTagYear;
   late int _backupMaxCount;
+  late int _recycleRetentionDays;
   late bool _aiSummaryEnabled;
   late bool _semanticSearchEnabled;
   late bool _aiTagSuggestionsEnabled;
@@ -62,6 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _autoTagDomain = _settingsService.autoTagDomain;
     _autoTagYear = _settingsService.autoTagYear;
     _backupMaxCount = _settingsService.backupMaxCount;
+    _recycleRetentionDays = _settingsService.recycleBinRetentionDays;
     _aiSummaryEnabled = _settingsService.aiSummaryEnabled;
     _semanticSearchEnabled = _settingsService.semanticSearchEnabled;
     _aiTagSuggestionsEnabled = _settingsService.aiTagSuggestionsEnabled;
@@ -368,6 +370,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 8),
                 Text(
                   '$_backupMaxCount',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 24),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Recycle Bin',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: const Text('Retention window (days)'),
+            subtitle: const Text(
+              'Items older than this in recycle bin are permanently deleted at startup.',
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    min: SettingsService.minRecycleBinRetentionDays.toDouble(),
+                    max: SettingsService.maxRecycleBinRetentionDays.toDouble(),
+                    divisions: SettingsService.maxRecycleBinRetentionDays -
+                        SettingsService.minRecycleBinRetentionDays,
+                    label: '$_recycleRetentionDays',
+                    value: _recycleRetentionDays.toDouble(),
+                    onChanged: (value) {
+                      setState(() {
+                        _recycleRetentionDays = value.round();
+                      });
+                    },
+                    onChangeEnd: (value) {
+                      _settingsService.setRecycleBinRetentionDays(value.round());
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$_recycleRetentionDays',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],

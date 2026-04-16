@@ -15,6 +15,7 @@ import 'package:mnemata/features/backup/services/network_power_signal_service.da
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
+import 'package:mnemata/features/chronological_list/services/recycle_purge_service.dart';
 import 'package:mnemata/features/intelligence/services/ai_provider_client.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
@@ -114,6 +115,12 @@ Future<void> setupLocator() async {
       networkPowerSignalService: getIt<NetworkPowerSignalService>(),
     ),
   );
+  getIt.registerLazySingleton<RecyclePurgeService>(
+    () => RecyclePurgeService(
+      database: getIt<AppDatabase>(),
+      settingsService: getIt<SettingsService>(),
+    ),
+  );
 
   getIt.registerSingleton<ShareService>(
     ShareService(
@@ -132,6 +139,11 @@ void main() async {
   // Start share listeners as early as possible to avoid missing first-share intents.
   getIt<ShareService>().init();
   unawaited(getIt<BackupSchedulerService>().runIfDue());
+  unawaited(
+    getIt<RecyclePurgeService>().purgeExpired().catchError((error, stackTrace) {
+      debugPrint('recycle_purge.startup_failed error=$error');
+    }),
+  );
 
   runApp(const MyApp());
 }

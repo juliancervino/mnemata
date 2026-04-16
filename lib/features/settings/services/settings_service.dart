@@ -17,6 +17,7 @@ class SettingsService {
   static const String _keyLastBackupResultStatus = 'lastBackupResultStatus';
   static const String _keyLastBackupSizeBytes = 'lastBackupSizeBytes';
   static const String _keyBackupMaxCount = 'backupMaxCount';
+  static const String _keyRecycleBinRetentionDays = 'recycleBinRetentionDays';
   static const String _keyAiSummaryEnabled = 'aiSummaryEnabled';
   static const String _keySemanticSearchEnabled = 'semanticSearchEnabled';
   static const String _keyAiTagSuggestionsEnabled = 'aiTagSuggestionsEnabled';
@@ -24,6 +25,9 @@ class SettingsService {
 
   static const int defaultBackupMaxCount = 7;
   static const int maxBackupMaxCount = 30;
+  static const int defaultRecycleBinRetentionDays = 30;
+  static const int minRecycleBinRetentionDays = 1;
+  static const int maxRecycleBinRetentionDays = 30;
 
   bool get autoTagDomain => _prefs.getBool(_keyAutoTagDomain) ?? true;
 
@@ -139,6 +143,21 @@ class SettingsService {
   Future<void> setBackupMaxCount(int value) async {
     final normalized = value.clamp(1, maxBackupMaxCount).toInt();
     await _prefs.setInt(_keyBackupMaxCount, normalized);
+  }
+
+  int get recycleBinRetentionDays {
+    final value = _prefs.getInt(_keyRecycleBinRetentionDays);
+    if (value == null) {
+      return defaultRecycleBinRetentionDays;
+    }
+    return value.clamp(minRecycleBinRetentionDays, maxRecycleBinRetentionDays);
+  }
+
+  Future<void> setRecycleBinRetentionDays(int value) async {
+    final normalized = value
+        .clamp(minRecycleBinRetentionDays, maxRecycleBinRetentionDays)
+        .toInt();
+    await _prefs.setInt(_keyRecycleBinRetentionDays, normalized);
   }
 
   bool get aiSummaryEnabled => _prefs.getBool(_keyAiSummaryEnabled) ?? false;
