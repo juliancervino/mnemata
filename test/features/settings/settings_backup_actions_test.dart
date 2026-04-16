@@ -6,12 +6,24 @@ import 'package:get_it/get_it.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
+import 'package:mnemata/features/bookmarks/services/bookmark_import_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/settings/presentation/settings_screen.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  Future<void> tapListAction(WidgetTester tester, String text) async {
+    final finder = find.text(text);
+    await tester.scrollUntilVisible(
+      finder,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+    await tester.tap(finder);
+  }
+
   Future<SettingsService> buildSettingsService() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
@@ -75,7 +87,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Upload backup to Google Drive'));
+    await tapListAction(tester, 'Upload backup to Google Drive');
     await tester.pump(const Duration(seconds: 1));
 
     expect(order, equals(<String>['create', 'upload']));
@@ -140,7 +152,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Upload backup to Google Drive'));
+      await tapListAction(tester, 'Upload backup to Google Drive');
       await tester.pumpAndSettle();
 
       expect(provider.deletedBackupIds, equals(<String>['oldest']));
@@ -171,7 +183,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Upload backup to Google Drive'));
+      await tapListAction(tester, 'Upload backup to Google Drive');
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.textContaining('Cloud backup failed'), findsOneWidget);
@@ -220,7 +232,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Upload backup to Google Drive'));
+    await tapListAction(tester, 'Upload backup to Google Drive');
     await tester.pump(const Duration(seconds: 1));
 
     await tester.pumpWidget(
@@ -277,7 +289,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Restore from backup'));
+      await tapListAction(tester, 'Restore from backup');
       await tester.pumpAndSettle();
 
       expect(find.text('Choose a backup from Google Drive'), findsOneWidget);
@@ -326,7 +338,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Restore from backup'));
+      await tapListAction(tester, 'Restore from backup');
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
@@ -335,7 +347,7 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.textContaining('ID: remote-backup-1'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(provider.downloadedBackupIds, equals(<String>['backup-1']));
       expect(find.text('Archive path'), findsNothing);
@@ -369,7 +381,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Restore from backup'));
+    await tapListAction(tester, 'Restore from backup');
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.delete_outline).first);
@@ -407,7 +419,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Restore from backup'));
+      await tapListAction(tester, 'Restore from backup');
       await tester.pumpAndSettle();
 
       expect(
@@ -416,6 +428,97 @@ void main() {
       );
       expect(provider.downloadedBackupIds, isEmpty);
       expect(find.text('Restore Preview'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'bookmark export action creates html artifact then triggers share flow',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final actions = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+            uploadBackupAction: (_) async => CloudBackupUploadReceipt(
+              backupId: 'manual_backup',
+              remoteId: 'remote-manual-backup',
+              uploadedAt: DateTime.utc(2026, 4, 5, 10, 15),
+            ),
+            createBookmarkExportAction: () async {
+              actions.add('create');
+              return '/tmp/mnemata-bookmarks.html';
+            },
+            shareBookmarkExportAction: (path) async {
+              actions.add('share:$path');
+            },
+          ),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Export URL bookmarks (HTML)'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Export URL bookmarks (HTML)'));
+      await tester.pump();
+
+      expect(actions, <String>['create', 'share:/tmp/mnemata-bookmarks.html']);
+      expect(find.textContaining('Bookmarks exported'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'bookmark import action picks html file and reports ingest counts',
+    (tester) async {
+      final settingsService = await buildSettingsService();
+      final restoreService = buildRestoreService();
+      final imported = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(
+            settingsService: settingsService,
+            backupRestoreService: restoreService,
+            createBackupArchiveAction: () async => '/tmp/manual_backup.zip',
+            uploadBackupAction: (_) async => CloudBackupUploadReceipt(
+              backupId: 'manual_backup',
+              remoteId: 'remote-manual-backup',
+              uploadedAt: DateTime.utc(2026, 4, 5, 10, 15),
+            ),
+            pickBookmarkImportFileAction: () async => '/tmp/import.html',
+            importBookmarksFromFileAction: (path) async {
+              imported.add(path);
+              return const BookmarkImportResult(
+                importedCount: 2,
+                duplicateCount: 1,
+                invalidCount: 3,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Import URL bookmarks (HTML)'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Import URL bookmarks (HTML)'));
+      await tester.pump();
+
+      expect(imported, <String>['/tmp/import.html']);
+      expect(
+        find.textContaining('Imported 2 bookmarks'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('1 duplicates'), findsOneWidget);
+      expect(find.textContaining('3 invalid'), findsOneWidget);
     },
   );
 }

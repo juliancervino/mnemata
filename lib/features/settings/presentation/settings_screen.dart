@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
@@ -7,11 +8,14 @@ import 'package:mnemata/features/backup/presentation/restore_preview_sheet.dart'
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
+import 'package:mnemata/features/bookmarks/services/bookmark_export_service.dart';
+import 'package:mnemata/features/bookmarks/services/bookmark_import_service.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -20,6 +24,10 @@ class SettingsScreen extends StatefulWidget {
     this.backupRestoreService,
     this.createBackupArchiveAction,
     this.uploadBackupAction,
+    this.createBookmarkExportAction,
+    this.shareBookmarkExportAction,
+    this.pickBookmarkImportFileAction,
+    this.importBookmarksFromFileAction,
     this.nowProvider,
     this.apiKeyStore,
   });
@@ -29,6 +37,11 @@ class SettingsScreen extends StatefulWidget {
   final Future<String> Function()? createBackupArchiveAction;
   final Future<CloudBackupUploadReceipt> Function(String archivePath)?
   uploadBackupAction;
+  final Future<String> Function()? createBookmarkExportAction;
+  final Future<void> Function(String exportFilePath)? shareBookmarkExportAction;
+  final Future<String?> Function()? pickBookmarkImportFileAction;
+  final Future<BookmarkImportResult> Function(String importFilePath)?
+  importBookmarksFromFileAction;
   final DateTime Function()? nowProvider;
   final ApiKeyStore? apiKeyStore;
 
@@ -53,7 +66,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final BackupRestoreService _backupRestoreService;
   bool _isCreatingBackup = false;
   bool _isPreparingRestore = false;
+  bool _isExportingBookmarks = false;
+  bool _isImportingBookmarks = false;
   String? _restoreProgressMessage;
+  BookmarkExportService? _bookmarkExportService;
+  BookmarkImportService? _bookmarkImportService;
 
   @override
   void initState() {
@@ -68,7 +85,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _semanticSearchEnabled = _settingsService.semanticSearchEnabled;
     _aiTagSuggestionsEnabled = _settingsService.aiTagSuggestionsEnabled;
     _selectedAiProvider = _settingsService.aiProvider;
-    _apiKeyStore = widget.apiKeyStore ?? GetIt.instance<ApiKeyStore>();
+    _apiKeyStore =
+      widget.apiKeyStore ??
+      (GetIt.instance.isRegistered<ApiKeyStore>()
+        ? GetIt.instance<ApiKeyStore>()
+        : ApiKeyStore(secureStore: _InMemorySecureKeyValueStore()));
     _loadApiKeyState();
 
     if (widget.createBackupArchiveAction == null ||
@@ -133,9 +154,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _backupRestoreService = widget.backupRestoreService!;
     }
 
-    if (widget.uploadBackupAction == null) {
+    if (widget.uploadBackupAction == null &&
+        GetIt.instance.isRegistered<CloudBackupProvider>()) {
       _cloudBackupProvider = GetIt.instance<CloudBackupProvider>();
     }
+
   }
 
   @override
@@ -388,7 +411,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.delete_outline),
+            leading: const Icon(Icons.auto_delete_outlined),
             title: const Text('Retention window (days)'),
             subtitle: const Text(
               'Items older than this in recycle bin are permanently deleted at startup.',
@@ -432,6 +455,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          const Divider(height: 24),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Bookmarks',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('Export URL bookmarks (HTML)'),
+            subtitle: const Text(
+              'Create a Netscape bookmark HTML file with saved URLs only.',
+            ),
+            enabled: !_isExportingBookmarks,
+            onTap: _isExportingBookmarks ? null : _exportBookmarks,
+            trailing: _isExportingBookmarks
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+          ),
+          ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: const Text('Import URL bookmarks (HTML)'),
+            subtitle: const Text(
+              'Import only valid http/https bookmark URLs from HTML files.',
+            ),
+            enabled: !_isImportingBookmarks,
+            onTap: _isImportingBookmarks ? null : _importBookmarks,
+            trailing: _isImportingBookmarks
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+          ),
           const Divider(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -485,14 +552,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await _settingsService.setLastBackupAttemptAt(now);
 
-      archivePath =
+      final createdArchivePath =
           await (widget.createBackupArchiveAction?.call() ??
               _backupArchiveService!.createBackupArchive());
-      archiveSizeBytes = await _resolveArchiveSizeBytes(archivePath);
+      archivePath = createdArchivePath;
 
-      final receipt =
-          await (widget.uploadBackupAction?.call(archivePath) ??
-              _cloudBackupProvider!.uploadBackup(archivePath: archivePath));
+      final CloudBackupUploadReceipt receipt;
+      final uploadAction = widget.uploadBackupAction;
+      if (uploadAction != null) {
+        receipt = await uploadAction(createdArchivePath);
+      } else {
+        final cloudProvider = _cloudBackupProvider;
+        if (cloudProvider == null) {
+          throw StateError('Cloud backup provider is not configured.');
+        }
+        receipt = await cloudProvider.uploadBackup(
+          archivePath: createdArchivePath,
+        );
+      }
+
+      archiveSizeBytes = _resolveArchiveSizeBytes(createdArchivePath);
 
       final cloudProvider = _cloudBackupProvider;
       if (cloudProvider != null) {
@@ -579,6 +658,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
+      _setRestoreBusy(false, null);
+
       await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
@@ -634,12 +715,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Unable to list cloud backups (${error.code.name}). You can use local archive fallback.',
+              'Unable to list cloud backups (${error.code.name}).',
             ),
           ),
         );
       }
-      return _promptForArchivePathFallback();
+      return null;
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -849,16 +930,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return value;
   }
 
-  Future<int?> _resolveArchiveSizeBytes(String archivePath) async {
+  int? _resolveArchiveSizeBytes(String archivePath) {
     try {
       final file = File(archivePath);
-      if (!await file.exists()) {
+      if (!file.existsSync()) {
         return null;
       }
-      return file.length();
+      return file.lengthSync();
     } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _exportBookmarks() async {
+    setState(() {
+      _isExportingBookmarks = true;
+    });
+
+    try {
+      final exportPath =
+          await (widget.createBookmarkExportAction?.call() ??
+              (() async {
+                final service =
+                    _bookmarkExportService ??
+                    BookmarkExportService(database: GetIt.instance<AppDatabase>());
+                _bookmarkExportService = service;
+                final file = await service.exportBookmarksFile();
+                return file.path;
+              })());
+
+      await (widget.shareBookmarkExportAction?.call(exportPath) ??
+          Share.shareXFiles(
+            <XFile>[XFile(exportPath)],
+            subject: 'Mnemata URL Bookmarks',
+            text: 'Exported URL bookmarks from Mnemata.',
+          ));
+
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bookmarks exported: $exportPath')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bookmark export failed: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExportingBookmarks = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _importBookmarks() async {
+    setState(() {
+      _isImportingBookmarks = true;
+    });
+
+    try {
+      final importPath =
+          await (widget.pickBookmarkImportFileAction?.call() ??
+              _pickBookmarkImportFilePath());
+      if (importPath == null || importPath.isEmpty) {
+        return;
+      }
+
+      final result =
+          await (widget.importBookmarksFromFileAction?.call(importPath) ??
+              (() {
+                final service =
+                    _bookmarkImportService ??
+                    BookmarkImportService(database: GetIt.instance<AppDatabase>());
+                _bookmarkImportService = service;
+                return service.importBookmarksFile(importPath);
+              })());
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported ${result.importedCount} bookmarks (${result.duplicateCount} duplicates, ${result.invalidCount} invalid).',
+          ),
+        ),
+      );
+    } on BookmarkImportException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bookmark import failed: ${error.message}')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bookmark import failed: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImportingBookmarks = false;
+        });
+      }
+    }
+  }
+
+  Future<String?> _pickBookmarkImportFilePath() async {
+    final selected = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const <String>['html', 'htm'],
+    );
+    if (selected == null || selected.files.isEmpty) {
+      return null;
+    }
+
+    final path = selected.files.single.path;
+    if (path == null || path.trim().isEmpty) {
+      return null;
+    }
+
+    return path;
   }
 
   void _setRestoreBusy(bool value, String? message) {
@@ -999,5 +1200,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       default:
         return 'Gemini';
     }
+  }
+}
+
+class _InMemorySecureKeyValueStore implements SecureKeyValueStore {
+  final Map<String, String> _values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async {
+    return _values[key];
+  }
+
+  @override
+  Future<void> write({required String key, required String value}) async {
+    _values[key] = value;
   }
 }
