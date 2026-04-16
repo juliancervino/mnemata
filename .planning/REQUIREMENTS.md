@@ -9,25 +9,25 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 ### Author Metadata (AUT)
 
-- [ ] **AUT-01**: System extracts article author using a dedicated author-extraction module, without modifying existing title/body extraction modules.
-- [ ] **AUT-02**: Extracted author metadata is persisted in the item model and available for display/use in item views.
+- [x] **AUT-01**: System extracts article author using a dedicated author-extraction module, without modifying existing title/body extraction modules.
+- [x] **AUT-02**: Extracted author metadata is persisted in the item model and available for display/use in item views.
 
 ### Recycle Bin and Retention (TRS)
 
-- [ ] **TRS-01**: Deleted items are moved to a recycle bin (soft delete) instead of being immediately removed.
-- [ ] **TRS-02**: User can configure recycle-bin retention in Settings between 1 and 30 days.
-- [ ] **TRS-03**: Items in recycle bin are permanently deleted automatically when retention period expires.
+- [x] **TRS-01**: Deleted items are moved to a recycle bin (soft delete) instead of being immediately removed.
+- [x] **TRS-02**: User can configure recycle-bin retention in Settings between 1 and 30 days.
+- [x] **TRS-03**: Items in recycle bin are permanently deleted automatically when retention period expires.
 
 ### Bookmark Import/Export (BKM)
 
-- [ ] **BKM-01**: User can export saved URLs to a universal bookmarks format (Netscape Bookmark HTML).
-- [ ] **BKM-02**: User can import URLs from the same universal bookmarks format.
+- [x] **BKM-01**: User can export saved URLs to a universal bookmarks format (Netscape Bookmark HTML).
+- [x] **BKM-02**: User can import URLs from the same universal bookmarks format.
 
 ### Sharing and Selection UX (SHR/UX)
 
-- [ ] **UX-04**: Multi-selection preserves current scroll position when selecting additional items.
-- [ ] **SHR-01**: User can share AI summary from summary view and item-share view; option is disabled when summary does not exist.
-- [ ] **SHR-02**: User can share item content as generated PDF attachment as an additional share option.
+- [x] **UX-04**: Multi-selection preserves current scroll position when selecting additional items.
+- [x] **SHR-01**: User can share AI summary from summary view and item-share view; option is disabled when summary does not exist.
+- [x] **SHR-02**: User can share item content as generated PDF attachment as an additional share option.
 
 ### Cloud Runtime Validation (POR) (Deferred Within v1.1)
 
@@ -69,16 +69,16 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUT-01 | Phase 15 | Pending |
-| AUT-02 | Phase 15 | Pending |
-| TRS-01 | Phase 15 | Pending |
-| TRS-02 | Phase 15 | Pending |
-| TRS-03 | Phase 15 | Pending |
-| BKM-01 | Phase 15 | Pending |
-| BKM-02 | Phase 15 | Pending |
-| UX-04 | Phase 15 | Pending |
-| SHR-01 | Phase 15 | Pending |
-| SHR-02 | Phase 15 | Pending |
+| AUT-01 | Phase 15 | Completed (quality hardening follow-up planned) |
+| AUT-02 | Phase 15 | Completed |
+| TRS-01 | Phase 15 | Completed |
+| TRS-02 | Phase 15 | Completed |
+| TRS-03 | Phase 15 | Completed |
+| BKM-01 | Phase 15 | Completed |
+| BKM-02 | Phase 15 | Completed |
+| UX-04 | Phase 15 | Completed |
+| SHR-01 | Phase 15 | Completed |
+| SHR-02 | Phase 15 | Completed |
 | POR-05 | Phase 16 | Pending |
 | POR-06 | Phase 16 | Pending |
 | POR-07 | Phase 16 | Pending |

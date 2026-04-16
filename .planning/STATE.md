@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Feature Expansion + Reliability
 status: v1.1 replanned (phase 15 functional scope)
-last_updated: "2026-04-16T13:00:00Z"
+last_updated: "2026-04-17T09:45:00Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 8
-  completed_plans: 0
-  percent: 0
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State: Mnemata
@@ -22,19 +22,19 @@ progress:
 
 ## Current Position
 
-Phase: Not started (roadmap ready)
-Plan: -
+Phase: 16 Runtime Cloud Validation (next)
+Plan: 16-01 (pending planning/execution)
 
-- **Phase**: -
-- **Plan**: -
-- **Status**: v1.1 replanned; ready to plan feature-focused Phase 15
-- **Progress**: [░░░░░░░░░░] 0% (v1.1)
+- **Phase**: 16
+- **Plan**: 16-01 (pending)
+- **Status**: Phase 15 completed; preparing deferred runtime validation work
+- **Progress**: [█████░░░░░] 50% (v1.1)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
-- **Requirement Coverage**: 35% (v2)
-- **Phase Completion**:  0/4 (v1.1 roadmap replanned)
+- **Requirement Coverage**: 50% (v1.1)
+- **Phase Completion**:  1/4 (v1.1)
 
 ## Accumulated Context
 
@@ -80,6 +80,7 @@ Plan: -
 ### Todos
 
 - [ ] Add more comprehensive integration tests.
+- [ ] Build a comprehensive author-extraction test corpus and benchmark harness before hardening extraction heuristics.
 
 ### Blockers
 
@@ -89,9 +90,10 @@ Plan: -
 
 ### Last Session Summary
 
-- v1.1 research artifacts were generated for features, architecture, and pitfall analysis.
-- v1.1 requirements and roadmap were created for phases 15-17.
+- Phase 15 execution completed (plans 15-01..15-04) with summary artifacts for each plan.
+- Share/PDF UX and pagination behavior were refined based on UAT feedback.
+- Author extraction quality remains functionally delivered but needs broader corpus-driven hardening.
 
 ### Next Session Guidance
 
-- Start execution with `/gsd-plan-phase 15`.
+- Continue with `/gsd-plan-phase 16` and execute runtime cloud validation evidence capture.

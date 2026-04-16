@@ -8,7 +8,7 @@
 
 ### Phases
 
-- [ ] **Phase 15: Content and Workflow Enhancements** - Deliver requested user-facing functionality without altering the existing title/body extraction pipeline.
+- [x] **Phase 15: Content and Workflow Enhancements** - Deliver requested user-facing functionality without altering the existing title/body extraction pipeline.
 - [ ] **Phase 16: Runtime Cloud Validation** - Execute delayed real-device/account cloud runtime validation.
 - [ ] **Phase 17: Integration Hardening** - Execute delayed deterministic integration/regression coverage.
 - [ ] **Phase 18: Verification Quality Gates** - Enforce evidence quality and release gate criteria.
@@ -27,10 +27,10 @@
   5. Share flows support AI summary sharing (disabled if unavailable) and PDF attachment generation as an additional option.
 **Plans:** 4 plans
 Plans:
-- [ ] 15-01-PLAN.md - Author Extraction Module and Metadata Persistence
-- [ ] 15-02-PLAN.md - Recycle Bin, Retention Settings, and Auto Purge
-- [ ] 15-03-PLAN.md - Bookmark Import/Export (Universal HTML Format)
-- [ ] 15-04-PLAN.md - Multi-Select Scroll Stability and Share Enhancements (AI Summary + PDF)
+- [x] 15-01-PLAN.md - Author Extraction Module and Metadata Persistence
+- [x] 15-02-PLAN.md - Recycle Bin, Retention Settings, and Auto Purge
+- [x] 15-03-PLAN.md - Bookmark Import/Export (Universal HTML Format)
+- [x] 15-04-PLAN.md - Multi-Select Scroll Stability and Share Enhancements (AI Summary + PDF)
 
 ### Phase 16: Runtime Cloud Validation
 **Goal:** Validate end-to-end cloud reliability on real Google account/device environments.
@@ -72,7 +72,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 15. Content and Workflow Enhancements | 0/4 | Not started | - |
+| 15. Content and Workflow Enhancements | 4/4 | Completed | 2026-04-17 |
 | 16. Runtime Cloud Validation | 0/1 | Not started | - |
 | 17. Integration Hardening | 0/2 | Not started | - |
 | 18. Verification Quality Gates | 0/1 | Not started | - |

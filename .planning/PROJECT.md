@@ -25,17 +25,22 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 
 ### Active
 
-- [ ] Add author metadata extraction through an isolated module and persist it in item model.
-- [ ] Add recycle bin lifecycle and retention controls in settings.
-- [ ] Add URL import/export interoperability with bookmarks HTML format.
-- [ ] Improve multi-select and share workflows (AI summary + PDF attachment).
+- [x] Add author metadata extraction through an isolated module and persist it in item model.
+- [x] Add recycle bin lifecycle and retention controls in settings.
+- [x] Add URL import/export interoperability with bookmarks HTML format.
+- [x] Improve multi-select and share workflows (AI summary + PDF attachment).
 - [ ] Complete delayed runtime cloud validation and integration hardening after functional expansion.
+
+### Validated
+
+- [x] Phase 15 functional scope closed (AUT/TRS/BKM/UX/SHR).
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- (None defined yet)
+- Author extraction heuristic hardening against broad publisher edge-cases in Phase 15.
+	Reason: functional module delivery completed; robustness tuning deferred until dedicated corpus-based test package is prepared.
 
 ## Context
 
@@ -79,4 +84,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: April 16, 2026 after v1.1 scope replan (feature-first sequencing)*
+*Last updated: April 17, 2026 after Phase 15 closure sync*
