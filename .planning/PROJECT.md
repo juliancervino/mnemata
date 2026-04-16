@@ -8,35 +8,28 @@ Mnemata is a cross-platform knowledge and reference manager (iOS, Android, Web).
 
 A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-## Current Milestone: v1.1 Reliability & Verification
+## Current Milestone: v1.1 Feature Expansion + Reliability
 
-**Goal:** Convert v1.0 residual risk into verified reliability by completing real-world cloud validation and strengthening integration safety nets.
+**Goal:** Deliver requested functional enhancements first (metadata, recycle bin, import/export, selection/share UX) and delay reliability closure work to subsequent phases in the same milestone.
 
 **Target features:**
-- Validate cloud backup/restore/scheduler behavior on real Google account + real device runtime conditions.
-- Add integration coverage for cloud portability and intelligence-critical flows.
-- Harden release-readiness checks and verification documentation quality.
+- Extract and persist article author via a dedicated author module without changing current title/body extraction flow.
+- Add recycle bin with configurable retention (1-30 days) and automatic permanent purge.
+- Add bookmark URL import/export using universal bookmarks format.
+- Fix multi-select scroll jump behavior.
+- Add AI summary sharing option (disabled when summary is unavailable).
+- Add PDF attachment sharing option generated from item content.
+- Defer cloud runtime validation, integration hardening, and verification gates to later phases (16-18).
 
 ## Requirements
 
-### Validated
-
-<!-- Shipped and confirmed valuable. -->
-
-- [x] Save URLs and copy received documents (PDFs, images) to local secure storage.
-- [x] Extract content from URLs (clean reader) and PDFs (indexed search).
-- [x] Native integration via Share Intents.
-- [x] Full-text search across items and content.
-- [x] Unified "Tags" organization model with multi-tag filtering.
-- [x] Swipe gestures for Share/Edit and drag-and-drop reordering.
-
 ### Active
 
-<!-- Current scope. Building toward these. -->
-
-- [ ] Complete human runtime validation for cloud backup, restore selection, and scheduler behavior.
-- [ ] Add integration and regression tests for cloud portability and intelligence flows.
-- [ ] Improve release verification artifacts to keep milestone audits passable without retrospective recovery work.
+- [ ] Add author metadata extraction through an isolated module and persist it in item model.
+- [ ] Add recycle bin lifecycle and retention controls in settings.
+- [ ] Add URL import/export interoperability with bookmarks HTML format.
+- [ ] Improve multi-select and share workflows (AI summary + PDF attachment).
+- [ ] Complete delayed runtime cloud validation and integration hardening after functional expansion.
 
 ### Out of Scope
 
@@ -86,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: April 16, 2026 after starting v1.1 milestone*
+*Last updated: April 16, 2026 after v1.1 scope replan (feature-first sequencing)*

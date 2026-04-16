@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: Reliability & Verification
-status: v1.1 roadmap ready
-last_updated: "2026-04-16T12:00:00Z"
+milestone_name: Feature Expansion + Reliability
+status: v1.1 replanned (phase 15 functional scope)
+last_updated: "2026-04-16T13:00:00Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 0
-  total_plans: 4
+  total_plans: 8
   completed_plans: 0
   percent: 0
 ---
@@ -18,7 +18,7 @@ progress:
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: v1.1 Reliability & Verification
+**Current Focus**: v1.1 Feature Expansion + Reliability
 
 ## Current Position
 
@@ -27,14 +27,14 @@ Plan: -
 
 - **Phase**: -
 - **Plan**: -
-- **Status**: v1.1 requirements and roadmap defined; ready to plan Phase 15
+- **Status**: v1.1 replanned; ready to plan feature-focused Phase 15
 - **Progress**: [░░░░░░░░░░] 0% (v1.1)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
 - **Requirement Coverage**: 35% (v2)
-- **Phase Completion**: 0/3 (v1.1 roadmap created)
+- **Phase Completion**:  0/4 (v1.1 roadmap replanned)
 
 ## Accumulated Context
 
