@@ -845,6 +845,7 @@ class _ItemTile extends StatelessWidget {
         (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
 
     String subtitle = '';
+    final String author = (item.author ?? '').trim();
     if (isUrl && item.url != null) {
       try {
         final uri = Uri.parse(item.url!);
@@ -1025,6 +1026,27 @@ class _ItemTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
+                          if (author.isNotEmpty)
+                            Flexible(
+                              child: Text(
+                                author,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          if (author.isNotEmpty)
+                            const Text(
+                              ' • ',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
                           if (subtitle.isNotEmpty)
                             Text(
                               subtitle,

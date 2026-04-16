@@ -157,4 +157,36 @@ void main() {
     await tester.pumpWidget(Container());
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('ItemListScreen shows author when available and keeps subtitle fallback when absent', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    await database.insertItem(
+      MnemataItemsCompanion.insert(
+        title: const Value('Authored Item'),
+        author: const Value('Jane Doe'),
+        url: const Value('https://author.example.com/story'),
+        type: 'url',
+        createdAt: now,
+      ),
+    );
+    await database.insertItem(
+      MnemataItemsCompanion.insert(
+        title: const Value('Fallback Item'),
+        url: const Value('https://fallback.example.com/story'),
+        type: 'url',
+        createdAt: now.subtract(const Duration(minutes: 1)),
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jane Doe'), findsOneWidget);
+    expect(find.text('fallback.example.com'), findsOneWidget);
+
+    await tester.pumpWidget(Container());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }

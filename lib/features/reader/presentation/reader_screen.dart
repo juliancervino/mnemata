@@ -115,6 +115,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
+                        if ((widget.item.author ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'By ${widget.item.author!.trim()}',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontStyle: FontStyle.italic),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                       ],
                       StreamBuilder<List<Label>>(
