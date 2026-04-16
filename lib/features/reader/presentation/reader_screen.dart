@@ -65,7 +65,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Share Rich Content',
-            onPressed: () => ShareUtils.shareItem(context, widget.item),
+            onPressed: _shareItem,
           ),
           IconButton(
             icon: const Icon(Icons.auto_awesome),
@@ -521,6 +521,51 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareItem() async {
+    String? summaryText;
+    if (GetIt.instance.isRegistered<SummaryService>()) {
+      final summaryService = GetIt.instance<SummaryService>();
+      final savedSummary = await summaryService.loadSavedSummary(widget.item);
+      if (savedSummary != null && savedSummary.isSuccess) {
+        summaryText = _summaryToShareText(savedSummary);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    await ShareUtils.shareItem(
+      context,
+      widget.item,
+      summaryText: summaryText,
+    );
+  }
+
+  String _summaryToShareText(SummaryResult result) {
+    final buffer = StringBuffer()..writeln(result.tldr.trim());
+    final points = result.keyPoints
+        .map((point) => point.trim())
+        .where((point) => point.isNotEmpty)
+        .toList(growable: false);
+    if (points.isNotEmpty) {
+      buffer
+        ..writeln('')
+        ..writeln('Key points:');
+      for (final point in points) {
+        buffer.writeln('- $point');
+      }
+    }
+    final whyItMatters = result.whyItMatters.trim();
+    if (whyItMatters.isNotEmpty) {
+      buffer
+        ..writeln('')
+        ..writeln('Why it matters:')
+        ..writeln(whyItMatters);
+    }
+    return buffer.toString().trim();
   }
 
   Future<void> _openTagSuggestions() async {

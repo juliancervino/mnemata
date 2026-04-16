@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
 
@@ -7,10 +8,17 @@ class SummaryPanel extends StatefulWidget {
     super.key,
     required this.item,
     required this.summaryService,
+    this.loadSavedSummaryAction,
+    this.generateSummaryAction,
+    this.shareSummaryAction,
   });
 
   final MnemataItem item;
   final SummaryService summaryService;
+  final Future<SummaryResult?> Function(MnemataItem item)? loadSavedSummaryAction;
+  final Future<SummaryResult> Function(MnemataItem item, {bool forceRefresh})?
+  generateSummaryAction;
+  final Future<void> Function(String summaryText)? shareSummaryAction;
 
   @override
   State<SummaryPanel> createState() => _SummaryPanelState();
@@ -42,6 +50,12 @@ class _SummaryPanelState extends State<SummaryPanel> {
               onPressed: _isLoading ? null : _regenerate,
               icon: const Icon(Icons.refresh),
               label: const Text('Regenerate'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _canShareSummary ? _shareSummary : null,
+              icon: const Icon(Icons.share_outlined),
+              label: const Text('Share summary'),
             ),
             const SizedBox(height: 12),
             if (_isLoading) const LinearProgressIndicator(),
@@ -100,7 +114,8 @@ class _SummaryPanelState extends State<SummaryPanel> {
       _isLoading = true;
     });
 
-    final saved = await widget.summaryService.loadSavedSummary(widget.item);
+    final saved = await (widget.loadSavedSummaryAction?.call(widget.item) ??
+      widget.summaryService.loadSavedSummary(widget.item));
     if (saved != null) {
       if (!mounted) {
         return;
@@ -112,7 +127,8 @@ class _SummaryPanelState extends State<SummaryPanel> {
       return;
     }
 
-    final result = await widget.summaryService.generateSummary(widget.item);
+    final result = await (widget.generateSummaryAction?.call(widget.item) ??
+      widget.summaryService.generateSummary(widget.item));
 
     if (!mounted) {
       return;
@@ -128,10 +144,14 @@ class _SummaryPanelState extends State<SummaryPanel> {
       _isLoading = true;
     });
 
-    final result = await widget.summaryService.generateSummary(
-      widget.item,
-      forceRefresh: forceRefresh,
-    );
+    final result = await (widget.generateSummaryAction?.call(
+          widget.item,
+          forceRefresh: forceRefresh,
+        ) ??
+        widget.summaryService.generateSummary(
+          widget.item,
+          forceRefresh: forceRefresh,
+        ));
 
     if (!mounted) {
       return;
@@ -140,5 +160,52 @@ class _SummaryPanelState extends State<SummaryPanel> {
       _isLoading = false;
       _result = result;
     });
+  }
+
+  bool get _canShareSummary {
+    final result = _result;
+    return result != null && result.isSuccess && result.tldr.trim().isNotEmpty;
+  }
+
+  Future<void> _shareSummary() async {
+    final result = _result;
+    if (result == null || !result.isSuccess) {
+      return;
+    }
+
+    final summaryText = _buildSummaryText(result);
+    if (summaryText.trim().isEmpty) {
+      return;
+    }
+
+    await (widget.shareSummaryAction?.call(summaryText) ??
+        ShareUtils.shareSummary(
+          item: widget.item,
+          summaryText: summaryText,
+        ));
+  }
+
+  String _buildSummaryText(SummaryResult result) {
+    final buffer = StringBuffer()..writeln(result.tldr.trim());
+    final keyPoints = result.keyPoints
+        .map((point) => point.trim())
+        .where((point) => point.isNotEmpty)
+        .toList(growable: false);
+    if (keyPoints.isNotEmpty) {
+      buffer
+        ..writeln('')
+        ..writeln('Key points:');
+      for (final point in keyPoints) {
+        buffer.writeln('- $point');
+      }
+    }
+    final why = result.whyItMatters.trim();
+    if (why.isNotEmpty) {
+      buffer
+        ..writeln('')
+        ..writeln('Why it matters:')
+        ..writeln(why);
+    }
+    return buffer.toString().trim();
   }
 }

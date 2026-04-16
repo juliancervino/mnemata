@@ -643,6 +643,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         final labelsByItem = labelsSnapshot.data ?? const <int, List<Label>>{};
 
         return ReorderableListView.builder(
+          key: const PageStorageKey<String>('item-list-reorderable'),
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: items.length,
           buildDefaultDragHandles: false,
