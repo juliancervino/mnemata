@@ -8,6 +8,15 @@ Mnemata is a cross-platform knowledge and reference manager (iOS, Android, Web).
 
 A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
+## Current Milestone: v1.1 Reliability & Verification
+
+**Goal:** Convert v1.0 residual risk into verified reliability by completing real-world cloud validation and strengthening integration safety nets.
+
+**Target features:**
+- Validate cloud backup/restore/scheduler behavior on real Google account + real device runtime conditions.
+- Add integration coverage for cloud portability and intelligence-critical flows.
+- Harden release-readiness checks and verification documentation quality.
+
 ## Requirements
 
 ### Validated
@@ -25,13 +34,9 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Add "About" view and "Settings" menu for app personalization.
-- [ ] Implement auto-tagging (domain and year) for incoming content.
-- [ ] Add "Delete" action directly within the Reader View.
-- [ ] Implement multi-selection mode for bulk Tag/Delete/Share operations.
-- [ ] Optimize list UI to maximize title space and show origin domains.
-- [ ] Integrate Google Drive for full project backups.
-- [ ] Research AI-driven features (summaries, semantic search).
+- [ ] Complete human runtime validation for cloud backup, restore selection, and scheduler behavior.
+- [ ] Add integration and regression tests for cloud portability and intelligence flows.
+- [ ] Improve release verification artifacts to keep milestone audits passable without retrospective recovery work.
 
 ### Out of Scope
 
@@ -63,5 +68,22 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 | Cloud Strategy | Google Drive for backups instead of custom cloud sync for privacy/simplicity. | Phase 11 priority |
 | Interaction | Bulk actions via long-press multi-select. | Phase 10 goal |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? -> Move to Out of Scope with reason
+2. Requirements validated? -> Move to Validated with phase reference
+3. New requirements emerged? -> Add to Active
+4. Decisions to log? -> Add to Key Decisions
+5. "What This Is" still accurate? -> Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check - still the right priority?
+3. Audit Out of Scope - reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: March 18, 2026 after initialization*
+*Last updated: April 16, 2026 after starting v1.1 milestone*
