@@ -298,11 +298,12 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<void> updateItemDetails(int id, String title, String? url) {
+  Future<void> updateItemDetails(int id, String title, String? url, String? author) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
         title: Value(title),
         url: url != null ? Value(url) : const Value.absent(),
+        author: author != null ? Value(author) : const Value.absent(),
       ),
     );
   }

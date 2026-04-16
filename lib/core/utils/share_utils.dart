@@ -21,123 +21,87 @@ class ShareUtils {
     PdfExportService? pdfExportService,
     ShareTextAction? shareTextAction,
     ShareFileAction? shareFileAction,
-    ShareOption initialOption = ShareOption.item,
   }) async {
-    bool includeContent = false;
     final normalizedSummary = summaryText?.trim();
     final hasSummary = normalizedSummary != null && normalizedSummary.isNotEmpty;
-    ShareOption? selectedAction = initialOption;
-    if (selectedAction == ShareOption.summary && !hasSummary) {
-      selectedAction = ShareOption.item;
-    }
 
-    final result = await showDialog<ShareOption>(
+    await showDialog<void>(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Share Item'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  RadioListTile<ShareOption>(
-                    value: ShareOption.item,
-                    groupValue: selectedAction,
-                    title: const Text('Share item details'),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedAction = value;
-                      });
-                    },
-                  ),
-                  RadioListTile<ShareOption>(
-                    value: ShareOption.summary,
-                    groupValue: selectedAction,
-                    title: const Text('Share AI summary'),
-                    onChanged: hasSummary
-                        ? (value) {
-                            setState(() {
-                              selectedAction = value;
-                            });
-                          }
-                        : null,
-                  ),
-                  RadioListTile<ShareOption>(
-                    value: ShareOption.pdf,
-                    groupValue: selectedAction,
-                    title: const Text('Share as PDF'),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedAction = value;
-                      });
-                    },
-                  ),
-                  CheckboxListTile(
-                    title: const Text('Include downloaded content'),
-                    value: includeContent,
-                    onChanged: (value) {
-                      setState(() {
-                        includeContent = value ?? false;
-                      });
-                    },
-                  ),
-                ],
+        return AlertDialog(
+          title: const Text('Share Item'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _executeShare(
+                    item,
+                    false,
+                    shareTextAction: shareTextAction,
+                  );
+                },
+                child: const Text('Share item details'),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                TextButton(
-                  onPressed: selectedAction == null
-                      ? null
-                      : () => Navigator.pop(context, selectedAction),
-                  child: const Text('SHARE'),
-                ),
-              ],
-            );
-          },
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _executeShare(
+                    item,
+                    true,
+                    shareTextAction: shareTextAction,
+                  );
+                },
+                child: const Text('Share content'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: hasSummary
+                    ? () async {
+                        Navigator.pop(context);
+                        await shareSummary(
+                          item: item,
+                          summaryText: normalizedSummary,
+                          shareTextAction: shareTextAction,
+                        );
+                      }
+                    : null,
+                child: const Text('Share AI summary'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await shareAsPdf(
+                    item,
+                    pdfExportService: pdfExportService,
+                    shareFileAction: shareFileAction,
+                  );
+                },
+                child: const Text('Share as PDF'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+          ],
         );
       },
     );
-
-    if (result == null) {
-      return;
-    }
-
-    switch (result) {
-      case ShareOption.summary:
-        await shareSummary(
-          item: item,
-          summaryText: normalizedSummary ?? '',
-          shareTextAction: shareTextAction,
-        );
-        return;
-      case ShareOption.pdf:
-        await shareAsPdf(
-          item,
-          summaryText: normalizedSummary,
-          pdfExportService: pdfExportService,
-          shareFileAction: shareFileAction,
-        );
-        return;
-      case ShareOption.item:
-        await _executeShare(
-          item,
-          includeContent,
-          shareTextAction: shareTextAction,
-        );
-        return;
-    }
   }
 
   static Future<void> shareSummary({
     required MnemataItem item,
-    required String summaryText,
+    required String? summaryText,
     ShareTextAction? shareTextAction,
   }) async {
-    final normalized = summaryText.trim();
+    final normalized = (summaryText ?? '').trim();
     if (normalized.isEmpty) {
       return;
     }
@@ -147,7 +111,8 @@ class ShareUtils {
     final buffer = StringBuffer()
       ..writeln('*$title*')
       ..writeln('')
-      ..writeln('AI summary')
+      ..writeln('_AI Summary_')
+      ..writeln('')
       ..writeln(normalized);
     if (url != null && url.isNotEmpty) {
       buffer
@@ -163,15 +128,11 @@ class ShareUtils {
 
   static Future<void> shareAsPdf(
     MnemataItem item, {
-    String? summaryText,
     PdfExportService? pdfExportService,
     ShareFileAction? shareFileAction,
   }) async {
     final generator = pdfExportService ?? const PdfExportService();
-    final pdfFile = await generator.generateItemPdf(
-      item,
-      summaryText: summaryText?.trim(),
-    );
+    final pdfFile = await generator.generateItemPdf(item);
     await (shareFileAction ?? _defaultShareFileAction)(
       <XFile>[XFile(pdfFile.path)],
       subject: item.title,
@@ -259,5 +220,3 @@ class ShareUtils {
     return Share.shareXFiles(files, subject: subject, text: text);
   }
 }
-
-enum ShareOption { item, summary, pdf }

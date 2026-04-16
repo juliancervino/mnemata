@@ -40,6 +40,7 @@ class IngestionSummaryScreen extends StatefulWidget {
 
 class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   late TextEditingController _titleController;
+  late TextEditingController _authorController;
   final Set<int> _selectedLabelIds = {};
   bool _isClosing = false;
 
@@ -47,6 +48,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.title);
+    _authorController = TextEditingController(text: widget.author);
     _initializeAutoTags();
   }
 
@@ -84,6 +86,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _authorController.dispose();
     super.dispose();
   }
 
@@ -98,7 +101,11 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
         url: drift.Value(widget.url),
         filePath: drift.Value(widget.filePath),
         content: drift.Value(widget.content),
-        author: drift.Value(widget.author),
+        author: drift.Value(
+          _authorController.text.trim().isEmpty
+              ? null
+              : _authorController.text.trim(),
+        ),
         thumbnailUrl: drift.Value(widget.thumbnailUrl),
         type: widget.type,
         createdAt: DateTime.now(),
@@ -270,6 +277,14 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                   controller: _titleController,
                   decoration: const InputDecoration(
                     labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _authorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Author (optional)',
                     border: OutlineInputBorder(),
                   ),
                 ),

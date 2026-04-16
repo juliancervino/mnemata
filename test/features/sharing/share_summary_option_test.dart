@@ -79,7 +79,7 @@ void main() {
     }
   });
 
-  testWidgets('item share dialog shows summary option disabled when unavailable', (
+  testWidgets('item share dialog shows summary button disabled when unavailable', (
     tester,
   ) async {
     final item = _sampleItem();
@@ -110,16 +110,11 @@ void main() {
     await tester.tap(find.text('Open Share'));
     await tester.pumpAndSettle();
 
-    final summaryOption = find.byWidgetPredicate(
-      (widget) =>
-          widget is RadioListTile &&
-          widget.title is Text &&
-          (widget.title as Text).data == 'Share AI summary',
-    );
+    final summaryOption = find.widgetWithText(FilledButton, 'Share AI summary');
     expect(summaryOption, findsOneWidget);
 
-    final tile = tester.widget<RadioListTile<dynamic>>(summaryOption);
-    expect(tile.onChanged, isNull);
+    final button = tester.widget<FilledButton>(summaryOption);
+    expect(button.onPressed, isNull);
   });
 
   testWidgets('item and summary panel share expose summary action when available', (
@@ -138,7 +133,7 @@ void main() {
                   ShareUtils.shareItem(
                     context,
                     item,
-                    summaryText: 'TLDR from cache',
+                    summaryText: '*TL;DR*\nTLDR from cache',
                     shareTextAction: (text, {subject}) async {
                       sharedPayloads.add(text);
                     },
@@ -157,11 +152,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Share AI summary'));
-    await tester.pump();
-    await tester.tap(find.text('SHARE'));
     await tester.pumpAndSettle();
 
     expect(sharedPayloads, hasLength(1));
+    expect(sharedPayloads.first, contains('_AI Summary_'));
+    expect(sharedPayloads.first, contains('*TL;DR*'));
     expect(sharedPayloads.first, contains('TLDR from cache'));
 
     final summaryService = await _buildSummaryService();
@@ -200,6 +195,9 @@ void main() {
     await tester.tap(shareButton);
     await tester.pumpAndSettle();
 
+    expect(panelSharedText, contains('*TL;DR*'));
+    expect(panelSharedText, contains('*Key points*'));
+    expect(panelSharedText, contains('*Why it matters*'));
     expect(panelSharedText, contains('Panel TLDR'));
   });
 }

@@ -13,7 +13,7 @@ class _FakePdfExportService extends PdfExportService {
   int invocationCount = 0;
 
   @override
-  Future<File> generateItemPdf(MnemataItem item, {String? summaryText}) async {
+  Future<File> generateItemPdf(MnemataItem item) async {
     invocationCount += 1;
     final file = File(generatedPath);
     await file.parent.create(recursive: true);
@@ -48,7 +48,6 @@ void main() {
 
     await ShareUtils.shareAsPdf(
       item,
-      summaryText: 'cached summary',
       pdfExportService: fakePdf,
       shareFileAction: (files, {subject, text}) async {
         sharedFiles.add(files);

@@ -186,7 +186,9 @@ class _SummaryPanelState extends State<SummaryPanel> {
   }
 
   String _buildSummaryText(SummaryResult result) {
-    final buffer = StringBuffer()..writeln(result.tldr.trim());
+    final buffer = StringBuffer()
+      ..writeln('*TL;DR*')
+      ..writeln(result.tldr.trim());
     final keyPoints = result.keyPoints
         .map((point) => point.trim())
         .where((point) => point.isNotEmpty)
@@ -194,7 +196,7 @@ class _SummaryPanelState extends State<SummaryPanel> {
     if (keyPoints.isNotEmpty) {
       buffer
         ..writeln('')
-        ..writeln('Key points:');
+        ..writeln('*Key points*');
       for (final point in keyPoints) {
         buffer.writeln('- $point');
       }
@@ -203,7 +205,7 @@ class _SummaryPanelState extends State<SummaryPanel> {
     if (why.isNotEmpty) {
       buffer
         ..writeln('')
-        ..writeln('Why it matters:')
+        ..writeln('*Why it matters*')
         ..writeln(why);
     }
     return buffer.toString().trim();

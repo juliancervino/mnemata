@@ -476,7 +476,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Item'),
-        content: const Text('Are you sure you want to delete this item?'),
+        content: const Text(
+          'Move this item to the recycle bin? You can restore it later.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -503,7 +505,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Item deleted')));
+    ).showSnackBar(const SnackBar(content: Text('Item moved to recycle bin')));
   }
 
   Future<void> _openSummary() async {
@@ -545,7 +547,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   String _summaryToShareText(SummaryResult result) {
-    final buffer = StringBuffer()..writeln(result.tldr.trim());
+    final buffer = StringBuffer()
+      ..writeln('*TL;DR*')
+      ..writeln(result.tldr.trim());
     final points = result.keyPoints
         .map((point) => point.trim())
         .where((point) => point.isNotEmpty)
@@ -553,7 +557,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (points.isNotEmpty) {
       buffer
         ..writeln('')
-        ..writeln('Key points:');
+        ..writeln('*Key points*');
       for (final point in points) {
         buffer.writeln('- $point');
       }
@@ -562,7 +566,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (whyItMatters.isNotEmpty) {
       buffer
         ..writeln('')
-        ..writeln('Why it matters:')
+        ..writeln('*Why it matters*')
         ..writeln(whyItMatters);
     }
     return buffer.toString().trim();

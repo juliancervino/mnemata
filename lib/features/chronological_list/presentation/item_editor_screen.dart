@@ -17,6 +17,7 @@ class ItemEditorScreen extends StatefulWidget {
 class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _urlController;
+  late TextEditingController _authorController;
   final Set<int> _selectedLabelIds = {};
   bool _isLoadingLabels = true;
 
@@ -25,6 +26,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     super.initState();
     _titleController = TextEditingController(text: widget.item.title);
     _urlController = TextEditingController(text: widget.item.url);
+    _authorController = TextEditingController(text: widget.item.author);
     _loadInitialLabels();
   }
 
@@ -41,6 +43,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _urlController.dispose();
+    _authorController.dispose();
     super.dispose();
   }
 
@@ -52,6 +55,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       widget.item.id,
       _titleController.text.trim(),
       _urlController.text.trim().isEmpty ? null : _urlController.text.trim(),
+      _authorController.text.trim().isEmpty
+          ? null
+          : _authorController.text.trim(),
     );
 
     // 2. Update labels (Clear and re-assign)
@@ -73,7 +79,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Item'),
-        content: const Text('Are you sure you want to delete this item?'),
+        content: const Text(
+          'Move this item to the recycle bin? You can restore it later.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -94,7 +102,9 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Item deleted')));
+        ).showSnackBar(
+          const SnackBar(content: Text('Item moved to recycle bin')),
+        );
       }
     }
   }
@@ -227,6 +237,14 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                         border: OutlineInputBorder(),
                       ),
                       enabled: widget.item.type == 'url',
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _authorController,
+                      decoration: const InputDecoration(
+                        labelText: 'Author (optional)',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Row(
