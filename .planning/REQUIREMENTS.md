@@ -35,20 +35,20 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 - [x] **POR-06**: User can select a cloud backup and complete restore on a real account/device with integrity checks enforced.
 - [x] **POR-07**: Scheduler runtime behavior (run/skip/fail) is verified on real-device conditions and recorded with deterministic reason codes.
 
-### Integration Reliability (REL) (Deferred Within v1.1)
+### Integration Reliability (REL)
 
-- [ ] **REL-01**: System has an automated integration test for backup upload/list/download/preview/apply happy-path flow.
-- [ ] **REL-02**: Restore safety is verified by automated tests for corruption classes (checksum mismatch, missing required entries) with all-or-nothing apply guarantees.
-- [ ] **REL-03**: Scheduler reliability tests are deterministic across policy branches (not due, network/power constraints, due-and-run).
-- [ ] **REL-04**: Startup-order integration test verifies share-intent initialization remains non-regressed while scheduler bootstrap stays non-blocking.
-- [ ] **REL-05**: Intelligence critical flows (summary, semantic search, tag suggestions) fail safely and fall back predictably under missing key/provider failures.
+- [x] **REL-01**: System has an automated integration test for backup upload/list/download/preview/apply happy-path flow.
+- [x] **REL-02**: Restore safety is verified by automated tests for corruption classes (checksum mismatch, missing required entries) with all-or-nothing apply guarantees.
+- [x] **REL-03**: Scheduler reliability tests are deterministic across policy branches (not due, network/power constraints, due-and-run).
+- [x] **REL-04**: Startup-order integration test verifies share-intent initialization remains non-regressed while scheduler bootstrap stays non-blocking.
+- [x] **REL-05**: Intelligence critical flows (summary, semantic search, tag suggestions) fail safely and fall back predictably under missing key/provider failures.
 
-### Verification Governance (VER) (Deferred Within v1.1)
+### Verification Governance (VER)
 
-- [ ] **VER-01**: Every v1.1 phase publishes verification artifacts with explicit requirement-to-evidence mapping before phase closure.
-- [ ] **VER-02**: Milestone release gate requires both automated reliability suite pass and human cloud runtime validation completion.
+- [x] **VER-01**: Every v1.1 phase publishes verification artifacts with explicit requirement-to-evidence mapping before phase closure.
+- [x] **VER-02**: Milestone release gate requires both automated reliability suite pass and human cloud runtime validation completion.
 
-## v2 Requirements (Deferred)
+## v2 Requirements (Planned)
 
 ### Reliability UX Enhancements
 
@@ -69,7 +69,7 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUT-01 | Phase 15 | Completed (quality hardening follow-up planned) |
+| AUT-01 | Phase 15 | Completed |
 | AUT-02 | Phase 15 | Completed |
 | TRS-01 | Phase 15 | Completed |
 | TRS-02 | Phase 15 | Completed |
@@ -82,13 +82,13 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 | POR-05 | Phase 16 | Completed |
 | POR-06 | Phase 16 | Completed |
 | POR-07 | Phase 16 | Completed |
-| REL-01 | Phase 17 | Pending |
-| REL-02 | Phase 17 | Pending |
-| REL-03 | Phase 17 | Pending |
-| REL-04 | Phase 17 | Pending |
-| REL-05 | Phase 17 | Pending |
-| VER-01 | Phase 18 | Pending |
-| VER-02 | Phase 18 | Pending |
+| REL-01 | Phase 17 | Completed |
+| REL-02 | Phase 17 | Completed |
+| REL-03 | Phase 17 | Completed |
+| REL-04 | Phase 17 | Completed |
+| REL-05 | Phase 17 | Completed |
+| VER-01 | Phase 18 | Completed |
+| VER-02 | Phase 18 | Completed |
 
 **Coverage:**
 - v1.1 requirements: 20 total
@@ -97,4 +97,4 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-17 after Phase 16 closure sync*
+*Last updated: 2026-04-17 after v1.1 milestone closure*

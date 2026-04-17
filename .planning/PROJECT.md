@@ -7,35 +7,22 @@ Mnemata is a cross-platform knowledge and reference manager (iOS, Android, Web).
 ## Core Value
 
 A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
+## Current Milestone: v2.0 (Next)
 
-## Current Milestone: v1.1 Feature Expansion + Reliability
-
-**Goal:** Deliver requested functional enhancements first (metadata, recycle bin, import/export, selection/share UX) and delay reliability closure work to subsequent phases in the same milestone.
-
-**Target features:**
-- Extract and persist article author via a dedicated author module without changing current title/body extraction flow.
-- Add recycle bin with configurable retention (1-30 days) and automatic permanent purge.
-- Add bookmark URL import/export using universal bookmarks format.
-- Fix multi-select scroll jump behavior.
-- Add AI summary sharing option (disabled when summary is unavailable).
-- Add PDF attachment sharing option generated from item content.
-- Defer only integration hardening and verification gates to later phases (17-18).
+**Goal:** Institutionalize reliability gains and expand multi-device synchronization and sharing.
 
 ## Requirements
 
 ### Active
 
-- [x] Add author metadata extraction through an isolated module and persist it in item model.
-- [x] Add recycle bin lifecycle and retention controls in settings.
-- [x] Add URL import/export interoperability with bookmarks HTML format.
-- [x] Improve multi-select and share workflows (AI summary + PDF attachment).
-- [x] Complete delayed runtime cloud validation after functional expansion.
-- [ ] Complete delayed integration hardening after functional expansion.
+- [ ] Define v2.0 roadmap and architectural goals.
 
 ### Validated
 
 - [x] Phase 15 functional scope closed (AUT/TRS/BKM/UX/SHR).
 - [x] Phase 16 runtime cloud validation closed (POR).
+- [x] Phase 17 integration hardening closed (REL).
+- [x] Phase 18 verification quality gates closed (VER).
 
 ### Out of Scope
 
@@ -45,8 +32,10 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 	Reason: functional module delivery completed; robustness tuning deferred until dedicated corpus-based test package is prepared.
 
 ## Context
+...
+---
+*Last updated: April 17, 2026 after v1.1 milestone closure*
 
-- The application must support iOS, Android, and Web platforms.
 - It requires robust local storage management for handling physical files securely.
 - The UI needs to be highly responsive to gestures (swiping) for quick actions on the main list.
 - Web content extraction logic needs to be smart enough to differentiate between main article content and extraneous elements like navigation or advertising.

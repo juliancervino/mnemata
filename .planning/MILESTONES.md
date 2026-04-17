@@ -19,4 +19,18 @@
 - Retrospective verification artifacts for phases 06-10 now provide requirement-to-evidence coverage that closes ORG/ING/CON/INF/CFG/PRO orphan traceability gaps
 - POR-03/POR-04 traceability was tightened across Phase 12 verification and milestone audit artifacts, with roadmap/state synchronized to show Phase 14 closure readiness.
 
+## v1.1 milestone (Shipped: 2026-04-17)
+
+**Phases completed:** 4 phases, 8 plans
+
+**Key accomplishments:**
+
+- Implemented dedicated **Author Metadata** module with sanitization and Drift persistence, preserving original title/body extraction semantics.
+- Introduced a **Recycle Bin** with configurable (1-30 day) retention and automated expiration purge.
+- Added universal **Bookmark Import/Export** support (Netscape HTML format) for data portability.
+- Resolved **Multi-select Scroll Stability** and expanded sharing options to include **AI Summary** and **PDF attachments**.
+- Executed end-to-end **Cloud Runtime Validation** on real devices, confirming Google Drive backup/restore integrity.
+- Formalized **Integration Hardening** standards with automated "round-trip" cloud tests and corruption class rejection logic.
+- Established **Verification Quality Gates** with explicit requirement-to-evidence traceability and milestone-wide audit protocols.
+
 ---
