@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Web Client and Multi-Device Synchronization
-status: v2.0 milestone initialized (defining requirements)
-last_updated: "2026-04-17T18:00:00Z"
+status: roadmap defined; ready for phase planning
+last_updated: "2026-04-17T00:00:00Z"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,75 +18,43 @@ progress:
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: v2.0 Requirements and Roadmap Definition
+**Current Focus**: v2.0 Phase 19 planning readiness (web parity baseline)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 19 of 22 (Web Parity Core Flows)
 Plan: —
 
-- **Phase**: Not started
+- **Phase**: 19 (not started)
 - **Plan**: —
-- **Status**: Defining requirements for milestone v2.0
-- **Last activity**: 2026-04-17 — Milestone v2.0 started
+- **Status**: Roadmap created and requirements mapped; ready to run `/gsd-plan-phase 19`
+- **Last activity**: 2026-04-17 - Defined v2.0 roadmap phases 19-22 with full requirement traceability.
 - **Progress**: [░░░░░░░░░░] 0% (v2.0)
 
 ## Performance Metrics
 
-- **Velocity**: Normal
-- **Requirement Coverage**: 0% (v2.0)
-- **Phase Completion**:  0/0 (v2.0)
+- **Velocity**: Baseline (v2.0 planning not yet executed)
+- **Requirement Coverage**: 100% (14/14 mapped to phases)
+- **Phase Completion**: 0/4 (v2.0)
 
 ## Accumulated Context
 
 ### Key Decisions
 
-- **Cross-platform**: iOS, Android, Web (Flutter selected)
-- **Database**: Drift (SQLite) with reactive streams. Schema version 5.
-- **Organization**: Simplified model by removing "Folders". Only "Tags" (Labels) remain.
-- **Ingestion**: ShareService initialization moved to `main.dart` to fix cold start issues.
-- **Filtering**: Implemented "AND" logic for multi-tag selection.
-- **URL Extraction**: Using Regex to find URLs inside shared text.
-- **UI**: Standardized tag colors, added `SafeArea` for system button compatibility, and integrated tags in reader view.
-- **Build**: Successfully generated release APK.
-- **Restore Safety**: Re-validate manifest checksums at apply-time and abort on mismatch.
-- **Restore UX Gate**: Require explicit confirmation checkbox before enabling restore apply.
-- **Cloud Provider Boundary**: Added CloudBackupProvider abstraction with deterministic Google Drive error mapping.
-- **Scheduler Diagnostics**: Persist deterministic auto-backup skip/failure reason codes in SettingsService.
-- **Startup Policy Hook**: Backup scheduler run check bootstraps non-blocking after share listener initialization.
-- **Phase 12 Execution Mode**: Completed via verification-only lifecycle run because implementation was already present.
-- **Intelligence Capability Gate**: API key remains mandatory for summary and semantic features.
-- **Phase 12 Scope Preservation**: Tag suggestions remain existing-tag-only and TTS remains out of scope.
-- **Verification Backfill Completion**: Added missing phase verification artifacts for phases 06-10 and restored ORG/ING/CON/INF/CFG/PRO requirement traceability.
-- **Legacy Verification Closure**: Added retrospective verification artifacts for phases 01-05 to complete milestone-wide verification file coverage.
-- **Phase 14 Closure Sync**: Refreshed POR-03/POR-04 traceability evidence, milestone integration/flow audit, and roadmap/state closure status.
+- v2.0 remains reliability-first: deterministic sync/convergence is prioritized over visual redesign.
+- v2.0 phase mapping starts at Phase 19 to continue milestone lineage after Phase 18 completion.
+- Conflict determinism (CNF-01) is delivered together with sync core to avoid split reliability ownership.
+- Collaboration scope is limited to controlled links, invites, and basic roles only (no real-time co-editing scope).
 
 ### Completed Milestones
 
-- [x] Phase 1: Foundation & Ingestion
-- [x] Phase 2: The Reflective Loop
-- [x] Phase 3: Organization & Continuity
-- [x] Phase 4: Visual Polish & Quick Discovery
-- [x] Phase 5: File Intelligence
-- [x] Phase 6: Guided Ingestion
-- [x] Phase 7: Refined Control & Personalization
-- [x] Phase 8: Refinement & Advanced Features
-- [x] Phase 9: Utility & Control (v2 Foundation)
-- [x] Phase 10: Bulk Operations & Productivity
-- [x] Phase 11: Cloud & Data Portability
-- [x] Phase 12: Intelligence & Advanced Reading
-- [x] Phase 13: Milestone Verification Backfill
-- [x] Phase 14: Intelligence & Integration Closure
-- [x] Phase 15: Content and Workflow Enhancements
-- [x] Phase 16: Runtime Cloud Validation
-- [x] Phase 17: Integration Hardening
-- [x] Phase 18: Verification Quality Gates
+- [x] v1.0 milestone (shipped)
+- [x] v1.1 milestone (shipped 2026-04-17)
 
 ### Todos
 
-- [ ] Define v2.0 roadmap and architectural goals.
-- [ ] Add more comprehensive integration tests.
-- [ ] Build a comprehensive author-extraction test corpus and benchmark harness before hardening extraction heuristics.
+- [ ] Plan Phase 19 execution details.
+- [ ] Confirm phase-level plan decomposition for Phases 20-22 after Phase 19 planning.
 
 ### Blockers
 
@@ -96,10 +64,8 @@ Plan: —
 
 ### Last Session Summary
 
-- Milestone v1.1 successfully completed and released.
-- Milestone v2.0 initialized with scope focused on web parity and multi-device synchronization.
-- Next steps are requirement scoping, roadmap creation, and phase decomposition.
+- v2.0 requirements were finalized and roadmap/traceability were created.
 
 ### Next Session Guidance
 
-- Continue v2.0 flow with requirements definition and roadmap approval.
+- Begin with `/gsd-plan-phase 19`.

@@ -5,49 +5,78 @@
 - [x] **v1.0 milestone** - Archived planning artifacts and release tag available in `.planning/milestones/` and `v1.0`.
 - [x] **v1.1 milestone** - Feature Expansion + Reliability. Released 2026-04-17.
 
+
 ## Current Milestone: v2.0 (Planned)
 
-### Phases
+**Milestone Goal:** Deliver a reliability-first web client and deterministic multi-device synchronization foundation with secure account/device identity and baseline collaboration primitives.
 
-- [ ] **Phase 19: Synchronization Core** - Robust multi-device state synchronization.
+## Phases
+
+- [ ] **Phase 19: Web Parity Core Flows** - Web ingest, list, reader, and search behave consistently with mobile.
+- [ ] **Phase 20: Account Sessions and Device Linking** - Secure account identity and linked-device session management for sync trust.
+- [ ] **Phase 21: Deterministic Sync and Conflict Convergence** - Offline-safe bidirectional sync with reproducible conflict outcomes and sync diagnostics.
+- [ ] **Phase 22: Collaboration Primitive Access Model** - Controlled sharing links, collaborator invites, and basic role enforcement.
+
 
 ## Phase Details
-...
-### Phase 17: Integration Hardening
-**Goal:** Convert reliability assumptions into deterministic automated integration coverage.
-**Depends on:** Phase 16
-**Requirements:** REL-01, REL-02, REL-03, REL-04, REL-05
-**Success Criteria:**
-  1. Automated integration suite covers backup upload/list/download/preview/apply happy path.
-  2. Corruption and mismatch restore paths are rejected safely with all-or-nothing guarantees.
-  3. Scheduler policy branch behavior is deterministic and asserted by reason-code outputs.
-  4. Startup ordering between share-intent initialization and non-blocking scheduler bootstrap is protected by integration tests.
-  5. Intelligence flows are validated for safe fallback behavior under key/provider failures.
-**Plans:** 1 plan
-- [x] 17-01-PLAN - Cloud Portability Integration and Restore Safety Regression Suite
-...
 
-### Phase 18: Verification Quality Gates
-**Goal:** Institutionalize release-readiness gates and artifact quality standards.
-**Depends on:** Phase 17
-**Requirements:** VER-01, VER-02
-**Success Criteria:**
-  1. Every v1.1 phase outputs verification artifacts with requirement-to-evidence traceability.
-  2. Release gate requires automated reliability pass plus human cloud runtime validation completion.
-  3. Milestone audit can pass without retrospective verification backfill work.
-**Plans:** 1 plan
-- [x] 18-01-PLAN - Verification Governance and Release Gate Enforcement
+### Phase 19: Web Parity Core Flows
+**Goal**: Users can complete core Mnemata workflows on web with behavior parity to mobile.
+**Depends on**: Nothing (first phase)
+**Requirements**: WEB-01, WEB-02, WEB-03, WEB-04
+**Success Criteria** (what must be TRUE):
+  1. User can ingest URL/file on web with validation and failure behavior equivalent to mobile.
+  2. User can browse chronological content on web with ordering, tag surfaces, and filters consistent with mobile semantics.
+  3. User can read extracted content on web with equivalent metadata context and deterministic empty/error handling.
+  4. User can run search on web with query behavior and empty/error states consistent with mobile.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 20: Account Sessions and Device Linking
+**Goal**: Users can authenticate into stable account sessions and manage linked devices required for secure sync identity.
+**Depends on**: Phase 19
+**Requirements**: ACC-01, ACC-02, ACC-03
+**Success Criteria** (what must be TRUE):
+  1. User can create/use an app account session and remain authenticated across restarts until sign-out or revocation.
+  2. User can view linked devices/sessions associated with their account.
+  3. User can revoke an active device/session remotely and that revoked session loses subsequent sync authorization deterministically.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 21: Deterministic Sync and Conflict Convergence
+**Goal**: Users get reliable, offline-safe multi-device convergence with deterministic merge outcomes and transparent sync health.
+**Depends on**: Phase 20
+**Requirements**: SYNC-01, SYNC-02, SYNC-03, CNF-01
+**Success Criteria** (what must be TRUE):
+  1. User data (items, tags, critical metadata) converges bidirectionally across linked devices under one account.
+  2. User changes made offline are queued and replayed idempotently when connectivity returns, without duplicate or lost effects.
+  3. Concurrent cross-device edits resolve with deterministic merge rules per entity/field and produce reproducible final state on every linked device.
+  4. User can view sync health diagnostics including last sync, pending changes, and actionable failures.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 22: Collaboration Primitive Access Model
+**Goal**: Users can share and collaborate with minimum viable controls while preserving deterministic authorization boundaries.
+**Depends on**: Phase 21
+**Requirements**: COL-01, COL-02, COL-03
+**Success Criteria** (what must be TRUE):
+  1. User can create controlled share links for content and recipients can access linked content under defined sharing controls.
+  2. User can invite collaborators to shared collections and invited users can access accepted shares.
+  3. Shared content enforces basic roles so read-only users cannot modify content while contributors can.
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress Table
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 15. Content and Workflow Enhancements | 4/4 | Completed | 2026-04-17 |
-| 16. Runtime Cloud Validation | 1/1 | Completed | 2026-04-17 |
-| 17. Integration Hardening | 1/1 | Completed | 2026-04-17 |
-| 18. Verification Quality Gates | 1/1 | Completed | 2026-04-17 |
+| 19. Web Parity Core Flows | 0/0 | Not started | - |
+| 20. Account Sessions and Device Linking | 0/0 | Not started | - |
+| 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
+| 22. Collaboration Primitive Access Model | 0/0 | Not started | - |
 
 ## Completed Milestones
+
 
 - [x] **v1.1 milestone** - Feature Expansion + Reliability. Released 2026-04-17.
 

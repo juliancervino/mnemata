@@ -70,26 +70,26 @@ Requirements for milestone v2.0 (Web Client and Multi-Device Synchronization).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WEB-01 | TBD | Pending |
-| WEB-02 | TBD | Pending |
-| WEB-03 | TBD | Pending |
-| WEB-04 | TBD | Pending |
-| SYNC-01 | TBD | Pending |
-| SYNC-02 | TBD | Pending |
-| SYNC-03 | TBD | Pending |
-| CNF-01 | TBD | Pending |
-| ACC-01 | TBD | Pending |
-| ACC-02 | TBD | Pending |
-| ACC-03 | TBD | Pending |
-| COL-01 | TBD | Pending |
-| COL-02 | TBD | Pending |
-| COL-03 | TBD | Pending |
+| WEB-01 | Phase 19 | Pending |
+| WEB-02 | Phase 19 | Pending |
+| WEB-03 | Phase 19 | Pending |
+| WEB-04 | Phase 19 | Pending |
+| SYNC-01 | Phase 21 | Pending |
+| SYNC-02 | Phase 21 | Pending |
+| SYNC-03 | Phase 21 | Pending |
+| CNF-01 | Phase 21 | Pending |
+| ACC-01 | Phase 20 | Pending |
+| ACC-02 | Phase 20 | Pending |
+| ACC-03 | Phase 20 | Pending |
+| COL-01 | Phase 22 | Pending |
+| COL-02 | Phase 22 | Pending |
+| COL-03 | Phase 22 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠
+- Mapped to phases: 14
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-17*
-*Last updated: 2026-04-17 after v2.0 scope confirmation*
+*Last updated: 2026-04-17 after v2.0 roadmap mapping*
