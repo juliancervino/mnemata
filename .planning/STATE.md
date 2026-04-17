@@ -35,11 +35,10 @@ Plan: 19-01 (pending)
 - **Velocity**: Normal
 - **Requirement Coverage**: 100% (v1.1)
 - **Phase Completion**:  4/4 (v1.1)
-...
-### Next Session Guidance
 
-- Begin `/gsd-new-milestone v2.0` to define the synchronization and sharing roadmap.
+## Accumulated Context
 
+### Key Decisions
 
 - **Cross-platform**: iOS, Android, Web (Flutter selected)
 - **Database**: Drift (SQLite) with reactive streams. Schema version 5.
@@ -77,9 +76,14 @@ Plan: 19-01 (pending)
 - [x] Phase 12: Intelligence & Advanced Reading
 - [x] Phase 13: Milestone Verification Backfill
 - [x] Phase 14: Intelligence & Integration Closure
+- [x] Phase 15: Content and Workflow Enhancements
+- [x] Phase 16: Runtime Cloud Validation
+- [x] Phase 17: Integration Hardening
+- [x] Phase 18: Verification Quality Gates
 
 ### Todos
 
+- [ ] Define v2.0 roadmap and architectural goals.
 - [ ] Add more comprehensive integration tests.
 - [ ] Build a comprehensive author-extraction test corpus and benchmark harness before hardening extraction heuristics.
 
@@ -91,12 +95,12 @@ Plan: 19-01 (pending)
 
 ### Last Session Summary
 
-- Phase 15 execution completed (plans 15-01..15-04) with summary artifacts for each plan.
-- Share/PDF UX and pagination behavior were refined based on UAT feedback.
-- Author extraction quality remains functionally delivered but needs broader corpus-driven hardening.
-- Phase 16 runtime cloud validation completed with real account/device testing.
-- Root cause for persistent `authenticationRequired` included Google Drive API disabled at GCP project level despite successful OAuth consent flow.
+- Milestone v1.1 successfully completed and released.
+- Phase 15 completed: Author extraction, Recycle Bin, Bookmark Import/Export, Share enhancements.
+- Phase 16 completed: Human validation for Google Drive backup/restore.
+- Phase 17 completed: Automated integration testing for backup flows and missing entry safety.
+- Phase 18 completed: Traced all requirements and audited milestone release.
 
 ### Next Session Guidance
 
-- Continue with `/gsd-plan-phase 17` to execute integration hardening coverage.
+- Begin `/gsd-new-milestone v2.0` to define the synchronization and sharing roadmap.
