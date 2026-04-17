@@ -1,169 +1,279 @@
-# Architecture: v1.1 Reliability and Verification
+# Architecture: v2.0 Sync and Web Parity Integration
 
 **Project:** Mnemata  
-**Milestone:** v1.1 Reliability and Verification  
-**Researched:** 2026-04-16  
-**Scope:** Integrate reliability verification and integration testing into the existing Flutter architecture with minimal production risk.
+**Milestone:** v2.0 Web Client and Multi-Device Synchronization  
+**Researched:** 2026-04-17  
+**Scope:** Integrate web parity (ingest/list/reader/search), account/session identity, deterministic sync, and collaboration primitives into the existing Flutter + Drift feature-module architecture.
 
-## Executive Direction
+## 1) Existing architecture relevant to v2.0
 
-Use an additive test architecture around existing service boundaries instead of refactoring runtime code paths. The current code already has strong seams (provider abstraction, scheduler policy evaluator, restore validator, DI wiring, settings diagnostics). v1.1 should primarily add a reliability verification layer in test and planning artifacts, with only narrow modifications to existing components where testability or determinism is still weak.
+### 1.1 Runtime composition and module boundaries (today)
 
-The safest strategy is:
-1. Keep production behavior unchanged unless required to expose deterministic hooks.
-2. Build reusable integration harnesses in test code, not new runtime feature modules.
-3. Gate release readiness on both automated integration suites and explicit human runtime verification evidence for real Google account/device behavior.
+- The app is a feature-first Flutter monolith rooted in `lib/main.dart`.
+- Dependencies are wired through `GetIt`, with direct singleton registration for:
+  - `AppDatabase`
+  - Ingestion services (`ShareService`, `ExtractionService`, `PdfExtractionService`)
+  - Intelligence services (summary/semantic/annotation)
+  - Backup/auth services (`GoogleDriveAuthClient`, `CloudBackupProvider`, scheduler)
+  - `SettingsService` (SharedPreferences-backed)
+- Feature modules are organized under `lib/features/*` and mostly split into:
+  - `presentation/` (widgets/screens)
+  - `services/` (orchestration/business logic)
 
-## Existing Integration Points (Leverage, Do Not Replace)
+### 1.2 Persistence and query boundaries (today)
 
-### Startup and scheduling boundary
-- `lib/main.dart`
-  - Initializes `ShareService` first, then triggers `BackupSchedulerService.runIfDue()` in a non-blocking path.
-  - This is the key reliability handshake between ingestion startup and backup automation.
+- `AppDatabase` in `lib/core/database/app_database.dart` is both repository and query layer.
+- Drift schema currently centers on:
+  - `mnemata_items`
+  - `labels`
+  - `item_labels`
+  - intelligence caches (`summary_caches`, `semantic_*`, `annotation_records`)
+- Search is local-only via SQLite FTS5 (`mnemata_search` virtual table and triggers in `lib/core/database/tables.drift`).
+- Important characteristics for v2 planning:
+  - Local-first streams are already strong (`watchAllItems`, `searchItems`, label-filter watches).
+  - Items and labels use local auto-increment integer IDs (not globally stable across devices).
+  - Soft delete exists (`deletedAt`) and can anchor sync tombstone semantics.
 
-### Cloud portability boundary
-- `lib/features/backup/services/cloud_backup_provider.dart`
-  - Stable abstraction with deterministic error taxonomy (`CloudBackupProviderErrorCode`).
-  - Correct seam for integration testing portability behavior without coupling tests to Google Drive internals.
+### 1.3 User-facing flows tied to v2 scope (today)
 
-### Scheduler policy + diagnostics boundary
-- `lib/features/backup/services/backup_scheduler_service.dart`
-  - Encapsulates policy checks (wifi/charging/due), execution, retention, and failure reason recording.
-  - Already returns typed results and reason codes suitable for integration assertions.
+- **Ingestion:** `ShareService` -> extraction -> `IngestionSummaryScreen` -> `insertItem` + label assignment.
+- **List/Reader/Search:** `ItemListScreen` streams directly from `AppDatabase`; reader and item editing also write directly through DB methods.
+- **Search:** keyword FTS and optional semantic search fallback are local-device only.
+- **Account-like behavior:** only Google Drive sign-in exists, scoped to backup operations in settings.
 
-### Restore validation boundary
-- `lib/features/backup/services/backup_restore_service.dart`
-  - Handles staging, manifest validation, checksum verification, guarded apply, and rollback.
-  - This is the highest-value integration target for reliability confidence.
+### 1.4 Gaps blocking v2.0 if unchanged
 
-### User-triggered reliability path
-- `lib/features/settings/presentation/settings_screen.dart`
-  - Manual upload and restore flows update diagnostics fields in `SettingsService`.
-  - This is the user-facing control plane for cloud reliability.
+1. No account/session model for first-party app identity, device linking, or cross-device auth state.
+2. No sync metadata model (global IDs, clocks/versions, outbox/inbox).
+3. No deterministic conflict resolver contract shared by all writes.
+4. UI writes bypass a command boundary and hit `AppDatabase` directly, making change journaling difficult.
+5. Multiple mobile-only dependencies and `dart:io` imports are on core paths, which blocks reliable web parity rollout if not isolated behind platform adapters.
 
-### Current test footholds already present
-- `test/features/backup/backup_scheduler_service_integration_test.dart`
-- `test/features/backup/google_drive_backup_provider_integration_test.dart`
-- `test/features/settings/settings_backup_actions_test.dart`
+## 2) Proposed target architecture for sync + web parity
 
-These are strong foundations; v1.1 should expand breadth and scenario depth, not replace patterns.
+### 2.1 Core strategy
 
-## Proposed Components
+Adopt a **local-first replicated client** with deterministic merge rules and account-scoped synchronization:
 
-## New Components (Additive)
+- Keep Drift as the local source of rendering truth.
+- Add an operation journal/outbox for all user writes.
+- Introduce account, session, and device identity as first-class domain objects.
+- Add a sync coordinator that pushes local operations and pulls remote deltas.
+- Apply the same deterministic merge policy on client and server.
 
-### 1) Reliability integration harness (test-only)
-- **Suggested location:** `test/support/reliability/`
-- **Responsibility:** Build deterministic environments for multi-service integration tests.
-- **Key pieces:**
-  - `ReliabilityTestHarness`: creates temp storage, configures `SettingsService`, wires fakes/stubs for provider and runtime signals.
-  - `FakeCloudBackupProvider`: supports seeded backup sets, deterministic error injection, and call recording.
-  - `FakeRuntimeSignals`: controls wifi/charging states per test.
+### 2.2 Target boundary map
 
-### 2) Reliability scenario suites (integration tests)
-- **Suggested location:** `test/features/reliability/`
-- **Suites:**
-  - `backup_portability_flow_integration_test.dart`
-    - Upload -> list -> select -> download -> preview -> apply path.
-    - Includes corrupted archive and checksum mismatch negative paths.
-  - `scheduler_runtime_reliability_integration_test.dart`
-    - startup-triggered due/not-due/wifi/charging branches with diagnostics assertions.
-  - `intelligence_critical_flow_reliability_test.dart`
-    - API key gate + summary/semantic/tag suggestion fallback behavior under provider errors.
+```text
+Flutter UI (mobile + web)
+  -> Feature Controllers (ingest/list/reader/search)
+  -> Command/Query Repositories
+      -> Drift Local Store (items, labels, metadata, sync_state)
+      -> Local Outbox (operations)
 
-### 3) Verification matrix artifact template
-- **Suggested location:** `.planning/research/` plus per-phase verification docs.
-- **Responsibility:** Standardize evidence capture for:
-  - Automated integration results.
-  - Human runtime checks (real Google account/device).
-  - Failure reason taxonomy coverage.
+Sync Coordinator
+  -> Authenticated Sync Transport
+  -> Delta Pull + Ack Cursor
+  -> Conflict Resolver + Merge Applier
 
-## Modifications to Existing Components (Narrow and Low-Risk)
+Identity Layer
+  -> Account Service
+  -> Session/Token Service
+  -> Device Registration Service
 
-### A) `lib/main.dart` (small bootstrap seam hardening)
-- Keep ordering (`ShareService.init()` before scheduler run).
-- Add lightweight test hook only if needed for deterministic startup orchestration tests (for example, wrapping startup tasks behind a callable injected in tests).
-- No user-facing behavior changes.
+Collaboration Layer
+  -> Share Graph Service (shares, invites, permissions)
+```
 
-### B) `lib/features/backup/services/backup_scheduler_service.dart`
-- Preserve public behavior.
-- If missing in tests, expose deterministic retention/scheduling observability only through return values or diagnostics reason codes (avoid logging-only assertions).
-- No policy expansion in v1.1 unless a verified bug is found.
+### 2.3 Deterministic conflict resolution model (recommended)
 
-### C) `lib/features/settings/presentation/settings_screen.dart`
-- Keep existing UI controls.
-- Ensure diagnostic state updates remain assertion-friendly (stable result reason strings and timestamps).
-- Avoid UI redesign; this milestone is reliability verification.
+Use **operation-based merge with stable tie-breakers**, not "last write by client clock" alone.
 
-### D) `lib/features/intelligence/services/*`
-- No architecture redesign.
-- Add only integration tests for cross-service behavior and failure handling paths relevant to reliability.
+For each mutable entity (`item`, `label`, `item_label`, collaboration edge), store:
 
-## Recommended Build Order (Minimal-Risk Sequence)
+- `entity_uuid` (stable across devices)
+- `logical_version` (monotonic per entity, server-assigned or HLC-normalized)
+- `last_mutation_id` (ULID)
+- `last_mutated_by_device_id`
+- `updated_at_server`
+- `deleted_at` (tombstone)
 
-1. **Stabilize baseline and traceability first**
-   - Freeze current behavior with a baseline run of existing backup/settings/intelligence tests.
-   - Lock expected diagnostics reason codes used by current tests.
+Merge rules:
 
-2. **Add test harness primitives (no production edits yet)**
-   - Implement `test/support/reliability/` harness and fakes.
-   - Reuse in existing integration tests to reduce duplication.
+1. **Scalar fields** (title, author, content, metadata): highest `logical_version` wins.
+2. **Version tie:** lexicographically smaller `last_mutation_id` wins (stable, deterministic tie-break).
+3. **Tag assignment (`item_label`)**: use OR-Set semantics with explicit add/remove operations and tombstones.
+4. **Delete vs update:** delete wins when delete operation version is >= update version.
+5. **Sort/order conflicts:** replace raw integer order with rank tokens (LexoRank-style strings) to avoid index-collision churn across devices.
 
-3. **Expand cloud portability integration coverage**
-   - Add full upload/list/download/restore-preview/apply scenarios.
-   - Add corrupted archive, missing entries, checksum mismatch, auth/network/rate-limit error paths.
+This policy must be enforced identically in both client merge logic and backend apply logic.
 
-4. **Expand scheduler reliability integration coverage**
-   - Validate startup-triggered scheduler behavior against runtime signal permutations.
-   - Assert `SettingsService` diagnostics fields for each branch.
+### 2.4 Web parity architecture direction
 
-5. **Add intelligence-critical reliability flows**
-   - Verify API key gating, provider failure behavior, and graceful fallback paths across summary/semantic/tag suggestion flows.
+Do not fork features by platform. Keep one feature set and inject platform adapters for capabilities:
 
-6. **Run human runtime verification and capture evidence**
-   - Execute production-account/device checks for backup, restore selection, and scheduler conditions.
-   - Store explicit pass/fail evidence in phase verification artifacts.
+- `IngestionEntryAdapter`:
+  - mobile: share-intent + file path pipelines
+  - web: URL form ingest + file upload ingest
+- `ExternalOpenAdapter`:
+  - mobile: `open_filex` / `url_launcher`
+  - web: browser navigation/download APIs
+- `ContentCaptureAdapter`:
+  - mobile: existing extraction + optional WebView route
+  - web: browser-safe extraction path without native-only assumptions
 
-7. **Enable release-readiness gate**
-   - Require both automated reliability suites and human runtime evidence to pass before milestone closure.
+## 3) New components/services and responsibilities
 
-## Component Boundary Map
+### 3.1 Client-side components
 
-| Area | Existing Component | Action in v1.1 | Risk |
+| Component | Layer | Responsibility | Integrates with existing code |
 |---|---|---|---|
-| Startup scheduling | `main.dart` + `BackupSchedulerService` | Reuse; optional tiny test seam | Low |
-| Cloud provider contract | `CloudBackupProvider` | Reuse directly in integration harness | Low |
-| Scheduler policy + diagnostics | `BackupSchedulerService` + `SettingsService` | Expand scenario coverage | Low |
-| Restore safety | `BackupRestoreService` | Stress with negative-path integration cases | Medium |
-| User backup/restore control plane | `SettingsScreen` | Keep UI stable; verify behavior | Low |
-| Intelligence reliability | existing intelligence services | Add integration regression coverage | Medium |
+| `AccountService` | Core identity | Sign-up/sign-in/sign-out, account profile, account-scoped app state | New service in `lib/core/identity/`; referenced from settings and startup bootstrap |
+| `SessionService` | Core identity | Token lifecycle, refresh, secure persistence, session validity checks | Complements current Google Drive auth flow, but app-level identity becomes primary |
+| `DeviceRegistryService` | Core sync | Stable per-install `device_id`, register device with account, key rotation hooks | Startup bootstrap in `main.dart` |
+| `SyncOutboxService` | Core sync | Persist local mutations as durable operations | Called by write repositories instead of direct DB-only writes |
+| `SyncCoordinatorService` | Core sync | Orchestrate push/pull cycles, backoff, retry, foreground/background scheduling | Similar orchestration role to current backup scheduler |
+| `SyncTransportClient` | Core sync | HTTP/gRPC transport to sync API, cursor/delta endpoints | New API client package under `lib/features/sync/services/` |
+| `ConflictResolverService` | Core sync | Deterministic merge apply for local vs remote mutations | Used during pull-apply and reconciliation |
+| `SyncStateStore` | Core sync | Store sync cursor, per-entity sync status, last sync diagnostics | New Drift tables + settings diagnostics wiring |
+| `ItemWriteRepository` | Domain write boundary | Create/update/delete item and emit outbox events atomically | Replaces direct write calls from screens/services |
+| `LabelWriteRepository` | Domain write boundary | Label CRUD + item-label mutations + outbox events atomically | Replaces direct label writes from screens |
+| `IngestionEntryAdapter` | Platform adapter | Abstract ingest entry points by platform | Wraps existing `ShareService` and web ingest UI path |
+| `CollaborationService` | Collaboration domain | Create share links/invitations, accept/revoke access, map permissions | Plugs into settings/item actions and sync graph |
 
-## Architecture Rules for This Milestone
+### 3.2 Backend-aligned components (required for full v2 behavior)
 
-1. New reliability logic should live in test/support and verification artifacts first.
-2. Production code changes are allowed only to improve deterministic testability, not to introduce new reliability product features.
-3. All reliability assertions must map to machine-checkable outputs (typed result objects, reason codes, persisted diagnostics), not ad hoc logs.
-4. Human runtime validation remains mandatory for real Google account/device behavior and cannot be replaced by mocks.
-
-## Confidence
-
-| Area | Confidence | Basis |
+| Component | Responsibility | Why required for client integration |
 |---|---|---|
-| Integration points identification | HIGH | Verified from current code wiring and service boundaries |
-| Minimal-risk component strategy | HIGH | Additive test-only approach with narrow production modifications |
-| Build order suitability | HIGH | Ordered by dependency and blast-radius control |
-| Real-world runtime reliability closure | MEDIUM | Still requires human verification execution and artifact quality discipline |
+| `Identity API` | Account auth, sessions, refresh tokens, device registration | Needed for device linking and per-account sync scope |
+| `Sync API` | Mutation ingest, deterministic apply, delta feed by cursor | Required for multi-device convergence |
+| `Collaboration API` | Share graph, invitation lifecycle, ACL decisions | Required for cross-user content exchange primitives |
+| `Conflict Policy Module` | Central authoritative merge policy versioning | Ensures deterministic behavior across clients and server |
 
-## Sources
+### 3.3 Boundary changes to current code
 
-- `.planning/PROJECT.md`
-- `.planning/STATE.md`
-- `.planning/milestones/v1.0-MILESTONE-AUDIT.md`
-- `lib/main.dart`
-- `lib/features/backup/services/cloud_backup_provider.dart`
-- `lib/features/backup/services/backup_scheduler_service.dart`
-- `lib/features/backup/services/backup_restore_service.dart`
-- `lib/features/settings/presentation/settings_screen.dart`
-- `test/features/backup/backup_scheduler_service_integration_test.dart`
-- `test/features/backup/google_drive_backup_provider_integration_test.dart`
-- `test/features/settings/settings_backup_actions_test.dart`
+1. Screen-level write paths should move from direct `AppDatabase` calls to write repositories.
+2. `AppDatabase` remains local query/read backbone (streams and FTS), but not the only write entrypoint.
+3. `SettingsService` should be split conceptually into:
+   - local UX preferences (auto-tag, toggles)
+   - sync/account diagnostics (session + sync status)
+4. Existing Google Drive auth remains backup-specific, not the main account identity source.
+
+## 4) Data flow and state ownership changes
+
+### 4.1 Ownership model
+
+| State Domain | Primary Owner | Local Replica | Notes |
+|---|---|---|---|
+| Account profile | Identity API | Yes (cached) | Server authoritative |
+| Sessions/tokens | SessionService + Identity API | Yes | Secure storage/web-safe storage policy required |
+| Devices linked to account | Identity API | Yes | Needed for deterministic tie-break metadata |
+| Items/tags/core metadata | Sync API + deterministic merge policy | Yes (Drift) | Local-first edits, eventual convergence |
+| Item-label relations | Sync API + OR-Set merge | Yes | Must be operation-based to avoid toggle races |
+| Collaboration graph (shares, permissions) | Collaboration API | Yes | ACL decisions are server-authoritative |
+| FTS search index | Local DB (derived) | N/A | Rebuilt/maintained from local canonical tables |
+| AI caches (summary/semantic chunks) | Local client | Yes | Keep local-only in v2 initial scope unless explicitly shared later |
+
+### 4.2 Local write flow (target)
+
+1. UI triggers domain command (create/update/delete/tag/change-order).
+2. Write repository performs one local transaction:
+   - update canonical Drift tables
+   - append outbox mutation row
+   - mark entity sync status = pending
+3. Drift streams update UI immediately (offline-first).
+4. Sync coordinator asynchronously pushes outbox operations.
+
+### 4.3 Pull/merge flow (target)
+
+1. Sync coordinator requests deltas since last cursor.
+2. For each remote mutation, conflict resolver compares local and remote versions.
+3. Winner is applied deterministically; loser retained as superseded metadata for diagnostics.
+4. Cursor advances only after durable local apply.
+5. FTS and derived projections remain consistent through DB triggers or explicit projection refresh.
+
+### 4.4 Collaboration primitive flow (target)
+
+1. Owner creates share intent for an item (or collection in future).
+2. Collaboration API issues invitation/share edge with permission level.
+3. Recipient accepts; share edge replicates via normal sync delta stream.
+4. ACL-filtered item projections appear in recipient local DB.
+
+## 5) Suggested implementation order by dependency
+
+### Phase A: Platform-safe baseline for web parity
+
+1. Introduce platform adapters for ingestion/opening/extraction entrypoints.
+2. Remove direct mobile-only assumptions from app-critical startup paths.
+3. Ensure web target compiles/runs with list/reader/search baseline.
+
+### Phase B: Sync-ready data model and write boundaries
+
+4. Add global UUIDs + sync metadata columns/tables (Drift migration).
+5. Introduce write repositories and route all item/label mutations through them.
+6. Add outbox and sync state tables with transactional write + outbox append semantics.
+
+### Phase C: Identity and device linking
+
+7. Implement account/session/device services and startup bootstrap.
+8. Add account/session UX in settings and enforce account-scoped sync context.
+
+### Phase D: Deterministic sync engine
+
+9. Implement sync transport (push, pull, ack cursor).
+10. Implement deterministic conflict resolver and merge application.
+11. Add integration tests for conflict classes (concurrent edit/edit, edit/delete, tag add/remove, reorder collisions).
+
+### Phase E: Collaboration primitives
+
+12. Add minimal share graph support: invite, accept, revoke, read/write permission levels.
+13. Sync collaboration edges and ACL-filtered item visibility.
+
+### Phase F: Hardening and observability
+
+14. Add sync diagnostics panel (last sync, pending ops, conflict count, session status).
+15. Add migration and restore compatibility tests spanning pre-v2 and v2 schemas.
+
+Dependency logic:
+
+- Web parity baseline comes first because sync/account work must run on both mobile and web.
+- Deterministic sync depends on stable IDs and command boundary enforcement.
+- Collaboration must build on account + sync primitives, not before.
+
+## 6) Migration/compatibility constraints
+
+### 6.1 Drift/schema constraints
+
+1. Current schema version is 9; v2 changes must be additive and migration-safe.
+2. Existing integer IDs cannot be removed immediately; add UUID columns and backfill.
+3. Existing query methods used by UI should continue to work during transition to repositories.
+4. FTS triggers must stay valid after schema evolution and merge apply operations.
+
+### 6.2 Data compatibility constraints
+
+1. Existing local-only users must upgrade without account lockout; allow deferred account linking.
+2. Backup/restore archives from prior versions must remain importable.
+3. Sync metadata should not corrupt legacy backup flows; if needed, bump backup manifest schema while keeping backward reader compatibility.
+4. Tombstones must be retained long enough to prevent delete resurrection on stale devices.
+
+### 6.3 Platform compatibility constraints
+
+1. `dart:io` and mobile-only plugins cannot remain in mandatory web execution paths.
+2. Share-intent behavior must degrade gracefully on web via explicit ingestion UI.
+3. File ingest/open behavior must use web-safe adapters (upload/download/browser open).
+
+### 6.4 Determinism and reliability constraints
+
+1. Do not use raw device wall-clock as sole conflict authority.
+2. Use stable operation IDs and version ordering with explicit tie-break rules.
+3. Merge policy must be versioned and test-locked across client/server.
+4. Sync apply must be idempotent and crash-safe (replay same mutation without divergence).
+
+### 6.5 Security constraints
+
+1. App account session storage must use secure storage on mobile and hardened web strategy.
+2. Device linking and collaboration permissions must be server-authoritative.
+3. Client-side ACL caching is optimization only; never final authority.
+
+## Recommended integration stance
+
+Keep Mnemata's strongest current qualities (local-first Drift streams, feature modules, simple Flutter UI flow), but introduce three explicit new boundaries: **identity/session**, **replication/conflict**, and **collaboration graph**. Avoid a rewrite; evolve through repository/write boundary insertion + schema extension + sync coordinator layering.
