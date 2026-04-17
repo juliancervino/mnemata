@@ -2,20 +2,31 @@
 
 ## What This Is
 
-Mnemata is a cross-platform knowledge and reference manager (iOS, Android, Web). It allows users to save URLs and documents (PDFs, images), organize them in an infinite tree structure of folders, and assign multiple tags. It features content extraction for offline reading, full-text search, and seamless native integration via Share Intents on mobile devices.
+Mnemata is a cross-platform knowledge and reference manager (iOS, Android, Web) focused on permanent capture, clean extraction, and reliable retrieval of saved content. Users ingest URLs and documents (PDFs/images), organize knowledge with tags, and access it through offline-first reader/search workflows.
 
 ## Core Value
 
 A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
-## Current Milestone: v2.0 (Next)
 
-**Goal:** Institutionalize reliability gains and expand multi-device synchronization and sharing.
+## Current Milestone: v2.0 Web Client and Multi-Device Synchronization
+
+**Goal:** Deliver a production-ready web client and robust multi-device synchronization foundation, including deterministic conflict handling and account-based device linking.
+
+**Target features:**
+- Web client parity for ingestion, chronological list, reader, and search flows.
+- Multi-device synchronization for items, tags, and critical metadata.
+- Deterministic sync conflict handling with explicit merge behavior.
+- Account/session model to support secure device linking and sync identity.
+- Collaboration/sharing ecosystem primitives for cross-user content exchange.
 
 ## Requirements
 
 ### Active
 
-- [ ] Define v2.0 roadmap and architectural goals.
+- [ ] Define v2.0 roadmap and architecture for web parity and synchronization.
+- [ ] Deliver account/session primitives required for secure multi-device linking.
+- [ ] Define conflict-resolution guarantees and merge determinism for sync.
+- [ ] Scope collaboration/sharing ecosystem features into phased deliverables.
 
 ### Validated
 
@@ -29,16 +40,15 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
 - Author extraction heuristic hardening against broad publisher edge-cases in Phase 15.
-	Reason: functional module delivery completed; robustness tuning deferred until dedicated corpus-based test package is prepared.
+  Reason: functional module delivery completed; robustness tuning deferred until dedicated corpus-based test package is prepared.
 
 ## Context
-...
----
-*Last updated: April 17, 2026 after v1.1 milestone closure*
 
 - It requires robust local storage management for handling physical files securely.
 - The UI needs to be highly responsive to gestures (swiping) for quick actions on the main list.
 - Web content extraction logic needs to be smart enough to differentiate between main article content and extraneous elements like navigation or advertising.
+- v1.1 reliability gates and cloud validation are complete; v2.0 can build on a stable backup/restore baseline.
+- Synchronization scope introduces cross-device state convergence and identity constraints not present in v1.1.
 
 ## Constraints
 
@@ -75,4 +85,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: April 17, 2026 after Phase 16 runtime cloud validation closure*
+*Last updated: April 17, 2026 after v2.0 milestone initialization*

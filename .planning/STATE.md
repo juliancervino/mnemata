@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Synchronization & Ecosystem
-status: v1.1 milestone closed (released); initiating v2.0 planning
-last_updated: "2026-04-17T17:45:00Z"
+milestone_name: Web Client and Multi-Device Synchronization
+status: v2.0 milestone initialized (defining requirements)
+last_updated: "2026-04-17T18:00:00Z"
 progress:
-  total_phases: 1
+  total_phases: 0
   completed_phases: 0
-  total_plans: 1
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -18,23 +18,24 @@ progress:
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: v2.0 Roadmap and Architectural Alignment
+**Current Focus**: v2.0 Requirements and Roadmap Definition
 
 ## Current Position
 
-Phase: v2.0 Planning (next)
-Plan: 19-01 (pending)
+Phase: Not started (defining requirements)
+Plan: —
 
-- **Phase**: 19
-- **Plan**: 19-01 (pending)
-- **Status**: Milestone v1.1 closed; preparing synchronization goals
+- **Phase**: Not started
+- **Plan**: —
+- **Status**: Defining requirements for milestone v2.0
+- **Last activity**: 2026-04-17 — Milestone v2.0 started
 - **Progress**: [░░░░░░░░░░] 0% (v2.0)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
-- **Requirement Coverage**: 100% (v1.1)
-- **Phase Completion**:  4/4 (v1.1)
+- **Requirement Coverage**: 0% (v2.0)
+- **Phase Completion**:  0/0 (v2.0)
 
 ## Accumulated Context
 
@@ -96,11 +97,9 @@ Plan: 19-01 (pending)
 ### Last Session Summary
 
 - Milestone v1.1 successfully completed and released.
-- Phase 15 completed: Author extraction, Recycle Bin, Bookmark Import/Export, Share enhancements.
-- Phase 16 completed: Human validation for Google Drive backup/restore.
-- Phase 17 completed: Automated integration testing for backup flows and missing entry safety.
-- Phase 18 completed: Traced all requirements and audited milestone release.
+- Milestone v2.0 initialized with scope focused on web parity and multi-device synchronization.
+- Next steps are requirement scoping, roadmap creation, and phase decomposition.
 
 ### Next Session Guidance
 
-- Begin `/gsd-new-milestone v2.0` to define the synchronization and sharing roadmap.
+- Continue v2.0 flow with requirements definition and roadmap approval.
