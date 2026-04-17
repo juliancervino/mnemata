@@ -112,7 +112,16 @@ flutter test --coverage
 |---|---|---|
 | Unit/service | Strong in ingestion and DB logic | `test/features/ingestion/extraction_service_test.dart`, `test/features/ingestion/services/archive_content_processor_test.dart`, `test/core/database/app_database_test.dart` |
 | Widget | Present for main list and app smoke | `test/features/chronological_list/presentation/item_list_screen_test.dart`, `test/widget_test.dart` |
-| Integration/E2E | Not detected in standard Flutter `integration_test/` layout | Not detected |
+| Integration | Enforced for Reliability phases | `test/features/backup/cloud_to_restore_integration_test.dart`, `test/main_startup_test.dart` |
+
+## Reliability Standards (v1.1 Handoff)
+
+Starting with milestone v1.1, all "Reliability" and "Sync" features must adhere to the following standards:
+
+1. **Deterministic Integration Coverage:** Features involving cloud providers, background scheduling, or multi-service choreography must include integration tests that verify the full "round-trip" (e.g., `cloud_to_restore_integration_test.dart`).
+2. **Safety Rejection Assertions:** Restore or import logic must explicitly test for corrupted or malformed payloads, asserting that live data remains untouched (all-or-nothing guarantees).
+3. **Traceability Artifacts:** Every phase must output a summary file that maps implemented requirements to specific test paths or manual verification screenshots.
+4. **Startup Guarding:** Critical startup sequences (like share listeners) must be protected by tests verifying their initialization order relative to non-blocking background services.
 
 ## Common Patterns
 

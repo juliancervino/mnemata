@@ -66,7 +66,7 @@ Plans:
   2. Release gate requires automated reliability pass plus human cloud runtime validation completion.
   3. Milestone audit can pass without retrospective verification backfill work.
 **Plans:** 1 plan
-- [ ] 18-01-PLAN - Verification Governance and Release Gate Enforcement
+- [x] 18-01-PLAN - Verification Governance and Release Gate Enforcement
 
 ## Progress Table
 
@@ -75,5 +75,9 @@ Plans:
 | 15. Content and Workflow Enhancements | 4/4 | Completed | 2026-04-17 |
 | 16. Runtime Cloud Validation | 1/1 | Completed | 2026-04-17 |
 | 17. Integration Hardening | 1/1 | Completed | 2026-04-17 |
-| 18. Verification Quality Gates | 0/1 | In progress | - |
+| 18. Verification Quality Gates | 1/1 | Completed | 2026-04-17 |
+
+## Completed Milestones
+
+- [x] **v1.1 milestone** - Feature Expansion + Reliability. Released 2026-04-17.
 
