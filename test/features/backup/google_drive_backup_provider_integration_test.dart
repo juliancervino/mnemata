@@ -95,6 +95,40 @@ void main() {
       }
     },
   );
+
+  test('upload retries with forced refresh after auth failure', () async {
+    final issuedTokens = <String>['stale-token', 'fresh-token'];
+    final authClient = GoogleDriveAuthClient(
+      accessTokenProvider: () async => issuedTokens.removeAt(0),
+      refreshTokenProvider: () async => issuedTokens.removeAt(0),
+      clock: () => DateTime.utc(2026, 4, 5),
+      expirySkew: const Duration(seconds: 30),
+    );
+    final driveClient = _FlakyAuthGoogleDriveClient();
+    final provider = GoogleDriveBackupProvider(
+      authClient: authClient,
+      client: driveClient,
+    );
+
+    final tempDir = await Directory.systemTemp.createTemp(
+      'drive_provider_retry_',
+    );
+    final archiveFile = File('${tempDir.path}/mnemata_backup.zip');
+    await archiveFile.writeAsBytes(const <int>[1, 2, 3], flush: true);
+
+    try {
+      final upload = await provider.uploadBackup(archivePath: archiveFile.path);
+      expect(upload.remoteId, equals('remote-${upload.backupId}'));
+      expect(
+        driveClient.seenTokens,
+        equals(<String>['stale-token', 'fresh-token']),
+      );
+    } finally {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    }
+  });
 }
 
 class _RecordingGoogleDriveClient implements GoogleDriveClient {
@@ -155,5 +189,54 @@ class _RecordingGoogleDriveClient implements GoogleDriveClient {
     if (_lastRecord?.remoteId == remoteId) {
       _lastRecord = null;
     }
+  }
+}
+
+class _FlakyAuthGoogleDriveClient implements GoogleDriveClient {
+  final List<String> seenTokens = <String>[];
+
+  @override
+  Future<GoogleDriveUploadResult> uploadArchive({
+    required String accessToken,
+    required String archivePath,
+    required String backupId,
+  }) async {
+    seenTokens.add(accessToken);
+    if (accessToken == 'stale-token') {
+      throw const GoogleDriveProviderFailure(
+        type: GoogleDriveProviderFailureType.auth,
+        message: 'Google Drive authentication failed.',
+      );
+    }
+
+    return GoogleDriveUploadResult(
+      backupId: backupId,
+      remoteId: 'remote-$backupId',
+      uploadedAt: DateTime.utc(2026, 4, 5),
+    );
+  }
+
+  @override
+  Future<List<GoogleDriveBackupRecord>> listArchives({
+    required String accessToken,
+  }) async {
+    return const <GoogleDriveBackupRecord>[];
+  }
+
+  @override
+  Future<GoogleDriveDownloadResult> downloadArchive({
+    required String accessToken,
+    required String remoteId,
+    required String backupId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteArchive({
+    required String accessToken,
+    required String remoteId,
+  }) {
+    throw UnimplementedError();
   }
 }

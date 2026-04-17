@@ -31,9 +31,9 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 ### Cloud Runtime Validation (POR) (Deferred Within v1.1)
 
-- [ ] **POR-05**: User can complete a manual Google Drive backup on a real account/device and see persisted success diagnostics.
-- [ ] **POR-06**: User can select a cloud backup and complete restore on a real account/device with integrity checks enforced.
-- [ ] **POR-07**: Scheduler runtime behavior (run/skip/fail) is verified on real-device conditions and recorded with deterministic reason codes.
+- [x] **POR-05**: User can complete a manual Google Drive backup on a real account/device and see persisted success diagnostics.
+- [x] **POR-06**: User can select a cloud backup and complete restore on a real account/device with integrity checks enforced.
+- [x] **POR-07**: Scheduler runtime behavior (run/skip/fail) is verified on real-device conditions and recorded with deterministic reason codes.
 
 ### Integration Reliability (REL) (Deferred Within v1.1)
 
@@ -79,9 +79,9 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 | UX-04 | Phase 15 | Completed |
 | SHR-01 | Phase 15 | Completed |
 | SHR-02 | Phase 15 | Completed |
-| POR-05 | Phase 16 | Pending |
-| POR-06 | Phase 16 | Pending |
-| POR-07 | Phase 16 | Pending |
+| POR-05 | Phase 16 | Completed |
+| POR-06 | Phase 16 | Completed |
+| POR-07 | Phase 16 | Completed |
 | REL-01 | Phase 17 | Pending |
 | REL-02 | Phase 17 | Pending |
 | REL-03 | Phase 17 | Pending |
@@ -97,4 +97,4 @@ Requirements for the v1.1 milestone (Feature Expansion + Reliability).
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-16 after scope replan request*
+*Last updated: 2026-04-17 after Phase 16 closure sync*

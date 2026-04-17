@@ -10,6 +10,7 @@ import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/bookmarks/services/bookmark_export_service.dart';
 import 'package:mnemata/features/bookmarks/services/bookmark_import_service.dart';
+import 'package:mnemata/features/backup/services/google_drive_auth_client.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
@@ -52,6 +53,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late bool _autoTagDomain;
   late bool _autoTagYear;
+  late bool _autoBackupEnabled;
+  late bool _backupRequireWifi;
+  late bool _backupRequireCharging;
   late int _backupMaxCount;
   late int _recycleRetentionDays;
   late bool _aiSummaryEnabled;
@@ -61,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final SettingsService _settingsService;
   late final ApiKeyStore _apiKeyStore;
   bool _hasApiKey = false;
+  String? _googleUserEmail;
   BackupArchiveService? _backupArchiveService;
   CloudBackupProvider? _cloudBackupProvider;
   late final BackupRestoreService _backupRestoreService;
@@ -79,6 +84,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         widget.settingsService ?? GetIt.instance<SettingsService>();
     _autoTagDomain = _settingsService.autoTagDomain;
     _autoTagYear = _settingsService.autoTagYear;
+    _autoBackupEnabled = _settingsService.autoBackupEnabled;
+    _backupRequireWifi = _settingsService.backupRequireWifi;
+    _backupRequireCharging = _settingsService.backupRequireCharging;
     _backupMaxCount = _settingsService.backupMaxCount;
     _recycleRetentionDays = _settingsService.recycleBinRetentionDays;
     _aiSummaryEnabled = _settingsService.aiSummaryEnabled;
@@ -91,6 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? GetIt.instance<ApiKeyStore>()
         : ApiKeyStore(secureStore: _InMemorySecureKeyValueStore()));
     _loadApiKeyState();
+    _loadGoogleAccountState();
 
     if (widget.createBackupArchiveAction == null ||
         widget.backupRestoreService == null) {
@@ -329,13 +338,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          if (_googleUserEmail == null)
+            ListTile(
+              leading: const Icon(Icons.login),
+              title: const Text('Sign in to Google Drive'),
+              subtitle: const Text('Connect your account to enable cloud backups.'),
+              onTap: _signInGoogle,
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.account_circle_outlined),
+              title: Text(_googleUserEmail!),
+              subtitle: const Text('Signed in to Google Drive.'),
+              trailing: TextButton(
+                onPressed: _signOutGoogle,
+                child: const Text('Sign out'),
+              ),
+            ),
+          SwitchListTile(
+            secondary: const Icon(Icons.sync),
+            title: const Text('Auto-backup to Google Drive'),
+            subtitle: const Text(
+              'Automatically back up your data every 24 hours when conditions are met.',
+            ),
+            value: _autoBackupEnabled,
+            onChanged: _googleUserEmail == null
+                ? null
+                : (value) {
+                    setState(() {
+                      _autoBackupEnabled = value;
+                    });
+                    _settingsService.setAutoBackupEnabled(value);
+                  },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.wifi),
+            title: const Text('Require Wi-Fi'),
+            subtitle: const Text('Only perform auto-backup when connected to Wi-Fi.'),
+            value: _backupRequireWifi,
+            onChanged: _googleUserEmail == null
+                ? null
+                : (value) {
+                    setState(() {
+                      _backupRequireWifi = value;
+                    });
+                    _settingsService.setBackupRequireWifi(value);
+                  },
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.battery_charging_full),
+            title: const Text('Require charging'),
+            subtitle: const Text('Only perform auto-backup when the device is charging.'),
+            value: _backupRequireCharging,
+            onChanged: _googleUserEmail == null
+                ? null
+                : (value) {
+                    setState(() {
+                      _backupRequireCharging = value;
+                    });
+                    _settingsService.setBackupRequireCharging(value);
+                  },
+          ),
           ListTile(
             leading: const Icon(Icons.backup_outlined),
-            title: const Text('Upload backup to Google Drive'),
+            title: const Text('Upload backup now'),
             subtitle: const Text(
-              'Create a full backup archive and upload it to your Drive.',
+              'Create a full backup archive and upload it to your Drive immediately.',
             ),
-            enabled: !_isCreatingBackup,
+            enabled: !_isCreatingBackup && _googleUserEmail != null,
             onTap: _isCreatingBackup ? null : _createBackupNow,
             trailing: _isCreatingBackup
                 ? const SizedBox(
@@ -351,7 +421,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text(
               'Preview and validate a backup before applying restore.',
             ),
-            enabled: !_isPreparingRestore,
+            enabled: !_isPreparingRestore && _googleUserEmail != null,
             onTap: _isPreparingRestore ? null : _openRestorePreviewFlow,
             trailing: _isPreparingRestore
                 ? const SizedBox(
@@ -537,6 +607,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  void _loadGoogleAccountState() {
+    try {
+      final authClient = GetIt.instance<GoogleDriveAuthClient>();
+      final user = authClient.currentUser;
+      if (mounted) {
+        setState(() {
+          _googleUserEmail = user?.email;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _signInGoogle() async {
+    try {
+      final authClient = GetIt.instance<GoogleDriveAuthClient>();
+      final user = await authClient.signIn();
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Google sign in was cancelled.')),
+          );
+        }
+        return;
+      }
+
+      await authClient.getAccessToken();
+
+      if (mounted) {
+        setState(() {
+          _googleUserEmail = user.email;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Signed in as ${user.email}')),
+        );
+      }
+    } on GoogleDriveAuthException catch (error) {
+      if (mounted) {
+        setState(() {
+          _googleUserEmail = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: ${error.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _googleUserEmail = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _signOutGoogle() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out from Google?'),
+        content: const Text(
+          'This will disconnect your Google account. You will need to sign in again to perform backups or restores.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('SIGN OUT'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      final authClient = GetIt.instance<GoogleDriveAuthClient>();
+      await authClient.signOut();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _googleUserEmail = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Successfully signed out from Google.')),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: $e')),
+      );
+    }
   }
 
   Future<void> _createBackupNow() async {

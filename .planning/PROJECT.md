@@ -19,7 +19,7 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 - Fix multi-select scroll jump behavior.
 - Add AI summary sharing option (disabled when summary is unavailable).
 - Add PDF attachment sharing option generated from item content.
-- Defer cloud runtime validation, integration hardening, and verification gates to later phases (16-18).
+- Defer only integration hardening and verification gates to later phases (17-18).
 
 ## Requirements
 
@@ -29,11 +29,13 @@ A centralized, cross-platform repository for all knowledge and references, ensur
 - [x] Add recycle bin lifecycle and retention controls in settings.
 - [x] Add URL import/export interoperability with bookmarks HTML format.
 - [x] Improve multi-select and share workflows (AI summary + PDF attachment).
-- [ ] Complete delayed runtime cloud validation and integration hardening after functional expansion.
+- [x] Complete delayed runtime cloud validation after functional expansion.
+- [ ] Complete delayed integration hardening after functional expansion.
 
 ### Validated
 
 - [x] Phase 15 functional scope closed (AUT/TRS/BKM/UX/SHR).
+- [x] Phase 16 runtime cloud validation closed (POR).
 
 ### Out of Scope
 
@@ -84,4 +86,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: April 17, 2026 after Phase 15 closure sync*
+*Last updated: April 17, 2026 after Phase 16 runtime cloud validation closure*

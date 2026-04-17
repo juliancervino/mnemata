@@ -69,14 +69,34 @@ class GoogleDriveAuthClient {
     return token;
   }
 
-  Future<String> refreshIfNeeded() async {
-    if (_hasValidToken()) {
+  Future<String> refreshIfNeeded({bool forceRefresh = false}) async {
+    if (!forceRefresh && _hasValidToken()) {
       return _cachedAccessToken!;
+    }
+
+    if (forceRefresh) {
+      _clearCachedToken();
     }
 
     final token = await _resolveRefreshedToken();
     _cacheToken(token);
     return token;
+  }
+
+  GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
+
+  Future<GoogleSignInAccount?> signIn() async {
+    return _googleSignIn.signIn();
+  }
+
+  Future<void> signOut() async {
+    _clearCachedToken();
+    try {
+      await _googleSignIn.signOut();
+      await _googleSignIn.disconnect();
+    } catch (_) {
+      // Best effort: if disconnect fails, we still want the local session to be cleared.
+    }
   }
 
   bool _hasValidToken() {
@@ -105,16 +125,28 @@ class GoogleDriveAuthClient {
       return _requireToken(await provider(), context: 'refresh token provider');
     }
 
-    return _resolveTokenFromGoogleSignIn(interactive: false);
+    try {
+      return await _resolveTokenFromGoogleSignIn(interactive: false);
+    } on GoogleDriveAuthException catch (error) {
+      if (error.code == GoogleDriveAuthErrorCode.notSignedIn ||
+          error.code == GoogleDriveAuthErrorCode.tokenUnavailable) {
+        return _resolveTokenFromGoogleSignIn(
+          interactive: true,
+          forceInteractive: true,
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<String> _resolveTokenFromGoogleSignIn({
     required bool interactive,
+    bool forceInteractive = false,
   }) async {
     try {
       GoogleSignInAccount? account = _googleSignIn.currentUser;
       account ??= await _googleSignIn.signInSilently();
-      if (account == null && interactive) {
+      if ((account == null || forceInteractive) && interactive) {
         account = await _googleSignIn.signIn();
       }
 
@@ -157,6 +189,11 @@ class GoogleDriveAuthClient {
   void _cacheToken(String token) {
     _cachedAccessToken = token;
     _cachedExpiryUtc = _clock().toUtc().add(_tokenTtl);
+  }
+
+  void _clearCachedToken() {
+    _cachedAccessToken = null;
+    _cachedExpiryUtc = null;
   }
 }
 

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Feature Expansion + Reliability
-status: v1.1 replanned (phase 15 functional scope)
-last_updated: "2026-04-17T09:45:00Z"
+status: v1.1 phase 16 closed (runtime cloud validation complete)
+last_updated: "2026-04-17T16:20:00Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 4
-  percent: 50
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State: Mnemata
@@ -22,19 +22,19 @@ progress:
 
 ## Current Position
 
-Phase: 16 Runtime Cloud Validation (next)
-Plan: 16-01 (pending planning/execution)
+Phase: 17 Integration Hardening
+Plan: 17-01 (next to plan/execute)
 
-- **Phase**: 16
-- **Plan**: 16-01 (pending)
-- **Status**: Phase 15 completed; preparing deferred runtime validation work
-- **Progress**: [█████░░░░░] 50% (v1.1)
+- **Phase**: 17
+- **Plan**: 17-01 (next)
+- **Status**: Phase 16 completed after real-device/account cloud validation and OAuth/Drive API configuration verification
+- **Progress**: [███████░░░] 75% (v1.1)
 
 ## Performance Metrics
 
 - **Velocity**: Normal
-- **Requirement Coverage**: 50% (v1.1)
-- **Phase Completion**:  1/4 (v1.1)
+- **Requirement Coverage**: 65% (v1.1)
+- **Phase Completion**:  2/4 (v1.1)
 
 ## Accumulated Context
 
@@ -93,7 +93,9 @@ Plan: 16-01 (pending planning/execution)
 - Phase 15 execution completed (plans 15-01..15-04) with summary artifacts for each plan.
 - Share/PDF UX and pagination behavior were refined based on UAT feedback.
 - Author extraction quality remains functionally delivered but needs broader corpus-driven hardening.
+- Phase 16 runtime cloud validation completed with real account/device testing.
+- Root cause for persistent `authenticationRequired` included Google Drive API disabled at GCP project level despite successful OAuth consent flow.
 
 ### Next Session Guidance
 
-- Continue with `/gsd-plan-phase 16` and execute runtime cloud validation evidence capture.
+- Continue with `/gsd-plan-phase 17` to execute integration hardening coverage.

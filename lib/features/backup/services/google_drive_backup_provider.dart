@@ -123,11 +123,12 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
     final backupId = _buildBackupId(archivePath);
 
     try {
-      final accessToken = await _authClient.refreshIfNeeded();
-      final result = await _client.uploadArchive(
-        accessToken: accessToken,
-        archivePath: archivePath,
-        backupId: backupId,
+      final result = await _runWithAuthRetry(
+        (accessToken) => _client.uploadArchive(
+          accessToken: accessToken,
+          archivePath: archivePath,
+          backupId: backupId,
+        ),
       );
 
       return CloudBackupUploadReceipt(
@@ -149,8 +150,9 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
   @override
   Future<List<CloudBackupDescriptor>> listBackups() async {
     try {
-      final accessToken = await _authClient.refreshIfNeeded();
-      final records = await _client.listArchives(accessToken: accessToken);
+      final records = await _runWithAuthRetry(
+        (accessToken) => _client.listArchives(accessToken: accessToken),
+      );
       return records
           .map(
             (record) => CloudBackupDescriptor(
@@ -175,8 +177,9 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
   @override
   Future<Uint8List> downloadBackup({required String backupId}) async {
     try {
-      final accessToken = await _authClient.refreshIfNeeded();
-      final records = await _client.listArchives(accessToken: accessToken);
+      final records = await _runWithAuthRetry(
+        (accessToken) => _client.listArchives(accessToken: accessToken),
+      );
       final record = _findRecordByBackupId(records, backupId);
       if (record == null) {
         throw const CloudBackupProviderException(
@@ -185,10 +188,12 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
         );
       }
 
-      final result = await _client.downloadArchive(
-        accessToken: accessToken,
-        remoteId: record.remoteId,
-        backupId: backupId,
+      final result = await _runWithAuthRetry(
+        (retryToken) => _client.downloadArchive(
+          accessToken: retryToken,
+          remoteId: record.remoteId,
+          backupId: backupId,
+        ),
       );
 
       if (result.bytes.isEmpty) {
@@ -213,8 +218,9 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
   @override
   Future<void> deleteBackup({required String backupId}) async {
     try {
-      final accessToken = await _authClient.refreshIfNeeded();
-      final records = await _client.listArchives(accessToken: accessToken);
+      final records = await _runWithAuthRetry(
+        (accessToken) => _client.listArchives(accessToken: accessToken),
+      );
       final record = _findRecordByBackupId(records, backupId);
       if (record == null) {
         throw const CloudBackupProviderException(
@@ -223,9 +229,11 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
         );
       }
 
-      await _client.deleteArchive(
-        accessToken: accessToken,
-        remoteId: record.remoteId,
+      await _runWithAuthRetry(
+        (accessToken) => _client.deleteArchive(
+          accessToken: accessToken,
+          remoteId: record.remoteId,
+        ),
       );
     } on GoogleDriveAuthException catch (error) {
       throw CloudBackupProviderException(
@@ -258,6 +266,22 @@ class GoogleDriveBackupProvider implements CloudBackupProvider {
     }
 
     return null;
+  }
+
+  Future<T> _runWithAuthRetry<T>(
+    Future<T> Function(String accessToken) operation,
+  ) async {
+    var accessToken = await _authClient.refreshIfNeeded();
+    try {
+      return await operation(accessToken);
+    } on GoogleDriveProviderFailure catch (error) {
+      if (error.type != GoogleDriveProviderFailureType.auth) {
+        rethrow;
+      }
+
+      accessToken = await _authClient.refreshIfNeeded(forceRefresh: true);
+      return operation(accessToken);
+    }
   }
 
   CloudBackupProviderException _mapFailure(GoogleDriveProviderFailure failure) {
@@ -526,21 +550,28 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
       return;
     }
 
-    throw _mapStatusToFailure(response.statusCode);
+    throw _mapStatusToFailure(response.statusCode, response.body);
   }
 
-  GoogleDriveProviderFailure _mapStatusToFailure(int statusCode) {
+  GoogleDriveProviderFailure _mapStatusToFailure(int statusCode, String body) {
+    final details = _extractErrorDetails(body);
+
     if (statusCode == 401) {
-      return const GoogleDriveProviderFailure(
+      return GoogleDriveProviderFailure(
         type: GoogleDriveProviderFailureType.auth,
-        message: 'Google Drive authentication failed.',
+        message:
+            details == null
+                ? 'Google Drive authentication failed.'
+                : 'Google Drive authentication failed: $details',
       );
     }
     if (statusCode == 403) {
-      return const GoogleDriveProviderFailure(
+      return GoogleDriveProviderFailure(
         type: GoogleDriveProviderFailureType.permissionDenied,
         message:
-            'Google Drive permissions are not sufficient for backup access.',
+            details == null
+                ? 'Google Drive permissions are not sufficient for backup access.'
+                : 'Google Drive permissions are not sufficient for backup access: $details',
       );
     }
     if (statusCode == 404) {
@@ -564,7 +595,34 @@ class GoogleDriveHttpClient implements GoogleDriveClient {
 
     return GoogleDriveProviderFailure(
       type: GoogleDriveProviderFailureType.unknown,
-      message: 'Google Drive request failed with status $statusCode.',
+      message:
+          details == null
+              ? 'Google Drive request failed with status $statusCode.'
+              : 'Google Drive request failed with status $statusCode: $details',
     );
+  }
+
+  String? _extractErrorDetails(String body) {
+    if (body.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      final payload = jsonDecode(body);
+      if (payload is! Map<String, dynamic>) {
+        return null;
+      }
+      final error = payload['error'];
+      if (error is Map<String, dynamic>) {
+        final message = error['message'] as String?;
+        if (message != null && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    } catch (_) {
+      // Drive can return non-JSON payloads for some transport failures.
+    }
+
+    return null;
   }
 }

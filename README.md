@@ -65,6 +65,23 @@ Mnemata is a centralized, cross-platform knowledge repository designed to help y
    flutter run
    ```
 
+### Google Drive Backup OAuth Setup
+
+Cloud backup/restore requires both OAuth client IDs and Google Drive API enablement in the same Google Cloud project.
+
+1. In Google Cloud Console, open your Mnemata project.
+2. Enable Google Drive API (`APIs & Services` -> `Library` -> `Google Drive API` -> `Enable`).
+3. Configure OAuth consent screen for your app.
+4. Create OAuth client credentials for your target platform(s).
+5. Pass client IDs at runtime:
+   ```bash
+   flutter run \
+     --dart-define=GOOGLE_OAUTH_CLIENT_ID=<your_client_id> \
+     --dart-define=GOOGLE_OAUTH_SERVER_CLIENT_ID=<your_server_client_id>
+   ```
+
+If Drive API is not enabled, backup/restore can fail with auth-like errors (for example `authenticationRequired`) even when the Google consent flow succeeds.
+
 ## Development
 
 Mnemata follows a feature-first architectural pattern:

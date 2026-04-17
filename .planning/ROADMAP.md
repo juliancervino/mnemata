@@ -9,7 +9,7 @@
 ### Phases
 
 - [x] **Phase 15: Content and Workflow Enhancements** - Deliver requested user-facing functionality without altering the existing title/body extraction pipeline.
-- [ ] **Phase 16: Runtime Cloud Validation** - Execute delayed real-device/account cloud runtime validation.
+- [x] **Phase 16: Runtime Cloud Validation** - Execute delayed real-device/account cloud runtime validation.
 - [ ] **Phase 17: Integration Hardening** - Execute delayed deterministic integration/regression coverage.
 - [ ] **Phase 18: Verification Quality Gates** - Enforce evidence quality and release gate criteria.
 
@@ -41,7 +41,7 @@ Plans:
   2. Restore selection and apply flow is validated from cloud on real account/device with integrity guards preserved.
   3. Scheduler runtime checks are validated with real conditions and deterministic reason-code evidence.
 **Plans:** 1 plan
-- [ ] 16-01-PLAN - Human Runtime Cloud Validation Matrix and Evidence Capture
+- [x] 16-01-PLAN - Human Runtime Cloud Validation Matrix and Evidence Capture
 
 ### Phase 17: Integration Hardening
 **Goal:** Convert reliability assumptions into deterministic automated integration coverage.
@@ -73,7 +73,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 15. Content and Workflow Enhancements | 4/4 | Completed | 2026-04-17 |
-| 16. Runtime Cloud Validation | 0/1 | Not started | - |
+| 16. Runtime Cloud Validation | 1/1 | Completed | 2026-04-17 |
 | 17. Integration Hardening | 0/2 | Not started | - |
 | 18. Verification Quality Gates | 0/1 | Not started | - |
 
