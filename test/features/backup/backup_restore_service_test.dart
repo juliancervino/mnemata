@@ -119,6 +119,46 @@ void main() {
     expect(await stagedFile.readAsBytes(), archiveBytes);
     expect(stagedPath, contains('backup-123'));
   });
+
+  test('applyRestore aborts when archive is missing required entries', () async {
+    final liveDb = File('${rootDir.path}/live/mnemata_db.sqlite');
+    await liveDb.parent.create(recursive: true);
+    await liveDb.writeAsString('live-db-before', flush: true);
+
+    // Create archive missing the database entry
+    final archive = Archive()
+      ..addFile(
+        ArchiveFile(
+          BackupArchiveService.settingsEntry,
+          utf8.encode('{}').length,
+          utf8.encode('{}'),
+        ),
+      );
+    final encoded = ZipEncoder().encode(archive);
+    final incompleteArchivePath = '${rootDir.path}/incomplete.zip';
+    await File(incompleteArchivePath).writeAsBytes(encoded, flush: true);
+
+    var applyCalled = false;
+    final restoreService = BackupRestoreService(
+      archiveService: archiveService,
+      storageService: storageService,
+      liveDatabasePathProvider: () async => liveDb.path,
+      applyStagedRestore: (_) async {
+        applyCalled = true;
+      },
+    );
+
+    final result = await restoreService.applyRestore(
+      incompleteArchivePath,
+      confirmed: true,
+    );
+
+    expect(result.applied, isFalse);
+    expect(result.errorCode, RestoreErrorCode.missingRequiredEntries);
+    expect(result.missingRequiredEntries, contains(BackupArchiveService.databaseEntry));
+    expect(applyCalled, isFalse);
+    expect(await liveDb.readAsString(), 'live-db-before');
+  });
 }
 
 Future<String> _createArchiveWithManifest({

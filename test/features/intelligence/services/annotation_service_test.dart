@@ -78,7 +78,7 @@ void main() {
       anchorJson: jsonEncode(<String, dynamic>{'start': 12, 'end': 17}),
     );
 
-    await database.deleteItem(itemId);
+    await database.permanentlyDeleteItem(itemId);
     final records = await service.listForItem(itemId);
 
     expect(records, isEmpty);

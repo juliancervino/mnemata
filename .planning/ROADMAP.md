@@ -74,6 +74,6 @@ Plans:
 |-------|----------------|--------|-----------|
 | 15. Content and Workflow Enhancements | 4/4 | Completed | 2026-04-17 |
 | 16. Runtime Cloud Validation | 1/1 | Completed | 2026-04-17 |
-| 17. Integration Hardening | 0/2 | Not started | - |
-| 18. Verification Quality Gates | 0/1 | Not started | - |
+| 17. Integration Hardening | 1/1 | Completed | 2026-04-17 |
+| 18. Verification Quality Gates | 0/1 | In progress | - |
 

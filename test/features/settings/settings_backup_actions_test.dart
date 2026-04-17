@@ -7,12 +7,29 @@ import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
 import 'package:mnemata/features/bookmarks/services/bookmark_import_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:mnemata/features/backup/services/google_drive_auth_client.dart';
 import 'package:mnemata/features/backup/services/cloud_backup_provider.dart';
 import 'package:mnemata/features/settings/presentation/settings_screen.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class MockGoogleDriveAuthClient extends Mock implements GoogleDriveAuthClient {}
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
+
 void main() {
+  late MockGoogleDriveAuthClient mockAuthClient;
+  late MockGoogleSignInAccount mockAccount;
+
+  setUp(() {
+    mockAuthClient = MockGoogleDriveAuthClient();
+    mockAccount = MockGoogleSignInAccount();
+    when(() => mockAccount.email).thenReturn('test@example.com');
+    when(() => mockAuthClient.currentUser).thenReturn(mockAccount);
+    GetIt.instance.registerSingleton<GoogleDriveAuthClient>(mockAuthClient);
+  });
+
   Future<void> tapListAction(WidgetTester tester, String text) async {
     final finder = find.text(text);
     await tester.scrollUntilVisible(
@@ -87,7 +104,7 @@ void main() {
       ),
     );
 
-    await tapListAction(tester, 'Upload backup to Google Drive');
+    await tapListAction(tester, 'Upload backup now');
     await tester.pump(const Duration(seconds: 1));
 
     expect(order, equals(<String>['create', 'upload']));
@@ -152,7 +169,7 @@ void main() {
         ),
       );
 
-      await tapListAction(tester, 'Upload backup to Google Drive');
+      await tapListAction(tester, 'Upload backup now');
       await tester.pumpAndSettle();
 
       expect(provider.deletedBackupIds, equals(<String>['oldest']));
@@ -183,7 +200,7 @@ void main() {
         ),
       );
 
-      await tapListAction(tester, 'Upload backup to Google Drive');
+      await tapListAction(tester, 'Upload backup now');
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.textContaining('Cloud backup failed'), findsOneWidget);
@@ -232,7 +249,7 @@ void main() {
       ),
     );
 
-    await tapListAction(tester, 'Upload backup to Google Drive');
+    await tapListAction(tester, 'Upload backup now');
     await tester.pump(const Duration(seconds: 1));
 
     await tester.pumpWidget(
