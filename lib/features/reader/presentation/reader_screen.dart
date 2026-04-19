@@ -279,6 +279,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   TextSpan _buildHighlightedContentSpan(BuildContext context) {
     final baseStyle = Theme.of(context).textTheme.titleLarge;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highlightColor = isDark
+        ? MnemataColors.accentSoftDark
+        : MnemataColors.accentSoft;
     if (_annotations.isEmpty || _plainContent.isEmpty) {
       return TextSpan(text: _plainContent, style: baseStyle);
     }
@@ -315,7 +319,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           TextSpan(
             text: _plainContent.substring(start, end),
             style: baseStyle?.copyWith(
-              backgroundColor: MnemataColors.accentSoft,
+              backgroundColor: highlightColor,
             ),
           ),
         );
