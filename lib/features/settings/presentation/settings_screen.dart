@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/core/widgets/section_label.dart';
 import 'package:mnemata/features/backup/presentation/restore_preview_sheet.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_restore_service.dart';
@@ -172,439 +174,418 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
-      body: ListView(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Ingestion Options',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Auto-tag by domain'),
-            subtitle: const Text(
-              'Automatically assign a tag based on the URL domain (e.g. elpais.com)',
-            ),
-            value: _autoTagDomain,
-            onChanged: (value) {
-              setState(() {
-                _autoTagDomain = value;
-              });
-              _settingsService.setAutoTagDomain(value);
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Auto-tag by year'),
-            subtitle: const Text(
-              'Automatically assign a tag with the current year (e.g. 2026)',
-            ),
-            value: _autoTagYear,
-            onChanged: (value) {
-              setState(() {
-                _autoTagYear = value;
-              });
-              _settingsService.setAutoTagYear(value);
-            },
-          ),
-          const Divider(height: 32),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Intelligence',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.hub_outlined),
-            title: const Text('LLM provider'),
-            subtitle: const Text(
-              'Choose which provider your API key and AI calls will use.',
-            ),
-            trailing: DropdownButton<String>(
-              value: _selectedAiProvider,
-              items: const [
-                DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
-                DropdownMenuItem(value: 'openai', child: Text('ChatGPT')),
-                DropdownMenuItem(value: 'claude', child: Text('Claude')),
-              ],
-              onChanged: (value) async {
-                if (value == null || value == _selectedAiProvider) {
-                  return;
-                }
-                await _settingsService.setAiProvider(value);
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  _selectedAiProvider = value;
-                });
-                await _loadApiKeyState();
-              },
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.key_outlined),
-            title: const Text('LLM provider API key'),
-            subtitle: Text(
-              _hasApiKey
-                  ? 'Configured for ${_providerDisplayName(_selectedAiProvider)} in secure storage'
-                  : 'Required for AI summaries, semantic search, and tag suggestions',
-            ),
-            trailing: TextButton(
-              onPressed: _hasApiKey ? _removeApiKey : _promptForApiKey,
-              child: Text(_hasApiKey ? 'Remove' : 'Set key'),
-            ),
-            onTap: _hasApiKey ? _removeApiKey : _promptForApiKey,
-          ),
-          SwitchListTile(
-            title: const Text('Enable AI summaries'),
-            subtitle: const Text(
-              'Generate on-demand TL;DR, key points, and why-it-matters blocks.',
-            ),
-            value: _aiSummaryEnabled,
-            onChanged: (value) => _onIntelligenceToggleChanged(
-              value: value,
-              currentSetter: (enabled) async {
-                await _settingsService.setAiSummaryEnabled(enabled);
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  _aiSummaryEnabled = enabled;
-                });
-              },
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Enable semantic search mode'),
-            subtitle: const Text(
-              'Keeps keyword search available and unlocks semantic matching when configured.',
-            ),
-            value: _semanticSearchEnabled,
-            onChanged: (value) => _onIntelligenceToggleChanged(
-              value: value,
-              currentSetter: (enabled) async {
-                await _settingsService.setSemanticSearchEnabled(enabled);
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  _semanticSearchEnabled = enabled;
-                });
-              },
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Enable AI tag suggestions'),
-            subtitle: const Text('Suggests from existing tags only.'),
-            value: _aiTagSuggestionsEnabled,
-            onChanged: (value) => _onIntelligenceToggleChanged(
-              value: value,
-              currentSetter: (enabled) async {
-                await _settingsService.setAiTagSuggestionsEnabled(enabled);
-                if (!mounted) {
-                  return;
-                }
-                setState(() {
-                  _aiTagSuggestionsEnabled = enabled;
-                });
-              },
-            ),
-          ),
-          const Divider(height: 32),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Backup & Restore',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          if (_googleUserEmail == null)
-            ListTile(
-              leading: const Icon(Icons.login),
-              title: const Text('Sign in to Google Drive'),
-              subtitle: const Text('Connect your account to enable cloud backups.'),
-              onTap: _signInGoogle,
-            )
-          else
-            ListTile(
-              leading: const Icon(Icons.account_circle_outlined),
-              title: Text(_googleUserEmail!),
-              subtitle: const Text('Signed in to Google Drive.'),
-              trailing: TextButton(
-                onPressed: _signOutGoogle,
-                child: const Text('Sign out'),
-              ),
-            ),
-          SwitchListTile(
-            secondary: const Icon(Icons.sync),
-            title: const Text('Auto-backup to Google Drive'),
-            subtitle: const Text(
-              'Automatically back up your data every 24 hours when conditions are met.',
-            ),
-            value: _autoBackupEnabled,
-            onChanged: _googleUserEmail == null
-                ? null
-                : (value) {
-                    setState(() {
-                      _autoBackupEnabled = value;
-                    });
-                    _settingsService.setAutoBackupEnabled(value);
-                  },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.wifi),
-            title: const Text('Require Wi-Fi'),
-            subtitle: const Text('Only perform auto-backup when connected to Wi-Fi.'),
-            value: _backupRequireWifi,
-            onChanged: _googleUserEmail == null
-                ? null
-                : (value) {
-                    setState(() {
-                      _backupRequireWifi = value;
-                    });
-                    _settingsService.setBackupRequireWifi(value);
-                  },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.battery_charging_full),
-            title: const Text('Require charging'),
-            subtitle: const Text('Only perform auto-backup when the device is charging.'),
-            value: _backupRequireCharging,
-            onChanged: _googleUserEmail == null
-                ? null
-                : (value) {
-                    setState(() {
-                      _backupRequireCharging = value;
-                    });
-                    _settingsService.setBackupRequireCharging(value);
-                  },
-          ),
-          ListTile(
-            leading: const Icon(Icons.backup_outlined),
-            title: const Text('Upload backup now'),
-            subtitle: const Text(
-              'Create a full backup archive and upload it to your Drive immediately.',
-            ),
-            enabled: !_isCreatingBackup && _googleUserEmail != null,
-            onTap: _isCreatingBackup ? null : _createBackupNow,
-            trailing: _isCreatingBackup
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.restore),
-            title: const Text('Restore from backup'),
-            subtitle: const Text(
-              'Preview and validate a backup before applying restore.',
-            ),
-            enabled: !_isPreparingRestore && _googleUserEmail != null,
-            onTap: _isPreparingRestore ? null : _openRestorePreviewFlow,
-            trailing: _isPreparingRestore
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.layers_outlined),
-            title: const Text('Maximum backups to keep'),
-            subtitle: Text(
-              'Rotate old backups automatically (default 7, max ${SettingsService.maxBackupMaxCount}).',
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    min: 1,
-                    max: SettingsService.maxBackupMaxCount.toDouble(),
-                    divisions: SettingsService.maxBackupMaxCount - 1,
-                    label: '$_backupMaxCount',
-                    value: _backupMaxCount.toDouble(),
-                    onChanged: (value) {
-                      final next = value.round();
-                      setState(() {
-                        _backupMaxCount = next;
-                      });
-                    },
-                    onChangeEnd: (value) {
-                      _settingsService.setBackupMaxCount(value.round());
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$_backupMaxCount',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Recycle Bin',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.auto_delete_outlined),
-            title: const Text('Retention window (days)'),
-            subtitle: const Text(
-              'Items older than this in recycle bin are permanently deleted at startup.',
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    min: SettingsService.minRecycleBinRetentionDays.toDouble(),
-                    max: SettingsService.maxRecycleBinRetentionDays.toDouble(),
-                    divisions: SettingsService.maxRecycleBinRetentionDays -
-                        SettingsService.minRecycleBinRetentionDays,
-                    label: '$_recycleRetentionDays',
-                    value: _recycleRetentionDays.toDouble(),
-                    onChanged: (value) {
-                      setState(() {
-                        _recycleRetentionDays = value.round();
-                      });
-                    },
-                    onChangeEnd: (value) {
-                      _settingsService.setRecycleBinRetentionDays(value.round());
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$_recycleRetentionDays',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
-            ),
-          ),
-          if (_isPreparingRestore)
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
               child: Text(
-                _restoreProgressMessage ?? 'Preparing restore...',
-                style: Theme.of(context).textTheme.bodySmall,
+                'Settings',
+                style: theme.textTheme.displaySmall,
               ),
             ),
-          const Divider(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Bookmarks',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
+            _SettingsGroup(
+              label: 'Ingestion',
+              children: [
+                SwitchListTile(
+                  title: const Text('Auto-tag by domain'),
+                  subtitle: const Text(
+                    'Automatically assign a tag based on the URL domain (e.g. elpais.com)',
+                  ),
+                  value: _autoTagDomain,
+                  onChanged: (value) {
+                    setState(() {
+                      _autoTagDomain = value;
+                    });
+                    _settingsService.setAutoTagDomain(value);
+                  },
+                ),
+                SwitchListTile(
+                  title: const Text('Auto-tag by year'),
+                  subtitle: const Text(
+                    'Automatically assign a tag with the current year (e.g. 2026)',
+                  ),
+                  value: _autoTagYear,
+                  onChanged: (value) {
+                    setState(() {
+                      _autoTagYear = value;
+                    });
+                    _settingsService.setAutoTagYear(value);
+                  },
+                ),
+              ],
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.upload_file_outlined),
-            title: const Text('Export URL bookmarks (HTML)'),
-            subtitle: const Text(
-              'Create a Netscape bookmark HTML file with saved URLs only.',
+            _SettingsGroup(
+              label: 'Intelligence',
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.hub_outlined),
+                  title: const Text('LLM provider'),
+                  subtitle: const Text(
+                    'Choose which provider your API key and AI calls will use.',
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: _selectedAiProvider,
+                    underline: const SizedBox.shrink(),
+                    items: const [
+                      DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
+                      DropdownMenuItem(value: 'openai', child: Text('ChatGPT')),
+                      DropdownMenuItem(value: 'claude', child: Text('Claude')),
+                    ],
+                    onChanged: (value) async {
+                      if (value == null || value == _selectedAiProvider) {
+                        return;
+                      }
+                      await _settingsService.setAiProvider(value);
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedAiProvider = value;
+                      });
+                      await _loadApiKeyState();
+                    },
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.key_outlined),
+                  title: const Text('LLM provider API key'),
+                  subtitle: Text(
+                    _hasApiKey
+                        ? 'Configured for ${_providerDisplayName(_selectedAiProvider)} in secure storage'
+                        : 'Required for AI summaries, semantic search, and tag suggestions',
+                  ),
+                  trailing: TextButton(
+                    onPressed: _hasApiKey ? _removeApiKey : _promptForApiKey,
+                    child: Text(_hasApiKey ? 'Remove' : 'Set key'),
+                  ),
+                  onTap: _hasApiKey ? _removeApiKey : _promptForApiKey,
+                ),
+                SwitchListTile(
+                  title: const Text('Enable AI summaries'),
+                  subtitle: const Text(
+                    'Generate on-demand TL;DR, key points, and why-it-matters blocks.',
+                  ),
+                  value: _aiSummaryEnabled,
+                  onChanged: (value) => _onIntelligenceToggleChanged(
+                    value: value,
+                    currentSetter: (enabled) async {
+                      await _settingsService.setAiSummaryEnabled(enabled);
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _aiSummaryEnabled = enabled;
+                      });
+                    },
+                  ),
+                ),
+                SwitchListTile(
+                  title: const Text('Enable semantic search mode'),
+                  subtitle: const Text(
+                    'Keeps keyword search available and unlocks semantic matching when configured.',
+                  ),
+                  value: _semanticSearchEnabled,
+                  onChanged: (value) => _onIntelligenceToggleChanged(
+                    value: value,
+                    currentSetter: (enabled) async {
+                      await _settingsService.setSemanticSearchEnabled(enabled);
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _semanticSearchEnabled = enabled;
+                      });
+                    },
+                  ),
+                ),
+                SwitchListTile(
+                  title: const Text('Enable AI tag suggestions'),
+                  subtitle: const Text('Suggests from existing tags only.'),
+                  value: _aiTagSuggestionsEnabled,
+                  onChanged: (value) => _onIntelligenceToggleChanged(
+                    value: value,
+                    currentSetter: (enabled) async {
+                      await _settingsService.setAiTagSuggestionsEnabled(enabled);
+                      if (!mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _aiTagSuggestionsEnabled = enabled;
+                      });
+                    },
+                  ),
+                ),
+              ],
             ),
-            enabled: !_isExportingBookmarks,
-            onTap: _isExportingBookmarks ? null : _exportBookmarks,
-            trailing: _isExportingBookmarks
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+            _SettingsGroup(
+              label: 'Backup & Restore',
+              children: [
+                if (_googleUserEmail == null)
+                  ListTile(
+                    leading: const Icon(Icons.login),
+                    title: const Text('Sign in to Google Drive'),
+                    subtitle: const Text(
+                      'Connect your account to enable cloud backups.',
+                    ),
+                    onTap: _signInGoogle,
                   )
-                : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.download_outlined),
-            title: const Text('Import URL bookmarks (HTML)'),
-            subtitle: const Text(
-              'Import only valid http/https bookmark URLs from HTML files.',
+                else
+                  ListTile(
+                    leading: const Icon(Icons.account_circle_outlined),
+                    title: Text(_googleUserEmail!),
+                    subtitle: const Text('Signed in to Google Drive.'),
+                    trailing: TextButton(
+                      onPressed: _signOutGoogle,
+                      child: const Text('Sign out'),
+                    ),
+                  ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.sync),
+                  title: const Text('Auto-backup to Google Drive'),
+                  subtitle: const Text(
+                    'Automatically back up your data every 24 hours when conditions are met.',
+                  ),
+                  value: _autoBackupEnabled,
+                  onChanged: _googleUserEmail == null
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _autoBackupEnabled = value;
+                          });
+                          _settingsService.setAutoBackupEnabled(value);
+                        },
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.wifi),
+                  title: const Text('Require Wi-Fi'),
+                  subtitle: const Text(
+                    'Only perform auto-backup when connected to Wi-Fi.',
+                  ),
+                  value: _backupRequireWifi,
+                  onChanged: _googleUserEmail == null
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _backupRequireWifi = value;
+                          });
+                          _settingsService.setBackupRequireWifi(value);
+                        },
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.battery_charging_full),
+                  title: const Text('Require charging'),
+                  subtitle: const Text(
+                    'Only perform auto-backup when the device is charging.',
+                  ),
+                  value: _backupRequireCharging,
+                  onChanged: _googleUserEmail == null
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _backupRequireCharging = value;
+                          });
+                          _settingsService.setBackupRequireCharging(value);
+                        },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.backup_outlined),
+                  title: const Text('Upload backup now'),
+                  subtitle: const Text(
+                    'Create a full backup archive and upload it to your Drive immediately.',
+                  ),
+                  enabled: !_isCreatingBackup && _googleUserEmail != null,
+                  onTap: _isCreatingBackup ? null : _createBackupNow,
+                  trailing: _isCreatingBackup
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.restore),
+                  title: const Text('Restore from backup'),
+                  subtitle: const Text(
+                    'Preview and validate a backup before applying restore.',
+                  ),
+                  enabled: !_isPreparingRestore && _googleUserEmail != null,
+                  onTap: _isPreparingRestore ? null : _openRestorePreviewFlow,
+                  trailing: _isPreparingRestore
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.layers_outlined),
+                  title: const Text('Maximum backups to keep'),
+                  subtitle: Text(
+                    'Rotate old backups automatically (default 7, max ${SettingsService.maxBackupMaxCount}).',
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          min: 1,
+                          max: SettingsService.maxBackupMaxCount.toDouble(),
+                          divisions: SettingsService.maxBackupMaxCount - 1,
+                          label: '$_backupMaxCount',
+                          value: _backupMaxCount.toDouble(),
+                          onChanged: (value) {
+                            final next = value.round();
+                            setState(() {
+                              _backupMaxCount = next;
+                            });
+                          },
+                          onChangeEnd: (value) {
+                            _settingsService.setBackupMaxCount(value.round());
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$_backupMaxCount',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            enabled: !_isImportingBookmarks,
-            onTap: _isImportingBookmarks ? null : _importBookmarks,
-            trailing: _isImportingBookmarks
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-          ),
-          const Divider(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Backup diagnostics',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
+            _SettingsGroup(
+              label: 'Recycle Bin',
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.auto_delete_outlined),
+                  title: const Text('Retention window (days)'),
+                  subtitle: const Text(
+                    'Items older than this in recycle bin are permanently deleted at startup.',
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          min: SettingsService.minRecycleBinRetentionDays
+                              .toDouble(),
+                          max: SettingsService.maxRecycleBinRetentionDays
+                              .toDouble(),
+                          divisions:
+                              SettingsService.maxRecycleBinRetentionDays -
+                              SettingsService.minRecycleBinRetentionDays,
+                          label: '$_recycleRetentionDays',
+                          value: _recycleRetentionDays.toDouble(),
+                          onChanged: (value) {
+                            setState(() {
+                              _recycleRetentionDays = value.round();
+                            });
+                          },
+                          onChangeEnd: (value) {
+                            _settingsService
+                                .setRecycleBinRetentionDays(value.round());
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$_recycleRetentionDays',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isPreparingRestore)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      _restoreProgressMessage ?? 'Preparing restore...',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+              ],
             ),
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last backup attempt',
-            value: _formatTimestamp(_settingsService.lastBackupAttemptAt),
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last successful backup',
-            value: _formatTimestamp(_settingsService.lastSuccessfulBackupAt),
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last backup remote id',
-            value: _settingsService.lastBackupRemoteId ?? 'n/a',
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last backup size',
-            value: _formatBytes(_settingsService.lastBackupSizeBytes),
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last backup result',
-            value: _settingsService.lastBackupResultStatus ?? 'n/a',
-          ),
-          _buildDiagnosticsTile(
-            label: 'Last backup failure reason',
-            value: _settingsService.lastBackupFailureReason ?? 'n/a',
-          ),
-        ],
+            _SettingsGroup(
+              label: 'Bookmarks',
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.upload_file_outlined),
+                  title: const Text('Export URL bookmarks (HTML)'),
+                  subtitle: const Text(
+                    'Create a Netscape bookmark HTML file with saved URLs only.',
+                  ),
+                  enabled: !_isExportingBookmarks,
+                  onTap: _isExportingBookmarks ? null : _exportBookmarks,
+                  trailing: _isExportingBookmarks
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download_outlined),
+                  title: const Text('Import URL bookmarks (HTML)'),
+                  subtitle: const Text(
+                    'Import only valid http/https bookmark URLs from HTML files.',
+                  ),
+                  enabled: !_isImportingBookmarks,
+                  onTap: _isImportingBookmarks ? null : _importBookmarks,
+                  trailing: _isImportingBookmarks
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+              ],
+            ),
+            _SettingsGroup(
+              label: 'Backup diagnostics',
+              children: [
+                _buildDiagnosticsTile(
+                  label: 'Last backup attempt',
+                  value: _formatTimestamp(_settingsService.lastBackupAttemptAt),
+                ),
+                _buildDiagnosticsTile(
+                  label: 'Last successful backup',
+                  value: _formatTimestamp(
+                    _settingsService.lastSuccessfulBackupAt,
+                  ),
+                ),
+                _buildDiagnosticsTile(
+                  label: 'Last backup remote id',
+                  value: _settingsService.lastBackupRemoteId ?? 'n/a',
+                ),
+                _buildDiagnosticsTile(
+                  label: 'Last backup size',
+                  value: _formatBytes(_settingsService.lastBackupSizeBytes),
+                ),
+                _buildDiagnosticsTile(
+                  label: 'Last backup result',
+                  value: _settingsService.lastBackupResultStatus ?? 'n/a',
+                ),
+                _buildDiagnosticsTile(
+                  label: 'Last backup failure reason',
+                  value: _settingsService.lastBackupFailureReason ?? 'n/a',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -922,14 +903,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text(
                       'Choose a backup from Google Drive',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   Flexible(
@@ -1373,6 +1351,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
       default:
         return 'Gemini';
     }
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.label, required this.children});
+
+  final String label;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(const Divider(height: 1));
+      }
+      rows.add(children[i]);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: SectionLabel(label),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(MnemataRadii.lg),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(MnemataRadii.lg),
+                border: Border.all(color: cs.outline, width: 0.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: rows,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

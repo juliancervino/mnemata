@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/core/widgets/item_card.dart' as item_card;
+import 'package:mnemata/core/widgets/section_label.dart';
 
 class RecycleBinScreen extends StatelessWidget {
   const RecycleBinScreen({super.key});
@@ -10,71 +13,97 @@ class RecycleBinScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Recycle Bin')),
-      body: StreamBuilder<List<MnemataItem>>(
-        stream: database.watchRecycleBinItems(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final items = snapshot.data ?? const <MnemataItem>[];
-          if (items.isEmpty) {
-            return const Center(
-              child: Text('Recycle bin is empty.'),
+      body: SafeArea(
+        child: StreamBuilder<List<MnemataItem>>(
+          stream: database.watchRecycleBinItems(),
+          builder: (context, snapshot) {
+            final header = Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8, bottom: 8),
+                    child: SectionLabel('Recycle bin'),
+                  ),
+                  Text(
+                    'Trashed items',
+                    style: theme.textTheme.displaySmall,
+                  ),
+                ],
+              ),
             );
-          }
 
-          return ListView.separated(
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final deletedAt = item.deletedAt;
-              final title = item.title?.trim().isNotEmpty == true
-                  ? item.title!
-                  : (item.url ?? item.filePath ?? 'Untitled item');
-              final deletedLabel = deletedAt == null
-                  ? 'Unknown deletion time'
-                  : 'Deleted ${DateFormat('MMM d, yyyy - HH:mm').format(deletedAt.toLocal())}';
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Column(
+                children: [
+                  header,
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              );
+            }
 
-              return ListTile(
-                leading: const Icon(Icons.delete_outline),
-                title: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(deletedLabel),
-                trailing: Wrap(
-                  spacing: 8,
-                  children: [
-                    IconButton(
-                      tooltip: 'Restore item',
-                      icon: const Icon(Icons.restore_from_trash),
-                      onPressed: () => _restoreItem(context, database, item),
-                    ),
-                    IconButton(
-                      tooltip: 'Delete permanently',
-                      icon: const Icon(Icons.delete_forever, color: Colors.red),
-                      onPressed: () => _confirmPermanentDelete(
-                        context,
-                        database,
-                        item,
+            if (snapshot.hasError) {
+              return Column(
+                children: [
+                  header,
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
-            },
-          );
-        },
+            }
+
+            final items = snapshot.data ?? const <MnemataItem>[];
+            if (items.isEmpty) {
+              return Column(
+                children: [
+                  header,
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Recycle bin is empty.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 32),
+              itemCount: items.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) return header;
+                final item = items[index - 1];
+                return _RecycleRow(
+                  item: item,
+                  onRestore: () => _restoreItem(context, database, item),
+                  onDelete: () => _confirmPermanentDelete(
+                    context,
+                    database,
+                    item,
+                  ),
+                  showDivider: index < items.length,
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -118,7 +147,10 @@ class RecycleBinScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'DELETE',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -141,5 +173,89 @@ class RecycleBinScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RecycleRow extends StatelessWidget {
+  const _RecycleRow({
+    required this.item,
+    required this.onRestore,
+    required this.onDelete,
+    required this.showDivider,
+  });
+
+  final MnemataItem item;
+  final VoidCallback onRestore;
+  final VoidCallback onDelete;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final deletedAt = item.deletedAt;
+    final title = item.title?.trim().isNotEmpty == true
+        ? item.title!
+        : (item.url ?? item.filePath ?? 'Untitled item');
+    final source = _sourceLabel(item);
+    final deletedLabel = deletedAt == null
+        ? 'unknown'
+        : DateFormat('MMM d, yyyy').format(deletedAt.toLocal());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: item_card.ItemCard(
+                data: item_card.ItemCardData(
+                  title: title,
+                  source: source,
+                  readTime: 'deleted $deletedLabel',
+                  tags: const [],
+                  thumbTone: MnemataColors.ink4,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Restore item',
+                    icon: const Icon(Icons.restore_from_trash),
+                    color: cs.onSurfaceVariant,
+                    onPressed: onRestore,
+                  ),
+                  IconButton(
+                    tooltip: 'Delete permanently',
+                    icon: const Icon(Icons.delete_forever),
+                    color: cs.error,
+                    onPressed: onDelete,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (showDivider) const Divider(height: 1),
+      ],
+    );
+  }
+
+  String _sourceLabel(MnemataItem item) {
+    final url = item.url;
+    if (url != null && url.isNotEmpty) {
+      try {
+        final host = Uri.parse(url).host;
+        if (host.isNotEmpty) return host;
+      } catch (_) {}
+    }
+    final path = item.filePath;
+    if (path != null && path.isNotEmpty) return 'local file';
+    return 'item';
   }
 }
