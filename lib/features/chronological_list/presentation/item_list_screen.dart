@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/core/widgets/item_card.dart' show ItemCard, ItemCardData;
+import 'package:mnemata/core/widgets/section_label.dart';
+import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/widgets/item_list_header.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
@@ -22,6 +26,101 @@ import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Palette of tag dot colors used when a label has no explicit color set.
+// Keeps the visual language editorial (see MnemataColors.tagN in
+// lib/core/theme/app_theme.dart).
+const List<Color> _fallbackTagPalette = <Color>[
+  MnemataColors.tag1,
+  MnemataColors.tag2,
+  MnemataColors.tag3,
+  MnemataColors.tag4,
+  MnemataColors.tag5,
+  MnemataColors.tag6,
+];
+
+Color _tagColorFor(Label label) {
+  if (label.color != null) {
+    return Color(label.color!);
+  }
+  // Deterministic pick from the fallback palette based on id so the same
+  // label keeps the same color across rebuilds.
+  return _fallbackTagPalette[label.id.abs() % _fallbackTagPalette.length];
+}
+
+// Pick a dominant thumb tone for the card placeholder. Prefers the first
+// label's color, then falls back to the id-hashed palette.
+Color _toneFor(MnemataItem item, List<Label> labels) {
+  if (labels.isNotEmpty) {
+    return _tagColorFor(labels.first);
+  }
+  return _fallbackTagPalette[item.id.abs() % _fallbackTagPalette.length];
+}
+
+String _typeGlyphFor(MnemataItem item) {
+  if (item.type == 'file') {
+    final path = (item.filePath ?? '').toLowerCase();
+    if (path.endsWith('.pdf')) return 'pdf';
+    return 'F';
+  }
+  return 'A';
+}
+
+// Rough read-time estimate. Word-based approximation keeps the cost trivial
+// and matches the editorial look ("5 min read").
+String _estimateReadTime(MnemataItem item) {
+  final text = item.content ?? '';
+  if (text.trim().isEmpty) {
+    return '—';
+  }
+  final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  // ~220 wpm — comfortable pace for long-form articles.
+  final minutes = (words / 220).ceil().clamp(1, 99);
+  return '$minutes min read';
+}
+
+// Derive the host / source label shown in the item card's meta row.
+String _sourceFor(MnemataItem item) {
+  if (item.type == 'url' && item.url != null && item.url!.isNotEmpty) {
+    try {
+      final host = Uri.parse(item.url!).host;
+      return host.replaceFirst('www.', '');
+    } catch (_) {
+      return item.url!;
+    }
+  }
+  return item.filePath?.split('/').last ?? '';
+}
+
+// Collapse createdAt into a relative bucket label. Items within the same
+// bucket share a SectionLabel header in the list.
+String _groupKey(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(d.year, d.month, d.day);
+  final diff = today.difference(day).inDays;
+  if (diff <= 0) return 'today';
+  if (diff < 7) return 'week';
+  if (diff < 30) return 'month';
+  return DateFormat('yyyy-MM').format(d);
+}
+
+String _groupLabel(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(d.year, d.month, d.day);
+  final diff = today.difference(day).inDays;
+  if (diff <= 0) return 'Today · ${DateFormat('MMM d').format(d)}';
+  if (diff < 7) return 'Earlier this week';
+  if (diff < 30) {
+    // Rough rolling 4-week window — format as "MMM dd – MMM dd".
+    final weekEnd = d;
+    final weekStart = d.subtract(const Duration(days: 6));
+    return '${DateFormat('MMM dd').format(weekEnd)} – '
+        '${DateFormat('MMM dd').format(weekStart)}';
+  }
+  return DateFormat('MMMM yyyy').format(d);
+}
 
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
@@ -127,6 +226,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
     BuildContext context,
     AppDatabase database,
   ) async {
+    final cs = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -141,7 +241,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('MOVE', style: TextStyle(color: Colors.red)),
+            child: Text('MOVE', style: TextStyle(color: cs.error)),
           ),
         ],
       ),
@@ -165,10 +265,6 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   Future<void> _bulkShare(AppDatabase database) async {
     final ids = _selectedItemIds.toList();
-    // Fetch items to get URLs or titles
-    // Since we only have IDs, we need to query them. For simplicity, we can get them from the stream or do a quick query.
-    // Actually, sharing multiple links natively might just be sharing a text block with multiple URLs.
-    // Let's build a combined text.
     final itemsStream = await database.watchAllItems().first;
     final itemsToShare = itemsStream
         .where((item) => ids.contains(item.id))
@@ -265,15 +361,81 @@ class _ItemListScreenState extends State<ItemListScreen> {
     return database.watchAllItems();
   }
 
-  String _getTitle() {
-    if (_isHistoryMode) return 'Recently Opened';
-    if (_selectedLabelIds.isEmpty) return 'Mnemata';
-    return '${_selectedLabelIds.length} Tags Selected';
+  // Kicker shown above the big serif title. Reflects the current filter.
+  String _kickerFor(int itemCount) {
+    if (_isHistoryMode) {
+      return 'Recently opened · $itemCount items';
+    }
+    if (_selectedLabelIds.isEmpty) {
+      return 'Your library · $itemCount items';
+    }
+    return '${_selectedLabelIds.length} tags selected · $itemCount items';
+  }
+
+  void _startSearch() {
+    setState(() {
+      _isSearching = true;
+    });
+    _searchFocusNode.requestFocus();
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _isSearching = false;
+      _searchController.clear();
+      _searchQuery = '';
+      _showSearchHistory = false;
+    });
+  }
+
+  void _showMoreMenu(BuildContext context) {
+    // Simple overflow menu — mirrors what used to live behind the Label
+    // Manager icon button and doubles as an entry point for the drawer.
+    final scaffold = Scaffold.of(context);
+    showMenu<_MoreAction>(
+      context: context,
+      position: const RelativeRect.fromLTRB(1000, 60, 8, 0),
+      items: const [
+        PopupMenuItem(
+          value: _MoreAction.openDrawer,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.menu),
+            title: Text('Menu'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _MoreAction.manageLabels,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.label),
+            title: Text('Manage Labels'),
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (!mounted || value == null) return;
+      switch (value) {
+        case _MoreAction.openDrawer:
+          scaffold.openDrawer();
+          break;
+        case _MoreAction.manageLabels:
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LabelManagerScreen(),
+            ),
+          );
+          break;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: _isMultiSelectMode
@@ -288,88 +450,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 },
               ),
               title: Text('${_selectedItemIds.length} Selected'),
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
             )
-          : AppBar(
-              title: _isSearching
-                  ? TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        hintStyle: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimary.withValues(alpha: 0.7),
-                        ),
-                        border: InputBorder.none,
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                      cursorColor: Theme.of(context).colorScheme.onPrimary,
-                      onChanged: _updateSearch,
-                      onSubmitted: _saveSearchToHistory,
-                    )
-                  : GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isSearching = true;
-                          _searchFocusNode.requestFocus();
-                        });
-                      },
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.asset(
-                              'assets/mnemata.jpg',
-                              height: 32,
-                              width: 32,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text(_getTitle())),
-                        ],
-                      ),
-                    ),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              actions: [
-                if (!_isSearching)
-                  IconButton(
-                    icon: const Icon(Icons.label),
-                    tooltip: 'Manage Labels',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LabelManagerScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                IconButton(
-                  icon: Icon(_isSearching ? Icons.close : Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      if (_isSearching) {
-                        _isSearching = false;
-                        _searchController.clear();
-                        _searchQuery = '';
-                        _showSearchHistory = false;
-                      } else {
-                        _isSearching = true;
-                        _searchFocusNode.requestFocus();
-                      }
-                    });
-                  },
-                ),
-              ],
-            ),
+          : null,
       drawer: _isMultiSelectMode ? null : _buildDrawer(context, database),
       floatingActionButton: _isMultiSelectMode
           ? null
@@ -386,10 +468,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     TextButton.icon(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      label: const Text(
+                      icon: Icon(Icons.delete, color: cs.error),
+                      label: Text(
                         'Delete',
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(color: cs.error),
                       ),
                       onPressed: _selectedItemIds.isEmpty
                           ? null
@@ -429,11 +511,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
           children: [
             Column(
               children: [
-                _buildQuickFilterBar(context, database),
+                if (!_isMultiSelectMode) _buildTopArea(context, database),
                 if (_isSearching && _semanticSettingEnabled)
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
+                      horizontal: 20,
                       vertical: 8,
                     ),
                     child: Row(
@@ -473,10 +555,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.error_outline,
                                 size: 48,
-                                color: Colors.red,
+                                color: cs.error,
                               ),
                               const SizedBox(height: 16),
                               Text('Error: ${snapshot.error}'),
@@ -495,7 +577,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                               Icon(
                                 Icons.inventory_2_outlined,
                                 size: 64,
-                                color: Theme.of(context).disabledColor,
+                                color: cs.onSurfaceVariant,
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -520,7 +602,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 right: 0,
                 child: Material(
                   elevation: 4,
-                  color: Theme.of(context).colorScheme.surface,
+                  color: cs.surface,
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: _searchHistory.length,
@@ -559,68 +641,125 @@ class _ItemListScreenState extends State<ItemListScreen> {
     );
   }
 
-  Widget _buildQuickFilterBar(BuildContext context, AppDatabase database) {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      color: Theme.of(context).colorScheme.surface,
+  // Composite top area: custom header + large title + tag filter row.
+  Widget _buildTopArea(BuildContext context, AppDatabase database) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    // Search mode — the header shows an inline text field instead of monogram.
+    if (_isSearching) {
+      return Builder(
+        builder: (innerContext) => ItemListHeader(
+          onSearchPressed: () {},
+          onMorePressed: () {},
+          leading: TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Search...',
+              hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+              contentPadding: EdgeInsets.zero,
+            ),
+            style: theme.textTheme.bodyLarge,
+            cursorColor: cs.secondary,
+            onChanged: _updateSearch,
+            onSubmitted: _saveSearchToHistory,
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Close search',
+            onPressed: _closeSearch,
+          ),
+        ),
+      );
+    }
+
+    // Default mode — monogram header + title block + tag filter row.
+    return StreamBuilder<List<MnemataItem>>(
+      stream: _getStream(database),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.length ?? 0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Builder(
+              builder: (innerContext) => ItemListHeader(
+                onSearchPressed: _startSearch,
+                onMorePressed: () => _showMoreMenu(innerContext),
+              ),
+            ),
+            LibraryTitleBlock(
+              itemCount: count,
+              kickerOverride: _kickerFor(count),
+            ),
+            const SizedBox(height: 14),
+            _buildTagFilterRow(context, database),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTagFilterRow(BuildContext context, AppDatabase database) {
+    return SizedBox(
+      height: 44,
       child: StreamBuilder<List<Label>>(
         stream: database.watchAllLabels(),
         builder: (context, snapshot) {
-          final labels = snapshot.data ?? [];
+          final labels = snapshot.data ?? const <Label>[];
           return ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: const Text('All'),
-                  selected: _selectedLabelIds.isEmpty && !_isHistoryMode,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedLabelIds.clear();
-                        _isHistoryMode = false;
-                      });
-                    }
+                child: TagChip(
+                  label: 'all',
+                  color: MnemataColors.ink3,
+                  active: _selectedLabelIds.isEmpty && !_isHistoryMode,
+                  onTap: () {
+                    setState(() {
+                      _selectedLabelIds.clear();
+                      _isHistoryMode = false;
+                    });
                   },
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  avatar: const Icon(Icons.history, size: 16),
-                  label: const Text('History'),
-                  selected: _isHistoryMode,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _selectedLabelIds.clear();
-                        _isHistoryMode = true;
-                      });
-                    }
+                child: TagChip(
+                  label: 'history',
+                  color: MnemataColors.ink3,
+                  active: _isHistoryMode,
+                  onTap: () {
+                    setState(() {
+                      _selectedLabelIds.clear();
+                      _isHistoryMode = true;
+                    });
                   },
                 ),
               ),
               ...labels.map((label) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    avatar: Icon(
-                      Icons.label,
-                      size: 16,
-                      color: label.color != null ? Color(label.color!) : null,
-                    ),
-                    label: Text(label.name),
-                    selected: _selectedLabelIds.contains(label.id),
-                    onSelected: (selected) {
+                  child: TagChip(
+                    label: label.name,
+                    color: _tagColorFor(label),
+                    active: _selectedLabelIds.contains(label.id),
+                    onTap: () {
                       setState(() {
-                        if (selected) {
+                        if (_selectedLabelIds.contains(label.id)) {
+                          _selectedLabelIds.remove(label.id);
+                        } else {
                           _selectedLabelIds.add(label.id);
                           _isHistoryMode = false;
-                        } else {
-                          _selectedLabelIds.remove(label.id);
                         }
                       });
                     },
@@ -642,9 +781,22 @@ class _ItemListScreenState extends State<ItemListScreen> {
       builder: (context, labelsSnapshot) {
         final labelsByItem = labelsSnapshot.data ?? const <int, List<Label>>{};
 
+        // Precompute group keys/labels so section headers render inside the
+        // reorderable list without changing the reorder semantics — each
+        // visual row still represents exactly one [MnemataItem].
+        final groupHeaders = <int, String>{};
+        String? lastKey;
+        for (var i = 0; i < items.length; i++) {
+          final key = _groupKey(items[i].createdAt);
+          if (key != lastKey) {
+            groupHeaders[i] = _groupLabel(items[i].createdAt);
+            lastKey = key;
+          }
+        }
+
         return ReorderableListView.builder(
           key: const PageStorageKey<String>('item-list-reorderable'),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.only(bottom: 24),
           itemCount: items.length,
           buildDefaultDragHandles: false,
           onReorder: (oldIndex, newIndex) async {
@@ -659,6 +811,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           },
           itemBuilder: (context, index) {
             final item = items[index];
+            final header = groupHeaders[index];
             return _ItemTile(
               key: ValueKey(item.id),
               item: item,
@@ -666,6 +819,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
               labels: labelsByItem[item.id] ?? const <Label>[],
               isSelected: _selectedItemIds.contains(item.id),
               isMultiSelectMode: _isMultiSelectMode,
+              groupHeader: header,
               onLongPress: () => _enterMultiSelectMode(item.id),
               onTap: () =>
                   _isMultiSelectMode ? _toggleSelection(item.id) : null,
@@ -677,39 +831,36 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Widget _buildDrawer(BuildContext context, AppDatabase database) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Drawer(
+      backgroundColor: cs.surface,
       child: SafeArea(
-        top: false, // AppBar usually handles the top
+        top: false,
         child: Column(
           children: [
-            DrawerHeader(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'assets/mnemata.jpg',
-                        height: 64,
-                        width: 64,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Mnemata',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                  ],
+                color: cs.surfaceContainerLow,
+                border: Border(
+                  bottom: BorderSide(color: cs.outline, width: 0.5),
                 ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'MNEMATA',
+                    style: theme.textTheme.tracked(cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Library',
+                    style: theme.textTheme.headlineMedium,
+                  ),
+                ],
               ),
             ),
             ListTile(
@@ -762,14 +913,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     padding: EdgeInsets.zero,
                     children: [
                       const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Text(
-                          'Tags',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: SectionLabel('Tags'),
                       ),
                       ...labels.map((l) => _buildLabelTile(context, l)),
                     ],
@@ -813,9 +958,13 @@ class _ItemListScreenState extends State<ItemListScreen> {
   Widget _buildLabelTile(BuildContext context, Label label) {
     final isSelected = _selectedLabelIds.contains(label.id);
     return ListTile(
-      leading: Icon(
-        Icons.label,
-        color: label.color != null ? Color(label.color!) : Colors.blue,
+      leading: Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: _tagColorFor(label),
+          shape: BoxShape.circle,
+        ),
       ),
       title: Text(label.name),
       selected: isSelected,
@@ -834,12 +983,15 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 }
 
+enum _MoreAction { openDrawer, manageLabels }
+
 class _ItemTile extends StatelessWidget {
   final MnemataItem item;
   final int index;
   final List<Label> labels;
   final bool isSelected;
   final bool isMultiSelectMode;
+  final String? groupHeader;
   final VoidCallback onLongPress;
   final VoidCallback onTap;
 
@@ -850,60 +1002,32 @@ class _ItemTile extends StatelessWidget {
     required this.labels,
     required this.isSelected,
     required this.isMultiSelectMode,
+    required this.groupHeader,
     required this.onLongPress,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isUrl = item.type == 'url';
-    final String title =
-        item.title ??
-        (isUrl ? (item.url ?? 'Link') : (item.filePath ?? 'File'));
+    final cs = Theme.of(context).colorScheme;
 
-    String subtitle = '';
-    final String author = (item.author ?? '').trim();
-    if (isUrl && item.url != null) {
-      try {
-        final uri = Uri.parse(item.url!);
-        String host = uri.host.replaceFirst('www.', '');
+    final cardData = ItemCardData(
+      title: item.title?.trim().isNotEmpty == true
+          ? item.title!
+          : (item.type == 'url'
+              ? (item.url ?? 'Link')
+              : (item.filePath?.split('/').last ?? 'File')),
+      source: _sourceFor(item),
+      readTime: _estimateReadTime(item),
+      tags: labels
+          .map((l) => (label: l.name, color: _tagColorFor(l)))
+          .toList(),
+      thumbTone: _toneFor(item, labels),
+      thumbUrl: item.thumbnailUrl,
+      typeGlyph: _typeGlyphFor(item),
+    );
 
-        // Archive.today / archive.ph logic: extract original domain
-        if (host.startsWith('archive.') ||
-            host == 'archive.today' ||
-            host == 'archive.ph' ||
-            host == 'archive.is' ||
-            host == 'archive.li' ||
-            host == 'archive.vn') {
-          final segments = uri.pathSegments;
-          if (segments.isNotEmpty) {
-            // Usually the last segment or the one after the timestamp is the original URL
-            for (final segment in segments.reversed) {
-              if (segment.contains('.')) {
-                try {
-                  final potentialUri = Uri.parse(
-                    segment.startsWith('http') ? segment : 'https://$segment',
-                  );
-                  if (potentialUri.host.isNotEmpty) {
-                    host = potentialUri.host.replaceFirst('www.', '');
-                    break;
-                  }
-                } catch (_) {}
-              }
-            }
-          }
-        }
-        subtitle = host;
-      } catch (_) {
-        subtitle = item.url!;
-      }
-    } else {
-      subtitle = item.filePath?.split('/').last ?? '';
-    }
-
-    final String dateStr = DateFormat('MMM dd, yyyy').format(item.createdAt);
-
-    return Slidable(
+    final tile = Slidable(
       key: ValueKey(item.id),
       enabled: !isMultiSelectMode,
       startActionPane: ActionPane(
@@ -940,8 +1064,8 @@ class _ItemTile extends StatelessWidget {
                 }
               });
             },
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
             icon: Icons.edit,
             label: 'Edit',
             autoClose: false,
@@ -972,187 +1096,115 @@ class _ItemTile extends StatelessWidget {
                 }
               });
             },
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
+            backgroundColor: cs.onSurface,
+            foregroundColor: cs.surface,
             icon: Icons.share,
             label: 'Share',
             autoClose: false,
           ),
         ],
       ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        elevation: isSelected ? 4 : 0.5,
-        color: isSelected
-            ? Theme.of(
-                context,
-              ).colorScheme.primaryContainer.withValues(alpha: 0.5)
-            : null,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: isSelected
-              ? BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2,
-                )
-              : BorderSide(color: Colors.grey.shade200),
-        ),
-        child: InkWell(
-          onLongPress: isMultiSelectMode ? null : onLongPress,
-          onTap: isMultiSelectMode ? onTap : () => _handleOpen(context),
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                if (isMultiSelectMode)
-                  Checkbox(value: isSelected, onChanged: (_) => onTap())
-                else
-                  item.thumbnailUrl != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: CachedNetworkImage(
-                            imageUrl: item.thumbnailUrl!,
-                            width: 36,
-                            height: 36,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 100,
-                            memCacheHeight: 100,
-                            placeholder: (context, url) =>
-                                _buildThumbnailPlaceholder(context, size: 36),
-                            errorWidget: (context, url, error) =>
-                                _buildThumbnailFallback(context, size: 36),
-                          ),
-                        )
-                      : _buildThumbnailFallback(context, size: 36),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 8,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          if (author.isNotEmpty)
-                            Flexible(
-                              child: Text(
-                                author,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(context).colorScheme.secondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          if (author.isNotEmpty)
-                            const Text(
-                              ' • ',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          if (subtitle.isNotEmpty)
-                            Text(
-                              subtitle,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          if (subtitle.isNotEmpty)
-                            const Text(
-                              ' • ',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          Text(
-                            dateStr,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ],
+      child: _ItemRow(
+        item: item,
+        index: index,
+        cardData: cardData,
+        isSelected: isSelected,
+        isMultiSelectMode: isMultiSelectMode,
+        onTap: onTap,
+        onLongPress: onLongPress,
+      ),
+    );
+
+    if (groupHeader == null) {
+      return KeyedSubtree(key: ValueKey(item.id), child: tile);
+    }
+
+    return KeyedSubtree(
+      key: ValueKey(item.id),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
+            child: SectionLabel(groupHeader!),
+          ),
+          tile,
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemRow extends StatelessWidget {
+  const _ItemRow({
+    required this.item,
+    required this.index,
+    required this.cardData,
+    required this.isSelected,
+    required this.isMultiSelectMode,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final MnemataItem item;
+  final int index;
+  final ItemCardData cardData;
+  final bool isSelected;
+  final bool isMultiSelectMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final card = ItemCard(
+      data: cardData,
+      active: isSelected,
+      onTap: isMultiSelectMode ? onTap : () => _handleOpen(context),
+    );
+
+    // Wrap the card so we can attach long-press (for multi-select entry)
+    // and stack a drag handle over its right edge without mutating the
+    // shared ItemCard widget.
+    return GestureDetector(
+      onLongPress: isMultiSelectMode ? null : onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        children: [
+          card,
+          if (isMultiSelectMode)
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 8,
+              child: Center(
+                child: Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => onTap(),
+                ),
+              ),
+            )
+          else
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 6,
+              child: Center(
+                child: ReorderableDragStartListener(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.drag_indicator,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      size: 18,
+                    ),
                   ),
                 ),
-                if (!isMultiSelectMode) ...[
-                  if (labels.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Wrap(
-                        spacing: 2,
-                        children: labels.take(3).map((label) {
-                          return Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: label.color != null
-                                  ? Color(label.color!)
-                                  : Colors.blue,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: const Icon(
-                      Icons.drag_handle,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnailPlaceholder(BuildContext context, {double size = 40}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-
-  Widget _buildThumbnailFallback(BuildContext context, {double size = 40}) {
-    final isUrlItem = item.type == 'url';
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Icon(
-        isUrlItem ? Icons.link : Icons.file_present,
-        size: size * 0.6,
-        color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ],
       ),
     );
   }
@@ -1179,10 +1231,11 @@ class _ItemTile extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
+        final cs = Theme.of(context).colorScheme;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: cs.error,
           ),
         );
       }
