@@ -25,6 +25,7 @@ import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
 
 final getIt = GetIt.instance;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -156,13 +157,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mnemata',
       navigatorKey: navigatorKey,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
+      theme: MnemataTheme.light,
+      darkTheme: MnemataTheme.dark,
+      themeMode: ThemeMode.system,
       home: const ItemListScreen(),
     );
   }
