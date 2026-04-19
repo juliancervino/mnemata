@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
-import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/core/widgets/item_card.dart' as item_card;
 import 'package:mnemata/core/widgets/section_label.dart';
 
@@ -215,7 +214,7 @@ class _RecycleRow extends StatelessWidget {
                   source: source,
                   readTime: 'deleted $deletedLabel',
                   tags: const [],
-                  thumbTone: MnemataColors.ink4,
+                  thumbTone: cs.outlineVariant,
                 ),
               ),
             ),

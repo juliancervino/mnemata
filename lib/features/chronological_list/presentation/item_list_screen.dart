@@ -708,6 +708,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Widget _buildTagFilterRow(BuildContext context, AppDatabase database) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 44,
       child: StreamBuilder<List<Label>>(
@@ -722,7 +723,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: TagChip(
                   label: 'all',
-                  color: MnemataColors.ink3,
+                  color: cs.onSurfaceVariant,
                   active: _selectedLabelIds.isEmpty && !_isHistoryMode,
                   onTap: () {
                     setState(() {
@@ -736,7 +737,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: TagChip(
                   label: 'history',
-                  color: MnemataColors.ink3,
+                  color: cs.onSurfaceVariant,
                   active: _isHistoryMode,
                   onTap: () {
                     setState(() {
