@@ -258,10 +258,6 @@ class MnemataTheme {
 
   static TextTheme _textTheme(ColorScheme cs) {
     final serif = GoogleFonts.instrumentSerifTextTheme();
-    // NOTE: google_fonts 6.3.3 does not ship Geist. Substituted with Inter Tight
-    // (closest visual analog). If Geist is needed, bundle it as a local asset
-    // per TYPOGRAPHY.md and swap this call for a manually-built TextTheme.
-    final sans  = GoogleFonts.interTightTextTheme();
 
     return TextTheme(
       // Display & headlines — serif
@@ -289,29 +285,29 @@ class MnemataTheme {
         fontSize: 19, height: 1.55, letterSpacing: -0.05, color: cs.onSurface,
       ),
 
-      // UI — sans
-      titleMedium: sans.titleMedium!.copyWith(
+      // UI — sans (Geist, bundled as local asset)
+      titleMedium: const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 15, height: 1.4, fontWeight: FontWeight.w500, color: cs.onSurface,
       ),
-      titleSmall:  sans.titleSmall!.copyWith(
+      titleSmall:  const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 13, height: 1.4, fontWeight: FontWeight.w500, color: cs.onSurface,
       ),
-      bodyLarge:   sans.bodyLarge!.copyWith(
+      bodyLarge:   const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 15, height: 1.5, color: cs.onSurface,
       ),
-      bodyMedium:  sans.bodyMedium!.copyWith(
+      bodyMedium:  const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 13, height: 1.5, color: cs.onSurfaceVariant,
       ),
-      bodySmall:   sans.bodySmall!.copyWith(
+      bodySmall:   const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 12, height: 1.4, color: cs.onSurfaceVariant,
       ),
-      labelLarge:  sans.labelLarge!.copyWith(
+      labelLarge:  const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurface,
       ),
-      labelMedium: sans.labelMedium!.copyWith(
+      labelMedium: const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant,
       ),
-      labelSmall:  sans.labelSmall!.copyWith(
+      labelSmall:  const TextStyle(fontFamily: 'Geist').copyWith(
         fontSize: 11, fontWeight: FontWeight.w500,
         letterSpacing: 1.2, color: cs.onSurfaceVariant,
       ),
