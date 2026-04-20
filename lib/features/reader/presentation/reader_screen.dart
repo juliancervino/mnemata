@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
 import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
@@ -11,6 +13,7 @@ import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
+import 'package:mnemata/features/reader/presentation/widgets/reader_action_pill.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -26,6 +29,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late final AppDatabase _database;
   late final AnnotationService _annotationService;
   late final String _plainContent;
+  late final String _readTime;
 
   List<AnnotationRecord> _annotations = const <AnnotationRecord>[];
 
@@ -35,6 +39,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _database = GetIt.instance<AppDatabase>();
     _annotationService = GetIt.instance<AnnotationService>();
     _plainContent = _extractPlainText(widget.item.content ?? '');
+    _readTime = _estimateReadTime(_plainContent);
     _reloadAnnotations();
   }
 
@@ -50,202 +55,148 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final hasContent =
+        widget.item.content != null && widget.item.content!.isNotEmpty;
+
+    final source = _deriveSource();
+    final metaTitle = [
+      if (source.isNotEmpty) source,
+      if (_readTime.isNotEmpty) _readTime,
+    ].join(' · ');
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.item.title ?? 'Article'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          metaTitle,
+          style: theme.textTheme.mono(
+            size: 10,
+            letterSpacing: 1.0,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        centerTitle: true,
         actions: [
-          if (widget.item.url != null)
-            IconButton(
-              icon: const Icon(Icons.open_in_new),
-              tooltip: 'Open in Browser',
-              onPressed: _openItemUrl,
-            ),
           IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share Rich Content',
-            onPressed: _shareItem,
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'AI Summary',
-            onPressed: _openSummary,
-          ),
-          IconButton(
-            icon: const Icon(Icons.label_outline),
-            tooltip: 'AI Tag Suggestions',
-            onPressed: _openTagSuggestions,
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'delete') {
-                await _confirmDelete();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+            icon: const Icon(Icons.more_horiz),
+            tooltip: 'More',
+            onPressed: _openMoreMenu,
           ),
         ],
       ),
-      body: SafeArea(
-        child: widget.item.content != null && widget.item.content!.isNotEmpty
-            ? Scrollbar(
-                thickness: 4,
-                radius: const Radius.circular(8),
-                thumbVisibility: true,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (widget.item.title != null) ...[
-                        Text(
-                          widget.item.title!,
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+      body: hasContent
+          ? Stack(
+              children: [
+                SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(28, 36, 28, 120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _HeroHeader(
+                          title: widget.item.title ?? '',
+                          author: widget.item.author,
+                          source: source,
+                          createdAt: widget.item.createdAt,
                         ),
-                        if ((widget.item.author ?? '').trim().isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'By ${widget.item.author!.trim()}',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontStyle: FontStyle.italic),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                      ],
-                      StreamBuilder<List<Label>>(
-                        stream: _database.watchLabelsForItem(widget.item.id),
-                        builder: (context, snapshot) {
-                          final labels = snapshot.data ?? [];
-                          if (labels.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: labels
-                                  .map(
-                                    (label) => Chip(
-                                      label: Text(
-                                        label.name,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      backgroundColor: label.color != null
-                                          ? Color(
-                                              label.color!,
-                                            ).withValues(alpha: 0.2)
-                                          : null,
-                                      side: BorderSide(
-                                        color: label.color != null
-                                            ? Color(label.color!)
-                                            : Colors.blue,
-                                      ),
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          );
-                        },
-                      ),
-                      if (widget.item.url != null) ...[
-                        Text(
-                          _safeHost(widget.item.url!),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                        const SizedBox(height: 24),
+                        _LabelsRow(
+                          database: _database,
+                          itemId: widget.item.id,
+                        ),
+                        _AnnotationsExpansion(
+                          itemId: widget.item.id,
+                          service: _annotationService,
+                          onChanged: _reloadAnnotations,
                         ),
                         const SizedBox(height: 16),
+                        SelectableText.rich(
+                          _buildHighlightedContentSpan(context),
+                          contextMenuBuilder:
+                              (context, editableTextState) {
+                            final items =
+                                editableTextState.contextMenuButtonItems;
+                            items.insert(
+                              0,
+                              ContextMenuButtonItem(
+                                label: 'Highlight',
+                                onPressed: () {
+                                  final selection = editableTextState
+                                      .textEditingValue
+                                      .selection;
+                                  editableTextState.hideToolbar();
+                                  _saveHighlightOnlyFromSelection(selection);
+                                },
+                              ),
+                            );
+                            items.insert(
+                              1,
+                              ContextMenuButtonItem(
+                                label: 'Highlight + note',
+                                onPressed: () {
+                                  final selection = editableTextState
+                                      .textEditingValue
+                                      .selection;
+                                  editableTextState.hideToolbar();
+                                  _saveHighlightWithNoteFromSelection(
+                                    selection,
+                                  );
+                                },
+                              ),
+                            );
+                            return AdaptiveTextSelectionToolbar.buttonItems(
+                              anchors: editableTextState.contextMenuAnchors,
+                              buttonItems: items,
+                            );
+                          },
+                          style: theme.textTheme.titleLarge,
+                        ),
                       ],
-                      ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        title: const Text('Highlights & Notes'),
-                        children: [
-                          AnnotationListPanel(
-                            itemId: widget.item.id,
-                            service: _annotationService,
-                            onChanged: _reloadAnnotations,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      SelectableText.rich(
-                        _buildHighlightedContentSpan(context),
-                        contextMenuBuilder: (context, editableTextState) {
-                          final items =
-                              editableTextState.contextMenuButtonItems;
-                          items.insert(
-                            0,
-                            ContextMenuButtonItem(
-                              label: 'Highlight',
-                              onPressed: () {
-                                final selection = editableTextState
-                                    .textEditingValue
-                                    .selection;
-                                editableTextState.hideToolbar();
-                                _saveHighlightOnlyFromSelection(selection);
-                              },
-                            ),
-                          );
-                          items.insert(
-                            1,
-                            ContextMenuButtonItem(
-                              label: 'Highlight + note',
-                              onPressed: () {
-                                final selection = editableTextState
-                                    .textEditingValue
-                                    .selection;
-                                editableTextState.hideToolbar();
-                                _saveHighlightWithNoteFromSelection(selection);
-                              },
-                            ),
-                          );
-                          return AdaptiveTextSelectionToolbar.buttonItems(
-                            anchors: editableTextState.contextMenuAnchors,
-                            buttonItems: items,
-                          );
-                        },
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyLarge?.copyWith(height: 1.6),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
+                    ),
                   ),
                 ),
-              )
-            : Center(
+                Positioned(
+                  bottom: MediaQuery.of(context).viewPadding.bottom + 16,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: ReaderActionPill(
+                      onSummary: _openSummary,
+                      onHighlight: _startHighlight,
+                      onTag: _openTagSuggestions,
+                      onShare: _shareItem,
+                      onBookmark: _togglePin,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : SafeArea(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.article_outlined,
                       size: 64,
-                      color: Colors.grey,
+                      color: cs.outlineVariant,
                     ),
                     const SizedBox(height: 16),
-                    const Text('No content extracted yet.'),
+                    Text(
+                      'No content extracted yet.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
                     if (widget.item.url != null) ...[
-                      const SizedBox(height: 8),
-                      ElevatedButton(
+                      const SizedBox(height: 12),
+                      FilledButton(
                         onPressed: _openItemUrl,
                         child: const Text('Open in Browser'),
                       ),
@@ -253,14 +204,85 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ],
                 ),
               ),
+            ),
+    );
+  }
+
+  Future<void> _openMoreMenu() async {
+    final cs = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.item.url != null)
+                ListTile(
+                  leading: const Icon(Icons.open_in_new),
+                  title: const Text('Open in Browser'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _openItemUrl();
+                  },
+                ),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: cs.error),
+                title: Text(
+                  'Delete',
+                  style: TextStyle(color: cs.error),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _confirmDelete();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _startHighlight() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Select text in the article to highlight it.'),
       ),
     );
   }
 
+  void _togglePin() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bookmarks are not available yet.')),
+    );
+  }
+
+  String _deriveSource() {
+    final rawUrl = widget.item.url;
+    if (rawUrl == null || rawUrl.trim().isEmpty) {
+      return '';
+    }
+    return _safeHost(rawUrl);
+  }
+
+  String _estimateReadTime(String plainText) {
+    if (plainText.trim().isEmpty) {
+      return '';
+    }
+    final words = plainText.trim().split(RegExp(r'\s+')).length;
+    final minutes = (words / 225).ceil().clamp(1, 999);
+    return '$minutes min read';
+  }
+
   TextSpan _buildHighlightedContentSpan(BuildContext context) {
-    final baseStyle = Theme.of(
-      context,
-    ).textTheme.bodyLarge?.copyWith(height: 1.6);
+    final baseStyle = Theme.of(context).textTheme.titleLarge;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highlightColor = isDark
+        ? MnemataColors.accentSoftDark
+        : MnemataColors.accentSoft;
     if (_annotations.isEmpty || _plainContent.isEmpty) {
       return TextSpan(text: _plainContent, style: baseStyle);
     }
@@ -297,7 +319,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           TextSpan(
             text: _plainContent.substring(start, end),
             style: baseStyle?.copyWith(
-              backgroundColor: Colors.yellowAccent.withValues(alpha: 0.65),
+              backgroundColor: highlightColor,
             ),
           ),
         );
@@ -472,6 +494,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _confirmDelete() async {
+    final cs = Theme.of(context).colorScheme;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -486,7 +509,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: cs.error),
             child: const Text('DELETE'),
           ),
         ],
@@ -586,6 +609,157 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroHeader extends StatelessWidget {
+  const _HeroHeader({
+    required this.title,
+    required this.author,
+    required this.source,
+    required this.createdAt,
+  });
+
+  final String title;
+  final String? author;
+  final String source;
+  final DateTime createdAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final kicker = source.isNotEmpty ? source : null;
+    final formattedDate = DateFormat('MMM d, yyyy').format(createdAt);
+    final trimmedAuthor = author?.trim();
+    final metaText = [
+      if (trimmedAuthor != null && trimmedAuthor.isNotEmpty) trimmedAuthor,
+      formattedDate,
+    ].join(' · ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (kicker != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(
+              kicker.toUpperCase(),
+              style: theme.textTheme.tracked(cs.secondary),
+            ),
+          ),
+        Text(
+          title,
+          style: theme.textTheme.displaySmall!.copyWith(
+            fontSize: 36,
+            height: 1.08,
+            letterSpacing: -0.9,
+          ),
+        ),
+        const SizedBox(height: 28),
+        const Divider(),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [MnemataColors.tag1, MnemataColors.tag4],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                metaText,
+                style: theme.textTheme.mono(
+                  size: 11,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _LabelsRow extends StatelessWidget {
+  const _LabelsRow({required this.database, required this.itemId});
+
+  final AppDatabase database;
+  final int itemId;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return StreamBuilder<List<Label>>(
+      stream: database.watchLabelsForItem(itemId),
+      builder: (context, snapshot) {
+        final labels = snapshot.data ?? const <Label>[];
+        if (labels.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: labels
+                .map(
+                  (label) => Chip(
+                    label: Text(
+                      label.name,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    backgroundColor: label.color != null
+                        ? Color(label.color!).withValues(alpha: 0.2)
+                        : null,
+                    side: BorderSide(
+                      color: label.color != null
+                          ? Color(label.color!)
+                          : cs.outline,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AnnotationsExpansion extends StatelessWidget {
+  const _AnnotationsExpansion({
+    required this.itemId,
+    required this.service,
+    required this.onChanged,
+  });
+
+  final int itemId;
+  final AnnotationService service;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: const Text('Highlights & Notes'),
+      children: [
+        AnnotationListPanel(
+          itemId: itemId,
+          service: service,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }

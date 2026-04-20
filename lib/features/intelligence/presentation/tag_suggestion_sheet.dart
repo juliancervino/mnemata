@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 
 class TagSuggestionSheet extends StatefulWidget {
@@ -29,19 +30,41 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+
     return SafeArea(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'AI Tag Suggestions',
-              style: Theme.of(context).textTheme.titleLarge,
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.outlineVariant,
+                  borderRadius: BorderRadius.circular(MnemataRadii.sm),
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            // Kicker
+            Text(
+              'TAG SUGGESTIONS \u00B7 CLAUDE',
+              style: theme.textTheme.tracked(cs.secondary),
+            ),
+            const SizedBox(height: 8),
+            // Title
+            Text(
+              'Suggested tags',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 20),
             if (_isLoading) const LinearProgressIndicator(),
             if (_result != null) ...[
               if (!_result!.isSuccess)
@@ -50,29 +73,32 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
                   children: [
                     Text(
                       _result!.guidance,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+                      style: theme.textTheme.bodyMedium!.copyWith(
+                        color: cs.error,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _generate,
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Retry'),
                     ),
                   ],
                 )
               else if (_result!.suggestedLabels.isEmpty)
-                const Text('No matching existing tags found for this content.')
+                Text(
+                  'No matching existing tags found for this content.',
+                  style: theme.textTheme.bodyLarge,
+                )
               else
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Select tags to apply',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'SELECT TAGS TO APPLY',
+                      style: theme.textTheme.tracked(cs.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -89,7 +115,7 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
                                 size: 16,
                                 color: label.color != null
                                     ? Color(label.color!)
-                                    : Colors.blue,
+                                    : cs.primary,
                               ),
                               onSelected: (selected) {
                                 setState(() {
@@ -106,21 +132,25 @@ class _TagSuggestionSheetState extends State<TagSuggestionSheet> {
                     ),
                   ],
                 ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               Row(
                 children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Ignore'),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Ignore'),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed:
-                        (_result?.isSuccess == true &&
-                            _selectedLabelIds.isNotEmpty)
-                        ? _apply
-                        : null,
-                    child: Text('Apply (${_selectedLabelIds.length})'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed:
+                          (_result?.isSuccess == true &&
+                              _selectedLabelIds.isNotEmpty)
+                          ? _apply
+                          : null,
+                      child: Text('Apply (${_selectedLabelIds.length})'),
+                    ),
                   ),
                 ],
               ),

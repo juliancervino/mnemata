@@ -6,6 +6,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 import 'package:mnemata/features/intelligence/services/semantic_indexer_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
@@ -60,7 +61,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
       final yearStr = DateTime.now().year.toString();
       final yearTagId = await database.getOrCreateLabel(
         yearStr,
-        color: Colors.blueGrey.toARGB32(),
+        color: MnemataColors.tag6.toARGB32(),
       );
       if (mounted) setState(() => _selectedLabelIds.add(yearTagId));
     }
@@ -74,7 +75,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
             final hostStr = uri.host.replaceFirst('www.', '');
             final domainTagId = await database.getOrCreateLabel(
               hostStr,
-              color: Colors.teal.toARGB32(),
+              color: MnemataColors.tag2.toARGB32(),
             );
             if (mounted) setState(() => _selectedLabelIds.add(domainTagId));
           }
@@ -161,7 +162,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
   void _showAddTagDialog(BuildContext context, AppDatabase database) {
     final nameController = TextEditingController();
-    Color selectedColor = Colors.blue;
+    Color selectedColor = Theme.of(context).colorScheme.primary;
 
     showDialog(
       context: context,
@@ -224,7 +225,11 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final database = GetIt.instance<AppDatabase>();
+
+    final sourceLabel = widget.type == 'file' ? 'FILE' : 'URL';
 
     return PopScope(
       canPop: false,
@@ -243,26 +248,33 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
           actions: [
             TextButton(
               onPressed: _handleSave,
-              child: const Text(
-                'SAVE',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: const Text('SAVE'),
             ),
           ],
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Kicker
+                Text(
+                  'SAVE \u00B7 $sourceLabel',
+                  style: theme.textTheme.tracked(cs.secondary),
+                ),
+                const SizedBox(height: 8),
+                // Title
+                Text(
+                  'New item',
+                  style: theme.textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 20),
                 if (widget.thumbnailUrl != null)
                   Center(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                          BorderRadius.circular(MnemataRadii.lg),
                       child: Image.network(
                         widget.thumbnailUrl!,
                         height: 150,
@@ -277,35 +289,33 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                   controller: _titleController,
                   decoration: const InputDecoration(
                     labelText: 'Title',
-                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _authorController,
                   decoration: const InputDecoration(
                     labelText: 'Author (optional)',
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
                 if (widget.url != null)
                   Text(
                     'Source: ${widget.url}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall,
                   ),
                 if (widget.filePath != null)
                   Text(
                     'File: ${widget.filePath!.split('/').last}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall,
                   ),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Assign Labels',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'ASSIGN LABELS',
+                      style: theme.textTheme.tracked(cs.onSurfaceVariant),
                     ),
                     TextButton.icon(
                       onPressed: () => _showAddTagDialog(context, database),
@@ -329,13 +339,17 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                         )
                         .toList(growable: false);
                     if (labels.isEmpty) {
-                      return const Text('No labels created yet.');
+                      return Text(
+                        'No labels created yet.',
+                        style: theme.textTheme.bodyMedium,
+                      );
                     }
 
                     return Wrap(
                       spacing: 8,
                       children: labels.map((label) {
-                        final isSelected = _selectedLabelIds.contains(label.id);
+                        final isSelected =
+                            _selectedLabelIds.contains(label.id);
                         return FilterChip(
                           label: Text(label.name),
                           selected: isSelected,
@@ -344,7 +358,7 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                             size: 16,
                             color: label.color != null
                                 ? Color(label.color!)
-                                : Colors.blue,
+                                : cs.primary,
                           ),
                           onSelected: (selected) {
                             setState(() {
@@ -366,24 +380,20 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Content Preview',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        'CONTENT PREVIEW',
+                        style:
+                            theme.textTheme.tracked(cs.onSurfaceVariant),
                       ),
                       Text(
                         'Length: ${widget.content!.length} chars',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Raw Snippet: ${widget.content!.substring(0, widget.content!.length > 100 ? 100 : widget.content!.length)}...',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
+                    style: theme.textTheme.bodySmall!.copyWith(
                       fontStyle: FontStyle.italic,
                     ),
                     maxLines: 1,
@@ -391,22 +401,41 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
+                      color: cs.surfaceContainerLow,
+                      border: Border.all(color: cs.outline),
+                      borderRadius:
+                          BorderRadius.circular(MnemataRadii.lg),
                     ),
                     constraints: const BoxConstraints(maxHeight: 250),
                     child: SingleChildScrollView(
                       child: HtmlWidget(
                         widget.content!,
-                        textStyle: const TextStyle(fontSize: 14),
+                        textStyle: theme.textTheme.bodyLarge,
                       ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 32), // Padding for system buttons
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _handleDiscard,
+                        child: const Text('Discard'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _handleSave,
+                        child: const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16), // Padding for system buttons
               ],
             ),
           ),

@@ -3,6 +3,9 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/core/widgets/section_label.dart';
+import 'package:mnemata/core/widgets/tag_chip.dart';
 
 class LabelManagerScreen extends StatefulWidget {
   const LabelManagerScreen({super.key});
@@ -14,7 +17,7 @@ class LabelManagerScreen extends StatefulWidget {
 class _LabelManagerScreenState extends State<LabelManagerScreen> {
   final _nameController = TextEditingController();
   bool _isFolder = false;
-  Color _selectedColor = Colors.blue;
+  Color _selectedColor = MnemataColors.tag1;
 
   @override
   void dispose() {
@@ -54,13 +57,14 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
     _nameController.clear();
     setState(() {
       _isFolder = false;
-      _selectedColor = Colors.blue;
+      _selectedColor = MnemataColors.tag1;
     });
   }
 
   void _editLabel(Label label) {
     final nameController = TextEditingController(text: label.name);
-    Color editColor = label.color != null ? Color(label.color!) : Colors.blue;
+    Color editColor =
+        label.color != null ? Color(label.color!) : MnemataColors.tag1;
 
     showDialog(
       context: context,
@@ -111,92 +115,198 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Labels'),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8, bottom: 8),
+                    child: SectionLabel('Organization'),
+                  ),
+                  Text(
+                    'Labels',
+                    style: theme.textTheme.displaySmall,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(MnemataRadii.lg),
+                  border: Border.all(color: cs.outline, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _pickColor(context, _selectedColor, (color) {
+                        setState(() => _selectedColor = color);
+                      }),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _selectedColor,
+                          border: Border.all(color: cs.outline, width: 0.5),
+                        ),
+                        child: Icon(
+                          Icons.palette,
+                          size: 16,
+                          color: cs.surface,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _nameController,
+                        style: theme.textTheme.bodyLarge,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          hintText: 'New label name',
+                          isDense: true,
+                          filled: false,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Add label',
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: cs.onSurface,
+                      onPressed: _addLabel,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: SectionLabel('All labels'),
+            ),
+            Expanded(
+              child: StreamBuilder<List<Label>>(
+                stream: database.watchAllLabels(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final labels = snapshot.data!;
+                  if (labels.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No labels created yet.',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(MnemataRadii.lg),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius:
+                              BorderRadius.circular(MnemataRadii.lg),
+                          border:
+                              Border.all(color: cs.outline, width: 0.5),
+                        ),
+                        child: ListView.separated(
+                          itemCount: labels.length,
+                          separatorBuilder: (_, _) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final label = labels[index];
+                            final color = label.color != null
+                                ? Color(label.color!)
+                                : MnemataColors.tag1;
+
+                            return _LabelRow(
+                              label: label,
+                              color: color,
+                              onEdit: () => _editLabel(label),
+                              onDelete: () =>
+                                  database.deleteLabel(label.id),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-      body: Column(
+    );
+  }
+}
+
+class _LabelRow extends StatelessWidget {
+  const _LabelRow({
+    required this.label,
+    required this.color,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Label label;
+  final Color color;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 4, 10),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Expanded(
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: () => _pickColor(context, _selectedColor, (color) {
-                    setState(() => _selectedColor = color);
-                  }),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _selectedColor,
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: const Icon(Icons.palette, size: 18, color: Colors.white),
-                  ),
-                ),
+                TagChip(label: label.name, color: color, compact: true),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      hintText: 'New Tag Name',
-                    ),
+                if (label.isFolder)
+                  Text(
+                    'folder',
+                    style: theme.textTheme.mono(color: cs.onSurfaceVariant),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
-                  onPressed: _addLabel,
-                ),
               ],
             ),
           ),
-          const Divider(),
-          Expanded(
-            child: StreamBuilder<List<Label>>(
-              stream: database.watchAllLabels(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final labels = snapshot.data!;
-                if (labels.isEmpty) {
-                  return const Center(child: Text('No tags created yet.'));
-                }
-
-                return ListView.builder(
-                  itemCount: labels.length,
-                  itemBuilder: (context, index) {
-                    final label = labels[index];
-                    final color = label.color != null ? Color(label.color!) : Colors.blue;
-                    
-                    return ListTile(
-                      leading: Icon(
-                        Icons.label,
-                        color: color,
-                      ),
-                      title: Text(label.name),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _editLabel(label),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => database.deleteLabel(label.id),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+          IconButton(
+            tooltip: 'Edit label',
+            icon: const Icon(Icons.edit_outlined),
+            color: cs.onSurfaceVariant,
+            onPressed: onEdit,
+          ),
+          IconButton(
+            tooltip: 'Delete label',
+            icon: const Icon(Icons.delete_outline),
+            color: cs.error,
+            onPressed: onDelete,
           ),
         ],
       ),
