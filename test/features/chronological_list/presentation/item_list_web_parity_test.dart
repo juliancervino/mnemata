@@ -1,14 +1,11 @@
-import 'dart:ffi';
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
+import 'package:mnemata/features/chronological_list/services/list_state_snapshot.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
@@ -16,7 +13,8 @@ import 'package:mnemata/features/intelligence/services/api_key_store.dart';
 import 'package:mnemata/features/intelligence/services/semantic_search_service.dart';
 import 'package:mnemata/features/settings/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqlite3/open.dart';
+
+import '../../../helpers/test_database_factory.dart';
 
 class _Store implements SecureKeyValueStore {
   final Map<String, String> _values = <String, String>{};
@@ -42,18 +40,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  setUpAll(() {
-    if (Platform.isLinux) {
-      open.overrideFor(
-        OperatingSystem.linux,
-        () => DynamicLibrary.open('libsqlite3.so.0'),
-      );
-    }
-  });
-
   setUp(() async {
     await getIt.reset();
-    database = AppDatabase.forTesting(NativeDatabase.memory());
+    ListStateSnapshotStore.clear();
+    database = createTestDatabase();
     getIt.registerSingleton<AppDatabase>(database);
 
     final extractionService = ExtractionService();
@@ -89,6 +79,7 @@ void main() {
 
   tearDown(() async {
     await database.close();
+    await getIt.reset();
   });
 
   testWidgets('newest-first order is preserved for initial list rendering', (
@@ -122,102 +113,141 @@ void main() {
     await _clearPendingTimers(tester);
   });
 
-  testWidgets('more filters affordance is visible and opens filter selector flow', (
-    tester,
-  ) async {
-    final now = DateTime.utc(2026, 1, 10, 8);
-    await database.insertItem(
-      MnemataItemsCompanion.insert(
-        title: const Value('Item One'),
-        url: const Value('https://example.com/one'),
-        type: 'url',
-        createdAt: now,
-      ),
-    );
-
-    await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('more filters'), findsOneWidget);
-    await tester.tap(find.text('more filters'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('TAGS'), findsWidgets);
-
-    await _clearPendingTimers(tester);
-  });
-
-  testWidgets('list state snapshot restores query filter and scroll after rebuild', (
-    tester,
-  ) async {
-    final now = DateTime.utc(2026, 1, 10, 8);
-    final focusLabelId = await database.getOrCreateLabel('focus');
-
-    for (var i = 0; i < 80; i++) {
-      final isFocus = i < 60;
-      final id = await database.insertItem(
+  testWidgets(
+    'more filters affordance is visible and opens filter selector flow',
+    (tester) async {
+      final now = DateTime.utc(2026, 1, 10, 8);
+      await database.insertItem(
         MnemataItemsCompanion.insert(
-          title: Value(
-            isFocus ? 'Focus item $i' : 'Other item $i',
+          title: const Value('Item One'),
+          url: const Value('https://example.com/one'),
+          type: 'url',
+          createdAt: now,
+        ),
+      );
+
+      await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('more filters'), findsOneWidget);
+      await tester.tap(find.text('more filters'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TAGS'), findsWidgets);
+
+      await _clearPendingTimers(tester);
+    },
+  );
+
+  testWidgets(
+    'list state snapshot restores query filter and scroll after rebuild',
+    (tester) async {
+      final now = DateTime.utc(2026, 1, 10, 8);
+      final focusLabelId = await database.getOrCreateLabel('focus');
+
+      for (var i = 0; i < 80; i++) {
+        final isFocus = i < 60;
+        final id = await database.insertItem(
+          MnemataItemsCompanion.insert(
+            title: Value(isFocus ? 'Focus item $i' : 'Other item $i'),
+            url: Value('https://example.com/$i'),
+            type: 'url',
+            createdAt: now.subtract(Duration(minutes: i)),
           ),
-          url: Value('https://example.com/$i'),
+        );
+        if (isFocus) {
+          await database.assignLabelToItem(id, focusLabelId);
+        }
+      }
+
+      await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+      await tester.pumpAndSettle();
+
+      final focusFilterChip = find.byWidgetPredicate(
+        (widget) => widget is TagChip && widget.label == 'focus',
+      );
+      expect(focusFilterChip, findsOneWidget);
+      await tester.tap(focusFilterChip);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'item');
+      await tester.pumpAndSettle();
+
+      final scrollableFinder = find.byType(Scrollable).first;
+      await tester.fling(scrollableFinder, const Offset(0, -1200), 1800);
+      await tester.pumpAndSettle();
+
+      var beforeOffset = tester
+          .state<ScrollableState>(scrollableFinder)
+          .position
+          .pixels;
+      if (beforeOffset == 0) {
+        await tester.drag(scrollableFinder, const Offset(0, -600));
+        await tester.pumpAndSettle();
+        beforeOffset = tester
+            .state<ScrollableState>(scrollableFinder)
+            .position
+            .pixels;
+      }
+
+      await tester.pumpWidget(Container());
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+      await tester.pumpAndSettle();
+
+      final restoredOffset = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .pixels;
+      final restoredSearchField = tester.widget<TextField>(
+        find.byType(TextField),
+      );
+
+      expect(find.textContaining('Other item'), findsNothing);
+      expect(restoredSearchField.controller?.text, 'item');
+      expect((restoredOffset - beforeOffset).abs(), lessThan(24));
+
+      await _clearPendingTimers(tester);
+    },
+  );
+
+  testWidgets('incremental pagination appends next page near list end', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 1, 10, 8);
+    for (var i = 0; i < 95; i++) {
+      await database.insertItem(
+        MnemataItemsCompanion.insert(
+          title: Value('Pagination item $i'),
+          url: Value('https://example.com/pagination/$i'),
           type: 'url',
           createdAt: now.subtract(Duration(minutes: i)),
         ),
       );
-      if (isFocus) {
-        await database.assignLabelToItem(id, focusLabelId);
-      }
     }
 
     await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
     await tester.pumpAndSettle();
 
-    final focusFilterChip = find.byWidgetPredicate(
-      (widget) => widget is TagChip && widget.label == 'focus',
+    final initialMarker = tester.widget<Text>(
+      find.byKey(const Key('pagination-visible-count')),
     );
-    expect(focusFilterChip, findsOneWidget);
-    await tester.tap(focusFilterChip);
-    await tester.pumpAndSettle();
+    expect(initialMarker.data, 'visible:40');
 
-    await tester.tap(find.byIcon(Icons.search));
-    await tester.pumpAndSettle();
+    final dynamic listState = tester.state(find.byType(ItemListScreen));
+    listState.debugLoadNextPageForTests();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
-    await tester.enterText(find.byType(TextField), 'item');
-    await tester.pumpAndSettle();
-
-    final scrollableFinder = find.byType(Scrollable).first;
-    await tester.fling(scrollableFinder, const Offset(0, -1200), 1800);
-    await tester.pumpAndSettle();
-
-    var beforeOffset = tester
-      .state<ScrollableState>(scrollableFinder)
-      .position
-      .pixels;
-    if (beforeOffset == 0) {
-      await tester.drag(scrollableFinder, const Offset(0, -600));
-      await tester.pumpAndSettle();
-      beforeOffset = tester
-        .state<ScrollableState>(scrollableFinder)
-        .position
-        .pixels;
-    }
-
-    await tester.pumpWidget(Container());
-    await tester.pumpAndSettle();
-
-    await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
-    await tester.pumpAndSettle();
-
-    final restoredOffset = tester
-        .state<ScrollableState>(find.byType(Scrollable).first)
-        .position
-        .pixels;
-    final restoredSearchField = tester.widget<TextField>(find.byType(TextField));
-
-    expect(find.textContaining('Other item'), findsNothing);
-    expect(restoredSearchField.controller?.text, 'item');
-    expect((restoredOffset - beforeOffset).abs(), lessThan(24));
+    final expandedMarker = tester.widget<Text>(
+      find.byKey(const Key('pagination-visible-count')),
+    );
+    final expandedCount = int.parse(expandedMarker.data!.split(':').last);
+    expect(expandedCount, greaterThan(40));
 
     await _clearPendingTimers(tester);
   });

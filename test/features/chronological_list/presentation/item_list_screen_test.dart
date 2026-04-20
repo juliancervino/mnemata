@@ -159,37 +159,38 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('ItemListScreen shows author when available and keeps subtitle fallback when absent', (
-    WidgetTester tester,
-  ) async {
-    final now = DateTime.now();
-    await database.insertItem(
-      MnemataItemsCompanion.insert(
-        title: const Value('Authored Item'),
-        author: const Value('Jane Doe'),
-        url: const Value('https://author.example.com/story'),
-        type: 'url',
-        createdAt: now,
-      ),
-    );
-    await database.insertItem(
-      MnemataItemsCompanion.insert(
-        title: const Value('Fallback Item'),
-        url: const Value('https://fallback.example.com/story'),
-        type: 'url',
-        createdAt: now.subtract(const Duration(minutes: 1)),
-      ),
-    );
+  testWidgets(
+    'ItemListScreen shows author when available and keeps subtitle fallback when absent',
+    (WidgetTester tester) async {
+      final now = DateTime.now();
+      await database.insertItem(
+        MnemataItemsCompanion.insert(
+          title: const Value('Authored Item'),
+          author: const Value('Jane Doe'),
+          url: const Value('https://author.example.com/story'),
+          type: 'url',
+          createdAt: now,
+        ),
+      );
+      await database.insertItem(
+        MnemataItemsCompanion.insert(
+          title: const Value('Fallback Item'),
+          url: const Value('https://fallback.example.com/story'),
+          type: 'url',
+          createdAt: now.subtract(const Duration(minutes: 1)),
+        ),
+      );
 
-    await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Jane Doe'), findsOneWidget);
-    expect(find.text('fallback.example.com'), findsOneWidget);
+      expect(find.text('Jane Doe'), findsOneWidget);
+      expect(find.text('fallback.example.com'), findsOneWidget);
 
-    await tester.pumpWidget(Container());
-    await tester.pump(const Duration(seconds: 1));
-  });
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
 
   testWidgets('RecycleBinScreen lists recycled items and restores them', (
     WidgetTester tester,
@@ -217,6 +218,103 @@ void main() {
 
     final activeItems = await database.watchAllItems().first;
     expect(activeItems.map((item) => item.id), contains(itemId));
+
+    await tester.pumpWidget(Container());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets(
+    'item quick actions expose read/favorite toggles and open reader',
+    (WidgetTester tester) async {
+      final now = DateTime.now();
+      final itemId = await database.insertItem(
+        MnemataItemsCompanion.insert(
+          title: const Value('Quick Action Item'),
+          url: const Value('https://quick.example.com'),
+          type: 'url',
+          createdAt: now,
+        ),
+      );
+
+      await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Item actions').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open Reader'), findsOneWidget);
+      expect(find.text('Mark as Read'), findsOneWidget);
+      expect(find.text('Favorite'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+      expect(find.text('Share'), findsOneWidget);
+
+      await tester.tap(find.text('Mark as Read'));
+      await tester.pumpAndSettle();
+
+      final labelsAfterRead = await database.watchLabelsForItem(itemId).first;
+      expect(
+        labelsAfterRead.any((label) => label.name.toLowerCase() == 'read'),
+        isTrue,
+      );
+
+      await tester.tap(find.byTooltip('Item actions').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Favorite'));
+      await tester.pumpAndSettle();
+
+      final labelsAfterFavorite = await database
+          .watchLabelsForItem(itemId)
+          .first;
+      expect(
+        labelsAfterFavorite.any(
+          (label) => label.name.toLowerCase() == 'favorite',
+        ),
+        isTrue,
+      );
+
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
+
+  testWidgets('delete quick action supports undo restore', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    final itemId = await database.insertItem(
+      MnemataItemsCompanion.insert(
+        title: const Value('Undo Candidate'),
+        url: const Value('https://undo.example.com'),
+        type: 'url',
+        createdAt: now,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: ItemListScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Item actions').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Move item to recycle bin?'), findsOneWidget);
+    await tester.tap(find.text('MOVE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Item moved to recycle bin'), findsOneWidget);
+    expect(
+      (await database.watchAllItems().first).map((item) => item.id),
+      isNot(contains(itemId)),
+    );
+
+    await tester.tap(find.text('UNDO'));
+    await tester.pumpAndSettle();
+
+    expect(
+      (await database.watchAllItems().first).map((item) => item.id),
+      contains(itemId),
+    );
 
     await tester.pumpWidget(Container());
     await tester.pump(const Duration(seconds: 1));

@@ -7,12 +7,15 @@ import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
-import 'package:mnemata/core/widgets/item_card.dart' show ItemCard, ItemCardData;
+import 'package:mnemata/core/widgets/item_card.dart'
+    show ItemCard, ItemCardData;
 import 'package:mnemata/core/widgets/section_label.dart';
 import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/item_quick_actions_menu.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/widgets/item_list_header.dart';
+import 'package:mnemata/features/chronological_list/services/list_pagination_controller.dart';
 import 'package:mnemata/features/chronological_list/services/list_state_snapshot.dart';
 import 'package:mnemata/features/ingestion/presentation/web_add_item_sheet.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
@@ -84,6 +87,11 @@ String _estimateReadTime(MnemataItem item) {
 
 // Derive the host / source label shown in the item card's meta row.
 String _sourceFor(MnemataItem item) {
+  final author = item.author?.trim();
+  if (author != null && author.isNotEmpty) {
+    return author;
+  }
+
   if (item.type == 'url' && item.url != null && item.url!.isNotEmpty) {
     try {
       final host = Uri.parse(item.url!).host;
@@ -133,14 +141,19 @@ class ItemListScreen extends StatefulWidget {
 }
 
 class _ItemListScreenState extends State<ItemListScreen> {
+  static const int _pageSize = 40;
+
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _listScrollController = ScrollController();
+  final ListPaginationController _paginationController =
+      ListPaginationController(pageSize: _pageSize);
   bool _isSearching = false;
   String _searchQuery = '';
   final Set<int> _selectedLabelIds = {};
   bool _isHistoryMode = false;
   double? _pendingScrollOffset;
+  int _latestStreamItemCount = 0;
 
   bool _isMultiSelectMode = false;
   final Set<int> _selectedItemIds = {};
@@ -162,7 +175,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
       });
       _persistListStateSnapshot();
     });
-    _listScrollController.addListener(_persistListStateSnapshot);
+    _listScrollController.addListener(_handleListScroll);
   }
 
   Future<void> _loadSemanticAvailability() async {
@@ -206,7 +219,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   @override
   void dispose() {
     _persistListStateSnapshot();
-    _listScrollController.removeListener(_persistListStateSnapshot);
+    _listScrollController.removeListener(_handleListScroll);
     _listScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -246,6 +259,45 @@ class _ItemListScreenState extends State<ItemListScreen> {
     );
   }
 
+  void _resetPagination() {
+    _paginationController.reset();
+  }
+
+  void _handleListScroll() {
+    _persistListStateSnapshot();
+
+    if (!_listScrollController.hasClients) {
+      return;
+    }
+
+    final position = _listScrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      return;
+    }
+
+    final remaining = position.maxScrollExtent - position.pixels;
+    if (remaining > 600) {
+      return;
+    }
+
+    final loadedMore = _paginationController.loadNextPage(
+      _latestStreamItemCount,
+    );
+    if (loadedMore && mounted) {
+      setState(() {});
+    }
+  }
+
+  @visibleForTesting
+  void debugLoadNextPageForTests() {
+    final loadedMore = _paginationController.loadNextPage(
+      _latestStreamItemCount,
+    );
+    if (loadedMore && mounted) {
+      setState(() {});
+    }
+  }
+
   void _restorePendingScrollOffset() {
     final targetOffset = _pendingScrollOffset;
     if (targetOffset == null || !_listScrollController.hasClients) {
@@ -264,6 +316,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _toggleSelection(int id) {
+    if (kIsWeb) {
+      return;
+    }
+
     setState(() {
       if (_selectedItemIds.contains(id)) {
         _selectedItemIds.remove(id);
@@ -277,10 +333,159 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _enterMultiSelectMode(int id) {
+    if (kIsWeb) {
+      return;
+    }
+
     setState(() {
       _isMultiSelectMode = true;
       _selectedItemIds.add(id);
     });
+  }
+
+  bool _hasReservedLabel(List<Label> labels, String name) {
+    final needle = name.toLowerCase();
+    return labels.any((label) => label.name.toLowerCase() == needle);
+  }
+
+  Future<void> _toggleReservedLabel({
+    required int itemId,
+    required List<Label> currentLabels,
+    required String labelName,
+  }) async {
+    final database = GetIt.instance<AppDatabase>();
+    final normalizedName = labelName.toLowerCase();
+    final current = currentLabels
+        .where((label) => label.name.toLowerCase() == normalizedName)
+        .toList(growable: false);
+
+    if (current.isNotEmpty) {
+      for (final label in current) {
+        await database.removeLabelFromItem(itemId, label.id);
+      }
+      return;
+    }
+
+    final labelId = await database.getOrCreateLabel(labelName);
+    await database.assignLabelToItem(itemId, labelId);
+  }
+
+  Future<bool> _confirmDeleteWithUndo(MnemataItem item) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Move item to recycle bin?'),
+        content: const Text('You can restore this item with Undo.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: cs.error),
+            child: const Text('MOVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return false;
+    }
+
+    final database = GetIt.instance<AppDatabase>();
+    await database.deleteItem(item.id);
+
+    if (!mounted) {
+      return true;
+    }
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Item moved to recycle bin'),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () {
+            unawaited(database.restoreItemFromRecycle(item.id));
+          },
+        ),
+      ),
+    );
+
+    return true;
+  }
+
+  Future<void> _openItem(MnemataItem item) async {
+    final database = GetIt.instance<AppDatabase>();
+    await database.updateLastOpenedAt(item.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    try {
+      if (item.type == 'url' && item.url != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ReaderScreen(item: item)),
+        );
+        return;
+      }
+
+      if (item.type == 'file' && item.filePath != null) {
+        final result = await OpenFilex.open(item.filePath!);
+        if (result.type != ResultType.done) {
+          throw Exception('Could not open file: ${result.message}');
+        }
+        return;
+      }
+
+      throw Exception('Unknown item type or missing path/URL');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final cs = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error'), backgroundColor: cs.error),
+      );
+    }
+  }
+
+  Future<void> _handleQuickAction(
+    MnemataItem item,
+    List<Label> labels,
+    ItemQuickAction action,
+  ) async {
+    switch (action) {
+      case ItemQuickAction.openReader:
+        await _openItem(item);
+        return;
+      case ItemQuickAction.toggleRead:
+        await _toggleReservedLabel(
+          itemId: item.id,
+          currentLabels: labels,
+          labelName: 'read',
+        );
+        return;
+      case ItemQuickAction.toggleFavorite:
+        await _toggleReservedLabel(
+          itemId: item.id,
+          currentLabels: labels,
+          labelName: 'favorite',
+        );
+        return;
+      case ItemQuickAction.delete:
+        await _confirmDeleteWithUndo(item);
+        return;
+      case ItemQuickAction.share:
+        await ShareUtils.shareItem(context, item);
+        return;
+    }
   }
 
   Future<void> _confirmBulkDelete(
@@ -315,9 +520,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         _selectedItemIds.clear();
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Items moved to recycle bin')),
         );
       }
@@ -404,6 +607,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   void _updateSearch(String query) {
     setState(() {
       _searchQuery = query;
+      _resetPagination();
       if (query.isNotEmpty) {
         _isHistoryMode = false;
         _showSearchHistory = false;
@@ -457,6 +661,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   void _startSearch() {
     setState(() {
       _isSearching = true;
+      _resetPagination();
     });
     _persistListStateSnapshot();
     _searchFocusNode.requestFocus();
@@ -468,6 +673,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
       _searchController.clear();
       _searchQuery = '';
       _showSearchHistory = false;
+      _resetPagination();
     });
     _persistListStateSnapshot();
   }
@@ -514,9 +720,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           if (!context.mounted) return;
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const LabelManagerScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const LabelManagerScreen()),
           );
           break;
       }
@@ -560,10 +764,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   children: [
                     TextButton.icon(
                       icon: Icon(Icons.delete, color: cs.error),
-                      label: Text(
-                        'Delete',
-                        style: TextStyle(color: cs.error),
-                      ),
+                      label: Text('Delete', style: TextStyle(color: cs.error)),
                       onPressed: _selectedItemIds.isEmpty
                           ? null
                           : () => _confirmBulkDelete(context, database),
@@ -821,6 +1022,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     setState(() {
                       _selectedLabelIds.clear();
                       _isHistoryMode = false;
+                      _resetPagination();
                     });
                     _persistListStateSnapshot();
                   },
@@ -836,6 +1038,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     setState(() {
                       _selectedLabelIds.clear();
                       _isHistoryMode = true;
+                      _resetPagination();
                     });
                     _persistListStateSnapshot();
                   },
@@ -856,6 +1059,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                           _selectedLabelIds.add(label.id);
                           _isHistoryMode = false;
                         }
+                        _resetPagination();
                       });
                       _persistListStateSnapshot();
                     },
@@ -878,6 +1082,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Widget _buildItemsList(AppDatabase database, List<MnemataItem> items) {
+    _latestStreamItemCount = items.length;
+    _paginationController.clampToTotal(items.length);
+    final pagedItems = items.take(_paginationController.visibleCount).toList();
+
     final itemIds = items.map((e) => e.id).toList(growable: false);
 
     return StreamBuilder<Map<int, List<Label>>>(
@@ -890,48 +1098,70 @@ class _ItemListScreenState extends State<ItemListScreen> {
         // visual row still represents exactly one [MnemataItem].
         final groupHeaders = <int, String>{};
         String? lastKey;
-        for (var i = 0; i < items.length; i++) {
-          final key = _groupKey(items[i].createdAt);
+        for (var i = 0; i < pagedItems.length; i++) {
+          final key = _groupKey(pagedItems[i].createdAt);
           if (key != lastKey) {
-            groupHeaders[i] = _groupLabel(items[i].createdAt);
+            groupHeaders[i] = _groupLabel(pagedItems[i].createdAt);
             lastKey = key;
           }
         }
 
         _restorePendingScrollOffset();
 
-        return ReorderableListView.builder(
-          key: const PageStorageKey<String>('item-list-reorderable'),
-          scrollController: _listScrollController,
-          padding: const EdgeInsets.only(bottom: 24),
-          itemCount: items.length,
-          buildDefaultDragHandles: false,
-          onReorder: (oldIndex, newIndex) async {
-            if (oldIndex < newIndex) {
-              newIndex -= 1;
-            }
-            final List<MnemataItem> updatedList = List.from(items);
-            final MnemataItem item = updatedList.removeAt(oldIndex);
-            updatedList.insert(newIndex, item);
+        return Stack(
+          children: [
+            ReorderableListView.builder(
+              key: const PageStorageKey<String>('item-list-reorderable'),
+              scrollController: _listScrollController,
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: pagedItems.length,
+              buildDefaultDragHandles: false,
+              onReorder: (oldIndex, newIndex) async {
+                if (oldIndex < newIndex) {
+                  newIndex -= 1;
+                }
+                final List<MnemataItem> updatedList = List.from(pagedItems);
+                final MnemataItem item = updatedList.removeAt(oldIndex);
+                updatedList.insert(newIndex, item);
 
-            await database.updateItemsSortOrderInBatch(updatedList);
-          },
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final header = groupHeaders[index];
-            return _ItemTile(
-              key: ValueKey(item.id),
-              item: item,
-              index: index,
-              labels: labelsByItem[item.id] ?? const <Label>[],
-              isSelected: _selectedItemIds.contains(item.id),
-              isMultiSelectMode: _isMultiSelectMode,
-              groupHeader: header,
-              onLongPress: () => _enterMultiSelectMode(item.id),
-              onTap: () =>
-                  _isMultiSelectMode ? _toggleSelection(item.id) : null,
-            );
-          },
+                await database.updateItemsSortOrderInBatch(updatedList);
+              },
+              itemBuilder: (context, index) {
+                final item = pagedItems[index];
+                final itemLabels = labelsByItem[item.id] ?? const <Label>[];
+                final header = groupHeaders[index];
+                return _ItemTile(
+                  key: ValueKey(item.id),
+                  item: item,
+                  index: index,
+                  labels: itemLabels,
+                  isSelected: _selectedItemIds.contains(item.id),
+                  isMultiSelectMode: _isMultiSelectMode,
+                  groupHeader: header,
+                  onLongPress: () => _enterMultiSelectMode(item.id),
+                  onTap: () =>
+                      _isMultiSelectMode ? _toggleSelection(item.id) : null,
+                  onOpenItem: () => _openItem(item),
+                  onQuickActionSelected: (action) =>
+                      _handleQuickAction(item, itemLabels, action),
+                  canUseMultiSelect: !kIsWeb,
+                );
+              },
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0,
+                  child: Text(
+                    'visible:${_paginationController.visibleCount}',
+                    key: const Key('pagination-visible-count'),
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -963,10 +1193,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     style: theme.textTheme.tracked(cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Library',
-                    style: theme.textTheme.headlineMedium,
-                  ),
+                  Text('Library', style: theme.textTheme.headlineMedium),
                 ],
               ),
             ),
@@ -978,6 +1205,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 setState(() {
                   _selectedLabelIds.clear();
                   _isHistoryMode = false;
+                  _resetPagination();
                 });
                 _persistListStateSnapshot();
                 Navigator.pop(context);
@@ -991,6 +1219,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 setState(() {
                   _selectedLabelIds.clear();
                   _isHistoryMode = true;
+                  _resetPagination();
                 });
                 _persistListStateSnapshot();
                 Navigator.pop(context);
@@ -1086,6 +1315,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
             _selectedLabelIds.add(label.id);
             _isHistoryMode = false;
           }
+          _resetPagination();
         });
         _persistListStateSnapshot();
       },
@@ -1104,6 +1334,9 @@ class _ItemTile extends StatelessWidget {
   final String? groupHeader;
   final VoidCallback onLongPress;
   final VoidCallback onTap;
+  final VoidCallback onOpenItem;
+  final ValueChanged<ItemQuickAction> onQuickActionSelected;
+  final bool canUseMultiSelect;
 
   const _ItemTile({
     super.key,
@@ -1115,23 +1348,26 @@ class _ItemTile extends StatelessWidget {
     required this.groupHeader,
     required this.onLongPress,
     required this.onTap,
+    required this.onOpenItem,
+    required this.onQuickActionSelected,
+    required this.canUseMultiSelect,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isRead = labels.any((l) => l.name.toLowerCase() == 'read');
+    final isFavorite = labels.any((l) => l.name.toLowerCase() == 'favorite');
 
     final cardData = ItemCardData(
       title: item.title?.trim().isNotEmpty == true
           ? item.title!
           : (item.type == 'url'
-              ? (item.url ?? 'Link')
-              : (item.filePath?.split('/').last ?? 'File')),
+                ? (item.url ?? 'Link')
+                : (item.filePath?.split('/').last ?? 'File')),
       source: _sourceFor(item),
       readTime: _estimateReadTime(item),
-      tags: labels
-          .map((l) => (label: l.name, color: _tagColorFor(l)))
-          .toList(),
+      tags: labels.map((l) => (label: l.name, color: _tagColorFor(l))).toList(),
       thumbTone: _toneFor(item, labels),
       thumbUrl: item.thumbnailUrl,
       typeGlyph: _typeGlyphFor(item),
@@ -1215,13 +1451,19 @@ class _ItemTile extends StatelessWidget {
         ],
       ),
       child: _ItemRow(
-        item: item,
         index: index,
         cardData: cardData,
         isSelected: isSelected,
         isMultiSelectMode: isMultiSelectMode,
         onTap: onTap,
         onLongPress: onLongPress,
+        onOpenItem: onOpenItem,
+        canUseMultiSelect: canUseMultiSelect,
+        trailingAction: ItemQuickActionsMenu(
+          isRead: isRead,
+          isFavorite: isFavorite,
+          onSelected: onQuickActionSelected,
+        ),
       ),
     );
 
@@ -1247,38 +1489,40 @@ class _ItemTile extends StatelessWidget {
 
 class _ItemRow extends StatelessWidget {
   const _ItemRow({
-    required this.item,
     required this.index,
     required this.cardData,
     required this.isSelected,
     required this.isMultiSelectMode,
     required this.onTap,
     required this.onLongPress,
+    required this.onOpenItem,
+    required this.canUseMultiSelect,
+    required this.trailingAction,
   });
 
-  final MnemataItem item;
   final int index;
   final ItemCardData cardData;
   final bool isSelected;
   final bool isMultiSelectMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onOpenItem;
+  final bool canUseMultiSelect;
+  final Widget trailingAction;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     final card = ItemCard(
       data: cardData,
       active: isSelected,
-      onTap: isMultiSelectMode ? onTap : () => _handleOpen(context),
+      onTap: isMultiSelectMode ? onTap : onOpenItem,
     );
 
     // Wrap the card so we can attach long-press (for multi-select entry)
     // and stack a drag handle over its right edge without mutating the
     // shared ItemCard widget.
     return GestureDetector(
-      onLongPress: isMultiSelectMode ? null : onLongPress,
+      onLongPress: isMultiSelectMode || !canUseMultiSelect ? null : onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
@@ -1289,10 +1533,7 @@ class _ItemRow extends StatelessWidget {
               bottom: 0,
               right: 8,
               child: Center(
-                child: Checkbox(
-                  value: isSelected,
-                  onChanged: (_) => onTap(),
-                ),
+                child: Checkbox(value: isSelected, onChanged: (_) => onTap()),
               ),
             )
           else
@@ -1300,55 +1541,10 @@ class _ItemRow extends StatelessWidget {
               top: 0,
               bottom: 0,
               right: 6,
-              child: Center(
-                child: ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.drag_indicator,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ),
+              child: Center(child: trailingAction),
             ),
         ],
       ),
     );
-  }
-
-  Future<void> _handleOpen(BuildContext context) async {
-    final database = GetIt.instance<AppDatabase>();
-    await database.updateLastOpenedAt(item.id);
-
-    try {
-      if (item.type == 'url' && item.url != null) {
-        if (context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => ReaderScreen(item: item)),
-          );
-        }
-      } else if (item.type == 'file' && item.filePath != null) {
-        final result = await OpenFilex.open(item.filePath!);
-        if (result.type != ResultType.done) {
-          throw Exception('Could not open file: ${result.message}');
-        }
-      } else {
-        throw Exception('Unknown item type or missing path/URL');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        final cs = Theme.of(context).colorScheme;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: cs.error,
-          ),
-        );
-      }
-    }
   }
 }
