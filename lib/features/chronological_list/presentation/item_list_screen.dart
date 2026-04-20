@@ -14,9 +14,11 @@ import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_quick_actions_menu.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/search_result_tile.dart';
 import 'package:mnemata/features/chronological_list/presentation/widgets/item_list_header.dart';
 import 'package:mnemata/features/chronological_list/services/list_pagination_controller.dart';
 import 'package:mnemata/features/chronological_list/services/list_state_snapshot.dart';
+import 'package:mnemata/features/chronological_list/services/search_snippet_builder.dart';
 import 'package:mnemata/features/ingestion/presentation/web_add_item_sheet.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
@@ -142,6 +144,7 @@ class ItemListScreen extends StatefulWidget {
 
 class _ItemListScreenState extends State<ItemListScreen> {
   static const int _pageSize = 40;
+  static const Duration _searchDebounceDelay = Duration(milliseconds: 300);
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -159,6 +162,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   final Set<int> _selectedItemIds = {};
   List<String> _searchHistory = [];
   bool _showSearchHistory = false;
+  Timer? _searchDebounce;
   bool _semanticMode = false;
   bool _semanticModeAvailable = false;
   bool _semanticSettingEnabled = false;
@@ -167,11 +171,13 @@ class _ItemListScreenState extends State<ItemListScreen> {
   void initState() {
     super.initState();
     _restoreListStateSnapshot();
-    _loadSearchHistory();
+    if (!kIsWeb) {
+      _loadSearchHistory();
+    }
     unawaited(_loadSemanticAvailability());
     _searchFocusNode.addListener(() {
       setState(() {
-        _showSearchHistory = _searchFocusNode.hasFocus;
+        _showSearchHistory = !kIsWeb && _searchFocusNode.hasFocus;
       });
       _persistListStateSnapshot();
     });
@@ -195,6 +201,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Future<void> _loadSearchHistory() async {
+    if (kIsWeb) {
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _searchHistory = prefs.getStringList('search_history') ?? [];
@@ -202,6 +212,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   Future<void> _saveSearchToHistory(String query) async {
+    if (kIsWeb) {
+      return;
+    }
+
     final trimmed = query.trim();
     if (trimmed.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
@@ -218,6 +232,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _persistListStateSnapshot();
     _listScrollController.removeListener(_handleListScroll);
     _listScrollController.dispose();
@@ -297,6 +312,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
       setState(() {});
     }
   }
+
+  @visibleForTesting
+  String get debugSearchQueryForTests => _searchQuery;
 
   void _restorePendingScrollOffset() {
     final targetOffset = _pendingScrollOffset;
@@ -605,13 +623,23 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _updateSearch(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDebounceDelay, () {
+      if (!mounted) {
+        return;
+      }
+      _applySearchQuery(query);
+    });
+  }
+
+  void _applySearchQuery(String query) {
     setState(() {
       _searchQuery = query;
       _resetPagination();
       if (query.isNotEmpty) {
         _isHistoryMode = false;
         _showSearchHistory = false;
-      } else if (_searchFocusNode.hasFocus) {
+      } else if (!kIsWeb && _searchFocusNode.hasFocus) {
         _showSearchHistory = true;
       }
     });
@@ -661,6 +689,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   void _startSearch() {
     setState(() {
       _isSearching = true;
+      _showSearchHistory = !kIsWeb && _searchFocusNode.hasFocus;
       _resetPagination();
     });
     _persistListStateSnapshot();
@@ -668,6 +697,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _closeSearch() {
+    _searchDebounce?.cancel();
     setState(() {
       _isSearching = false;
       _searchController.clear();
@@ -725,6 +755,161 @@ class _ItemListScreenState extends State<ItemListScreen> {
           break;
       }
     });
+  }
+
+  void _clearFiltersOnly() {
+    setState(() {
+      _selectedLabelIds.clear();
+      _isHistoryMode = false;
+      _resetPagination();
+    });
+    _persistListStateSnapshot();
+  }
+
+  Widget _buildSearchErrorState(ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 52, color: cs.error),
+            const SizedBox(height: 12),
+            Text(
+              'Search is temporarily unavailable.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try running the same query again or return to the full list.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _applySearchQuery(_searchController.text),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry Search'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _closeSearch,
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back to list'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmptyState(ColorScheme cs) {
+    final canClearFilters = _selectedLabelIds.isNotEmpty || _isHistoryMode;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.manage_search, size: 64, color: cs.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              'No search results',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try a different phrase or widen your current filters.',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    _applySearchQuery('');
+                  },
+                  child: const Text('Clear query'),
+                ),
+                if (canClearFilters)
+                  OutlinedButton(
+                    onPressed: _clearFiltersOnly,
+                    child: const Text('Clear filters'),
+                  ),
+                FilledButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    _closeSearch();
+                    _clearFiltersOnly();
+                  },
+                  child: const Text('View all items'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryEmptyState(ColorScheme cs) {
+    final canClearFilters = _selectedLabelIds.isNotEmpty || _isHistoryMode;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 64,
+              color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No items found.',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _showAddItemEntry(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Item'),
+                ),
+                if (canClearFilters)
+                  OutlinedButton(
+                    onPressed: _clearFiltersOnly,
+                    child: const Text('Clear filters'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -843,42 +1028,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       }
 
                       if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 48,
-                                color: cs.error,
-                              ),
-                              const SizedBox(height: 16),
-                              Text('Error: ${snapshot.error}'),
-                            ],
-                          ),
-                        );
+                        return _buildSearchErrorState(cs);
                       }
 
                       final items = snapshot.data ?? [];
 
                       if (items.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inventory_2_outlined,
-                                size: 64,
-                                color: cs.onSurfaceVariant,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No items found.',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ],
-                          ),
-                        );
+                        if (_searchQuery.trim().isNotEmpty) {
+                          return _buildSearchEmptyState(cs);
+                        }
+                        return _buildLibraryEmptyState(cs);
                       }
 
                       return _buildItemsList(database, items);
@@ -887,7 +1046,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 ),
               ],
             ),
-            if (_showSearchHistory && _searchHistory.isNotEmpty)
+            if (!kIsWeb && _showSearchHistory && _searchHistory.isNotEmpty)
               Positioned(
                 top: 60,
                 left: 0,
@@ -1085,8 +1244,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
     _latestStreamItemCount = items.length;
     _paginationController.clampToTotal(items.length);
     final pagedItems = items.take(_paginationController.visibleCount).toList();
-
-    final itemIds = items.map((e) => e.id).toList(growable: false);
+    final itemIds = pagedItems.map((e) => e.id).toList(growable: false);
+    final isSearchMode = _searchQuery.trim().isNotEmpty;
+    const snippetBuilder = SearchSnippetBuilder();
 
     return StreamBuilder<Map<int, List<Label>>>(
       stream: database.watchLabelsForItems(itemIds),
@@ -1108,46 +1268,100 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
         _restorePendingScrollOffset();
 
+        Widget listView;
+
+        if (isSearchMode) {
+          listView = ListView.builder(
+            key: const PageStorageKey<String>('item-list-search-results'),
+            controller: _listScrollController,
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: pagedItems.length,
+            itemBuilder: (context, index) {
+              final item = pagedItems[index];
+              final itemLabels = labelsByItem[item.id] ?? const <Label>[];
+              final title = item.title?.trim().isNotEmpty == true
+                  ? item.title!
+                  : (item.type == 'url'
+                        ? (item.url ?? 'Link')
+                        : (item.filePath?.split('/').last ?? 'File'));
+              final snippet = snippetBuilder.build(
+                item: item,
+                query: _searchQuery,
+              );
+
+              final tile = SearchResultTile(
+                title: title,
+                source: _sourceFor(item),
+                snippet: snippet,
+                onTap: _isMultiSelectMode
+                    ? () => _toggleSelection(item.id)
+                    : () => _openItem(item),
+                trailing: _isMultiSelectMode
+                    ? Checkbox(
+                        value: _selectedItemIds.contains(item.id),
+                        onChanged: (_) => _toggleSelection(item.id),
+                      )
+                    : ItemQuickActionsMenu(
+                        isRead: _hasReservedLabel(itemLabels, 'read'),
+                        isFavorite: _hasReservedLabel(itemLabels, 'favorite'),
+                        onSelected: (action) =>
+                            _handleQuickAction(item, itemLabels, action),
+                      ),
+              );
+
+              return GestureDetector(
+                onLongPress: _isMultiSelectMode || kIsWeb
+                    ? null
+                    : () => _enterMultiSelectMode(item.id),
+                behavior: HitTestBehavior.opaque,
+                child: KeyedSubtree(key: ValueKey(item.id), child: tile),
+              );
+            },
+          );
+        } else {
+          listView = ReorderableListView.builder(
+            key: const PageStorageKey<String>('item-list-reorderable'),
+            scrollController: _listScrollController,
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: pagedItems.length,
+            buildDefaultDragHandles: false,
+            onReorder: (oldIndex, newIndex) async {
+              if (oldIndex < newIndex) {
+                newIndex -= 1;
+              }
+              final List<MnemataItem> updatedList = List.from(pagedItems);
+              final MnemataItem item = updatedList.removeAt(oldIndex);
+              updatedList.insert(newIndex, item);
+
+              await database.updateItemsSortOrderInBatch(updatedList);
+            },
+            itemBuilder: (context, index) {
+              final item = pagedItems[index];
+              final itemLabels = labelsByItem[item.id] ?? const <Label>[];
+              final header = groupHeaders[index];
+              return _ItemTile(
+                key: ValueKey(item.id),
+                item: item,
+                index: index,
+                labels: itemLabels,
+                isSelected: _selectedItemIds.contains(item.id),
+                isMultiSelectMode: _isMultiSelectMode,
+                groupHeader: header,
+                onLongPress: () => _enterMultiSelectMode(item.id),
+                onTap: () =>
+                    _isMultiSelectMode ? _toggleSelection(item.id) : null,
+                onOpenItem: () => _openItem(item),
+                onQuickActionSelected: (action) =>
+                    _handleQuickAction(item, itemLabels, action),
+                canUseMultiSelect: !kIsWeb,
+              );
+            },
+          );
+        }
+
         return Stack(
           children: [
-            ReorderableListView.builder(
-              key: const PageStorageKey<String>('item-list-reorderable'),
-              scrollController: _listScrollController,
-              padding: const EdgeInsets.only(bottom: 24),
-              itemCount: pagedItems.length,
-              buildDefaultDragHandles: false,
-              onReorder: (oldIndex, newIndex) async {
-                if (oldIndex < newIndex) {
-                  newIndex -= 1;
-                }
-                final List<MnemataItem> updatedList = List.from(pagedItems);
-                final MnemataItem item = updatedList.removeAt(oldIndex);
-                updatedList.insert(newIndex, item);
-
-                await database.updateItemsSortOrderInBatch(updatedList);
-              },
-              itemBuilder: (context, index) {
-                final item = pagedItems[index];
-                final itemLabels = labelsByItem[item.id] ?? const <Label>[];
-                final header = groupHeaders[index];
-                return _ItemTile(
-                  key: ValueKey(item.id),
-                  item: item,
-                  index: index,
-                  labels: itemLabels,
-                  isSelected: _selectedItemIds.contains(item.id),
-                  isMultiSelectMode: _isMultiSelectMode,
-                  groupHeader: header,
-                  onLongPress: () => _enterMultiSelectMode(item.id),
-                  onTap: () =>
-                      _isMultiSelectMode ? _toggleSelection(item.id) : null,
-                  onOpenItem: () => _openItem(item),
-                  onQuickActionSelected: (action) =>
-                      _handleQuickAction(item, itemLabels, action),
-                  canUseMultiSelect: !kIsWeb,
-                );
-              },
-            ),
+            listView,
             Positioned(
               left: 0,
               top: 0,

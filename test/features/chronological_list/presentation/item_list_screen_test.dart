@@ -4,6 +4,8 @@ import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_list_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
+import 'package:mnemata/features/chronological_list/presentation/search_result_tile.dart';
+import 'package:mnemata/features/chronological_list/services/list_state_snapshot.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
@@ -47,6 +49,7 @@ void main() {
 
   setUp(() async {
     await getIt.reset();
+    ListStateSnapshotStore.clear();
     database = AppDatabase.forTesting(NativeDatabase.memory());
     getIt.registerSingleton<AppDatabase>(database);
 
@@ -137,10 +140,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    // Use a more specific finder to avoid matching the TextField content
+    // Use search result tile descendants to avoid matching TextField input.
     expect(
       find.descendant(
-        of: find.byType(ReorderableListView),
+        of: find.byType(SearchResultTile),
         matching: find.text('Apple'),
       ),
       findsOneWidget,
