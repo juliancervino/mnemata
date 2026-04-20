@@ -13,6 +13,7 @@ import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/widgets/item_list_header.dart';
+import 'package:mnemata/features/chronological_list/services/list_state_snapshot.dart';
 import 'package:mnemata/features/ingestion/presentation/web_add_item_sheet.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
@@ -134,10 +135,12 @@ class ItemListScreen extends StatefulWidget {
 class _ItemListScreenState extends State<ItemListScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _listScrollController = ScrollController();
   bool _isSearching = false;
   String _searchQuery = '';
   final Set<int> _selectedLabelIds = {};
   bool _isHistoryMode = false;
+  double? _pendingScrollOffset;
 
   bool _isMultiSelectMode = false;
   final Set<int> _selectedItemIds = {};
@@ -150,13 +153,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
   @override
   void initState() {
     super.initState();
+    _restoreListStateSnapshot();
     _loadSearchHistory();
     unawaited(_loadSemanticAvailability());
     _searchFocusNode.addListener(() {
       setState(() {
         _showSearchHistory = _searchFocusNode.hasFocus;
       });
+      _persistListStateSnapshot();
     });
+    _listScrollController.addListener(_persistListStateSnapshot);
   }
 
   Future<void> _loadSemanticAvailability() async {
@@ -199,9 +205,62 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   @override
   void dispose() {
+    _persistListStateSnapshot();
+    _listScrollController.removeListener(_persistListStateSnapshot);
+    _listScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _restoreListStateSnapshot() {
+    final snapshot = ListStateSnapshotStore.current;
+    if (snapshot == null) {
+      return;
+    }
+
+    _searchQuery = snapshot.query;
+    _searchController.text = snapshot.query;
+    _selectedLabelIds
+      ..clear()
+      ..addAll(snapshot.selectedLabelIds);
+    _isHistoryMode = snapshot.isHistoryMode;
+    _isSearching = snapshot.isSearching;
+    _pendingScrollOffset = snapshot.scrollOffset;
+  }
+
+  void _persistListStateSnapshot() {
+    final selectedLabelIds = _selectedLabelIds.toList()..sort();
+    final scrollOffset = _listScrollController.hasClients
+        ? _listScrollController.offset
+        : (_pendingScrollOffset ?? 0);
+
+    ListStateSnapshotStore.save(
+      ListStateSnapshot(
+        query: _searchQuery,
+        selectedLabelIds: selectedLabelIds,
+        isHistoryMode: _isHistoryMode,
+        isSearching: _isSearching,
+        scrollOffset: scrollOffset,
+      ),
+    );
+  }
+
+  void _restorePendingScrollOffset() {
+    final targetOffset = _pendingScrollOffset;
+    if (targetOffset == null || !_listScrollController.hasClients) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listScrollController.hasClients) {
+        return;
+      }
+      final max = _listScrollController.position.maxScrollExtent;
+      final clamped = targetOffset.clamp(0.0, max).toDouble();
+      _listScrollController.jumpTo(clamped);
+      _pendingScrollOffset = null;
+    });
   }
 
   void _toggleSelection(int id) {
@@ -352,6 +411,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         _showSearchHistory = true;
       }
     });
+    _persistListStateSnapshot();
   }
 
   Stream<List<MnemataItem>> _getStream(AppDatabase database) {
@@ -398,6 +458,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
     setState(() {
       _isSearching = true;
     });
+    _persistListStateSnapshot();
     _searchFocusNode.requestFocus();
   }
 
@@ -408,6 +469,14 @@ class _ItemListScreenState extends State<ItemListScreen> {
       _searchQuery = '';
       _showSearchHistory = false;
     });
+    _persistListStateSnapshot();
+  }
+
+  void _openMoreFiltersFromChips(BuildContext context) {
+    final scaffold = Scaffold.maybeOf(context);
+    if (scaffold != null) {
+      scaffold.openDrawer();
+    }
   }
 
   void _showMoreMenu(BuildContext context) {
@@ -646,6 +715,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                             setState(() {
                               _searchHistory.removeAt(index);
                             });
+                            _persistListStateSnapshot();
                             await prefs.setStringList(
                               'search_history',
                               _searchHistory,
@@ -752,6 +822,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       _selectedLabelIds.clear();
                       _isHistoryMode = false;
                     });
+                    _persistListStateSnapshot();
                   },
                 ),
               ),
@@ -766,6 +837,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       _selectedLabelIds.clear();
                       _isHistoryMode = true;
                     });
+                    _persistListStateSnapshot();
                   },
                 ),
               ),
@@ -785,10 +857,19 @@ class _ItemListScreenState extends State<ItemListScreen> {
                           _isHistoryMode = false;
                         }
                       });
+                      _persistListStateSnapshot();
                     },
                   ),
                 );
               }),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: TagChip(
+                  label: 'more filters',
+                  color: cs.secondary,
+                  onTap: () => _openMoreFiltersFromChips(context),
+                ),
+              ),
             ],
           );
         },
@@ -817,8 +898,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
           }
         }
 
+        _restorePendingScrollOffset();
+
         return ReorderableListView.builder(
           key: const PageStorageKey<String>('item-list-reorderable'),
+          scrollController: _listScrollController,
           padding: const EdgeInsets.only(bottom: 24),
           itemCount: items.length,
           buildDefaultDragHandles: false,
@@ -895,6 +979,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   _selectedLabelIds.clear();
                   _isHistoryMode = false;
                 });
+                _persistListStateSnapshot();
                 Navigator.pop(context);
               },
             ),
@@ -907,6 +992,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   _selectedLabelIds.clear();
                   _isHistoryMode = true;
                 });
+                _persistListStateSnapshot();
                 Navigator.pop(context);
               },
             ),
@@ -1001,6 +1087,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
             _isHistoryMode = false;
           }
         });
+        _persistListStateSnapshot();
       },
     );
   }
