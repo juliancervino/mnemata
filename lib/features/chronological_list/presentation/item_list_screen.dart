@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
@@ -12,6 +13,7 @@ import 'package:mnemata/core/widgets/tag_chip.dart';
 import 'package:mnemata/features/chronological_list/presentation/item_editor_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/recycle_bin_screen.dart';
 import 'package:mnemata/features/chronological_list/presentation/widgets/item_list_header.dart';
+import 'package:mnemata/features/ingestion/presentation/web_add_item_sheet.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/intelligence/presentation/semantic_mode_toggle.dart';
 import 'package:mnemata/features/intelligence/services/api_key_store.dart';
@@ -320,6 +322,26 @@ class _ItemListScreenState extends State<ItemListScreen> {
     );
   }
 
+  Future<void> _showAddItemEntry(BuildContext context) async {
+    if (!kIsWeb) {
+      _showAddUrlDialog(context);
+      return;
+    }
+
+    final cs = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(MnemataRadii.xl),
+        ),
+      ),
+      builder: (context) => const WebAddItemSheet(),
+    );
+  }
+
   void _updateSearch(String query) {
     setState(() {
       _searchQuery = query;
@@ -456,9 +478,9 @@ class _ItemListScreenState extends State<ItemListScreen> {
       floatingActionButton: _isMultiSelectMode
           ? null
           : FloatingActionButton(
-              onPressed: () => _showAddUrlDialog(context),
-              tooltip: 'Add URL',
-              child: const Icon(Icons.add_link),
+              onPressed: () => _showAddItemEntry(context),
+              tooltip: 'Add Item',
+              child: Icon(kIsWeb ? Icons.add : Icons.add_link),
             ),
       bottomNavigationBar: _isMultiSelectMode
           ? BottomAppBar(

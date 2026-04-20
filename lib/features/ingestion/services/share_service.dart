@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -165,6 +166,48 @@ class ShareService {
 
   Future<void> handleFile(SharedMediaFile sharedFile) async {
     await _handleFile(sharedFile);
+  }
+
+  Future<void> handleWebFile({
+    required String fileName,
+    required Uint8List bytes,
+    String? mimeType,
+  }) async {
+    if (!kIsWeb) {
+      return;
+    }
+
+    final normalizedName = fileName.trim();
+    if (normalizedName.isEmpty || bytes.isEmpty) {
+      return;
+    }
+
+    final existingFile = await _database.getItemByFilePath(normalizedName);
+    if (existingFile != null) {
+      final confirm = await _showDuplicateDialog(normalizedName);
+      if (confirm != true) {
+        return;
+      }
+    }
+
+    _showLoadingOverlay('Preparing file...');
+
+    try {
+      _hideLoadingOverlay();
+      final resultFromSummary = await _pushSummaryWhenNavigatorReady(
+        (context) => IngestionSummaryScreen(
+          type: 'file',
+          filePath: normalizedName,
+          title: normalizedName,
+        ),
+      );
+      debugPrint(
+        'ShareService: web file summary closed with result=$resultFromSummary '
+        'mimeType=$mimeType bytes=${bytes.lengthInBytes}',
+      );
+    } finally {
+      _hideLoadingOverlay();
+    }
   }
 
   Future<void> _handleUrl(String? text) async {
