@@ -1,35 +1,16 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:favicon/favicon.dart' as fav;
 import 'package:http/http.dart' as http;
 import 'package:metadata_fetch/metadata_fetch.dart';
-import 'package:readability/readability.dart' as readability;
-import 'package:readability/article.dart' as readability;
+import 'package:mnemata/features/ingestion/services/readability_platform.dart'
+    as readability;
 
 class ReadabilityWrapper {
   Future<readability.Article?> parse(String url) => readability.parseAsync(url);
 
   Future<readability.Article?> parseHtml(String html) async {
     final normalizedHtml = _ensureHtmlDocument(html);
-    final dataUri = 'data:text/html;base64,${base64.encode(utf8.encode(normalizedHtml))}';
-
-    try {
-      return await parse(dataUri);
-    } catch (_) {
-      File? tempFile;
-      try {
-        final timestamp = DateTime.now().microsecondsSinceEpoch;
-        tempFile = File('${Directory.systemTemp.path}/mnemata_readability_$timestamp.html');
-        await tempFile.writeAsString(normalizedHtml, flush: true);
-        return await parse('file://${tempFile.path}');
-      } finally {
-        if (tempFile != null && await tempFile.exists()) {
-          await tempFile.delete();
-        }
-      }
-    }
+    return readability.parseHtmlDocument(normalizedHtml);
   }
 
   String _ensureHtmlDocument(String html) {

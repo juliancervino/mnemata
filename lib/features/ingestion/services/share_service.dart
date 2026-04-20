@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.dart';
@@ -9,8 +9,8 @@ import 'package:mnemata/features/ingestion/presentation/js_rendered_scraper_scre
 import 'package:mnemata/features/ingestion/services/author_extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
+import 'package:mnemata/features/ingestion/services/shared_file_operations.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 class ShareService {
@@ -41,6 +41,12 @@ class ShareService {
 
   void init() {
     if (_isInitialized) return;
+
+    if (kIsWeb) {
+      _isInitialized = true;
+      return;
+    }
+
     _isInitialized = true;
 
     _intentDataStreamSubscription =
@@ -232,8 +238,12 @@ class ShareService {
   }
 
   Future<void> _handleFile(SharedMediaFile sharedFile) async {
-    final file = File(sharedFile.path);
-    if (!await file.exists()) return;
+    if (kIsWeb) {
+      debugPrint('ShareService: file-share intents are not supported on web.');
+      return;
+    }
+
+    if (!await fileExistsAtPath(sharedFile.path)) return;
 
     // 1. Duplicate detection
     final fileName = p.basename(sharedFile.path);
@@ -246,10 +256,10 @@ class ShareService {
     _showLoadingOverlay('Saving file...');
 
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final newPath = p.join(appDir.path, fileName);
-
-      await file.copy(newPath);
+      final newPath = await copySharedFileToAppDocuments(
+        sharedFile.path,
+        fileName,
+      );
 
       String? extractedText;
       if (fileName.toLowerCase().endsWith('.pdf')) {

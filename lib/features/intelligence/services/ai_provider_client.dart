@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:mnemata/features/intelligence/domain/intelligence_errors.dart';
@@ -47,7 +46,7 @@ IntelligenceException mapProviderError(Object error) {
       message: 'Provider request timed out.',
     );
   }
-  if (error is SocketException) {
+  if (_isNetworkUnavailableError(error)) {
     return const IntelligenceException(
       code: IntelligenceErrorCode.providerUnavailable,
       message: 'Network unavailable while contacting provider.',
@@ -64,6 +63,17 @@ IntelligenceException mapProviderError(Object error) {
     code: IntelligenceErrorCode.providerUnavailable,
     message: 'Provider request failed.',
   );
+}
+
+bool _isNetworkUnavailableError(Object error) {
+  if (error is http.ClientException) {
+    return true;
+  }
+
+  final message = error.toString().toLowerCase();
+  return message.contains('socketexception') ||
+      message.contains('failed host lookup') ||
+      message.contains('network is unreachable');
 }
 
 class AIProviderClient {

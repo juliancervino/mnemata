@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -138,11 +139,14 @@ void main() async {
   await setupLocator();
 
   // Start share listeners as early as possible to avoid missing first-share intents.
-  getIt<ShareService>().init();
+  if (!kIsWeb) {
+    getIt<ShareService>().init();
+  }
   unawaited(getIt<BackupSchedulerService>().runIfDue());
   unawaited(
     getIt<RecyclePurgeService>().purgeExpired().catchError((error, stackTrace) {
       debugPrint('recycle_purge.startup_failed error=$error');
+      return 0;
     }),
   );
 
