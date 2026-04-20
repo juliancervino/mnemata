@@ -29,7 +29,13 @@
   2. User can browse chronological content on web with ordering, tag surfaces, and filters consistent with mobile semantics.
   3. User can read extracted content on web with equivalent metadata context and deterministic empty/error handling.
   4. User can run search on web with query behavior and empty/error states consistent with mobile.
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 19-01-PLAN.md - Web-safe startup and Drift web runtime foundation
+- [ ] 19-02-PLAN.md - WEB-01 ingestion parity (unified add, validation, duplicate/recovery)
+- [ ] 19-03-PLAN.md - WEB-03 reader and PDF parity (layout, controls, restore, guided errors)
+- [ ] 19-04-PLAN.md - WEB-02 list/filter parity (quick actions, pagination, delete undo, state continuity)
+- [ ] 19-05-PLAN.md - WEB-04 search parity (debounce, snippets, actionable empty/error states)
 **UI hint**: yes
 
 ### Phase 20: Account Sessions and Device Linking
@@ -70,7 +76,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 19. Web Parity Core Flows | 0/0 | Not started | - |
+| 19. Web Parity Core Flows | 0/5 | Not started | - |
 | 20. Account Sessions and Device Linking | 0/0 | Not started | - |
 | 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
 | 22. Collaboration Primitive Access Model | 0/0 | Not started | - |
