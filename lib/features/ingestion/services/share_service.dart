@@ -5,14 +5,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.dart';
+import 'package:mnemata/features/ingestion/presentation/ingestion_failure_actions_sheet.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/js_rendered_scraper_screen.dart';
+import 'package:mnemata/features/reader/presentation/reader_screen.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:mnemata/features/ingestion/services/author_extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/shared_file_operations.dart';
 import 'package:path/path.dart' as p;
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+enum DuplicateResolution {
+  openExistingItem,
+  addDuplicateItem,
+  keepCurrentItem,
+}
 
 class ShareService {
   final AppDatabase _database;
@@ -21,6 +31,14 @@ class ShareService {
   final PdfExtractionService _pdfExtractionService;
   final GlobalKey<NavigatorState> _navigatorKey;
   final Future<bool?> Function(String identifier)? _duplicatePromptOverride;
+  final Future<DuplicateResolution?> Function({
+    required String identifier,
+    required MnemataItem existingItem,
+  })? _duplicateResolutionOverride;
+  final Future<IngestionFailureAction> Function({
+    required String sourceLabel,
+    required bool canOpenOriginal,
+  })? _failureActionOverride;
   StreamSubscription? _intentDataStreamSubscription;
 
   bool _isInitialized = false;
@@ -37,8 +55,20 @@ class ShareService {
     {
     AuthorExtractionService? authorExtractionService,
     Future<bool?> Function(String identifier)? duplicatePromptOverride,
+    Future<DuplicateResolution?> Function({
+      required String identifier,
+      required MnemataItem existingItem,
+    })?
+        duplicateResolutionOverride,
+    Future<IngestionFailureAction> Function({
+      required String sourceLabel,
+      required bool canOpenOriginal,
+    })?
+        failureActionOverride,
   })  : _authorExtractionService = authorExtractionService ?? AuthorExtractionService(),
-        _duplicatePromptOverride = duplicatePromptOverride;
+        _duplicatePromptOverride = duplicatePromptOverride,
+        _duplicateResolutionOverride = duplicateResolutionOverride,
+        _failureActionOverride = failureActionOverride;
 
   void init() {
     if (_isInitialized) return;
@@ -184,8 +214,21 @@ class ShareService {
 
     final existingFile = await _database.getItemByFilePath(normalizedName);
     if (existingFile != null) {
-      final confirm = await _showDuplicateDialog(normalizedName);
-      if (confirm != true) {
+      final resolution = await _showDuplicateDialog(
+        normalizedName,
+        existingItem: existingFile,
+      );
+      _trackDuplicateDecision(
+        source: normalizedName,
+        resolution: resolution,
+      );
+
+      if (resolution == DuplicateResolution.openExistingItem) {
+        await _openExistingItem(existingFile);
+        return;
+      }
+
+      if (resolution == DuplicateResolution.keepCurrentItem) {
         return;
       }
     }
@@ -226,57 +269,99 @@ class ShareService {
     final existingItem = await _database.getItemByCanonicalUrl(trimmedUrl);
 
     if (existingItem != null) {
-      final confirm = await _showDuplicateDialog(trimmedUrl);
-      if (confirm != true) return;
-    }
+      final resolution = await _showDuplicateDialog(
+        trimmedUrl,
+        existingItem: existingItem,
+      );
+      _trackDuplicateDecision(source: trimmedUrl, resolution: resolution);
 
-    _showLoadingOverlay('Processing content...');
-
-    try {
-      if (_isArchiveUrl(trimmedUrl)) {
-        _hideLoadingOverlay();
-        await _pushSummaryWhenNavigatorReady(
-          (context) => ArchiveScraperScreen(url: trimmedUrl),
-        );
+      if (resolution == DuplicateResolution.openExistingItem) {
+        await _openExistingItem(existingItem);
         return;
       }
 
-      final result = await _extractionService.extractContent(trimmedUrl);
+      if (resolution == DuplicateResolution.keepCurrentItem) {
+        return;
+      }
+    }
+
+    if (_isArchiveUrl(trimmedUrl)) {
+      await _pushSummaryWhenNavigatorReady(
+        (context) => ArchiveScraperScreen(url: trimmedUrl),
+      );
+      return;
+    }
+
+    while (true) {
+      _showLoadingOverlay('Processing content...');
+
+      ({String title, String content, String? thumbnailUrl})? result;
       String? author;
       try {
-        author = await _authorExtractionService.extractAuthor(
-          url: trimmedUrl,
-          metadata: <String, String>{
-            if ((result?.title ?? '').trim().isNotEmpty) 'title': result!.title,
-          },
-        );
-      } catch (e) {
-        // Author extraction is additive and must never block ingestion.
-        debugPrint('Author extraction failed for $trimmedUrl: $e');
+        result = await _extractionService.extractContent(trimmedUrl);
+        if (result != null) {
+          try {
+            author = await _authorExtractionService.extractAuthor(
+              url: trimmedUrl,
+              metadata: <String, String>{
+                if (result.title.trim().isNotEmpty) 'title': result.title,
+              },
+            );
+          } catch (e) {
+            // Author extraction is additive and must never block ingestion.
+            debugPrint('Author extraction failed for $trimmedUrl: $e');
+          }
+        }
+      } finally {
+        _hideLoadingOverlay();
       }
 
       if (_looksLikeJsRequiredContent(result?.content, result?.title)) {
-        _hideLoadingOverlay();
         await _pushSummaryWhenNavigatorReady(
           (context) => JsRenderedScraperScreen(url: trimmedUrl),
         );
         return;
       }
 
-      _hideLoadingOverlay();
-      final resultFromSummary = await _pushSummaryWhenNavigatorReady(
-        (context) => IngestionSummaryScreen(
-          type: 'url',
-          url: trimmedUrl,
-          title: result?.title,
-          content: result?.content,
-          author: author,
-          thumbnailUrl: result?.thumbnailUrl,
-        ),
+      if (result != null) {
+        final resultFromSummary = await _pushSummaryWhenNavigatorReady(
+          (context) => IngestionSummaryScreen(
+            type: 'url',
+            url: trimmedUrl,
+            title: result?.title,
+            content: result?.content,
+            author: author,
+            thumbnailUrl: result?.thumbnailUrl,
+          ),
+        );
+        debugPrint('ShareService: url summary closed with result=$resultFromSummary');
+        return;
+      }
+
+      final action = await _showExtractionFailureActions(
+        sourceLabel: trimmedUrl,
+        canOpenOriginal: true,
       );
-      debugPrint('ShareService: url summary closed with result=$resultFromSummary');
-    } finally {
-      _hideLoadingOverlay();
+
+      debugPrint(
+        'ShareService: extraction failure action source=$trimmedUrl action=$action',
+      );
+
+      if (action == IngestionFailureAction.retryExtraction) {
+        continue;
+      }
+
+      if (action == IngestionFailureAction.openOriginal) {
+        await _openOriginalUrl(trimmedUrl);
+        return;
+      }
+
+      if (action == IngestionFailureAction.reportIssue) {
+        _showInfoSnackBar('Please report this issue from Settings > About.');
+        return;
+      }
+
+      return;
     }
   }
 
@@ -292,8 +377,20 @@ class ShareService {
     final fileName = p.basename(sharedFile.path);
     final existingFile = await _database.getItemByFilePath(sharedFile.path);
     if (existingFile != null) {
-      final confirm = await _showDuplicateDialog(fileName);
-      if (confirm != true) return;
+      final resolution = await _showDuplicateDialog(
+        fileName,
+        existingItem: existingFile,
+      );
+      _trackDuplicateDecision(source: fileName, resolution: resolution);
+
+      if (resolution == DuplicateResolution.openExistingItem) {
+        await _openExistingItem(existingFile);
+        return;
+      }
+
+      if (resolution == DuplicateResolution.keepCurrentItem) {
+        return;
+      }
     }
 
     _showLoadingOverlay('Saving file...');
@@ -306,7 +403,38 @@ class ShareService {
 
       String? extractedText;
       if (fileName.toLowerCase().endsWith('.pdf')) {
-        extractedText = await _pdfExtractionService.extractText(newPath);
+        while (true) {
+          extractedText = await _pdfExtractionService.extractText(newPath);
+          if ((extractedText ?? '').trim().isNotEmpty) {
+            break;
+          }
+
+          _hideLoadingOverlay();
+          final action = await _showExtractionFailureActions(
+            sourceLabel: fileName,
+            canOpenOriginal: true,
+          );
+
+          debugPrint(
+            'ShareService: extraction failure action source=$fileName action=$action',
+          );
+
+          if (action == IngestionFailureAction.retryExtraction) {
+            _showLoadingOverlay('Saving file...');
+            continue;
+          }
+
+          if (action == IngestionFailureAction.openOriginal) {
+            await _openOriginalFile(newPath);
+            return;
+          }
+
+          if (action == IngestionFailureAction.reportIssue) {
+            _showInfoSnackBar('Please report this issue from Settings > About.');
+          }
+
+          return;
+        }
       }
 
       _hideLoadingOverlay();
@@ -426,31 +554,144 @@ class ShareService {
     return '$scheme://$host$path$query';
   }
 
-  Future<bool?> _showDuplicateDialog(String identifier) async {
+  Future<DuplicateResolution> _showDuplicateDialog(
+    String identifier, {
+    required MnemataItem existingItem,
+  }) async {
+    final duplicateResolutionOverride = _duplicateResolutionOverride;
+    if (duplicateResolutionOverride != null) {
+      return await duplicateResolutionOverride(
+            identifier: identifier,
+            existingItem: existingItem,
+          ) ??
+          DuplicateResolution.keepCurrentItem;
+    }
+
     final duplicatePromptOverride = _duplicatePromptOverride;
     if (duplicatePromptOverride != null) {
-      return duplicatePromptOverride(identifier);
+      final addDuplicate = await duplicatePromptOverride(identifier);
+      return addDuplicate == true
+          ? DuplicateResolution.addDuplicateItem
+          : DuplicateResolution.keepCurrentItem;
     }
 
     final context = _navigatorKey.currentContext;
-    if (context == null) return true;
+    if (context == null) {
+      return DuplicateResolution.addDuplicateItem;
+    }
 
-    return showDialog<bool>(
+    return (await showDialog<DuplicateResolution>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Duplicate Detected'),
-        content: Text('This item seems to be already in your list:\n\n$identifier\n\nDo you want to add it again?'),
+        content: Text('This item is already in your list:\n\n$identifier'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('DISCARD'),
+            onPressed: () => Navigator.pop(
+              context,
+              DuplicateResolution.openExistingItem,
+            ),
+            child: const Text('Open Existing Item'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ADD AGAIN'),
+            onPressed: () => Navigator.pop(
+              context,
+              DuplicateResolution.addDuplicateItem,
+            ),
+            child: const Text('Add Duplicate Item'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(
+              context,
+              DuplicateResolution.keepCurrentItem,
+            ),
+            child: const Text('Keep Current Item'),
           ),
         ],
       ),
+    )) ??
+        DuplicateResolution.keepCurrentItem;
+  }
+
+  Future<void> _openExistingItem(MnemataItem existingItem) async {
+    await _pushSummaryWhenNavigatorReady(
+      (context) => ReaderScreen(item: existingItem),
+    );
+  }
+
+  Future<IngestionFailureAction> _showExtractionFailureActions({
+    required String sourceLabel,
+    required bool canOpenOriginal,
+  }) async {
+    final failureActionOverride = _failureActionOverride;
+    if (failureActionOverride != null) {
+      return failureActionOverride(
+        sourceLabel: sourceLabel,
+        canOpenOriginal: canOpenOriginal,
+      );
+    }
+
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      return IngestionFailureAction.dismiss;
+    }
+
+    return IngestionFailureActionsSheet.show(
+      context,
+      sourceLabel: sourceLabel,
+      canOpenOriginal: canOpenOriginal,
+    );
+  }
+
+  Future<void> _openOriginalUrl(String rawUrl) async {
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null) {
+      _showInfoSnackBar('Could not open original URL.');
+      return;
+    }
+
+    try {
+      final launched = await launchUrl(uri);
+      if (!launched) {
+        _showInfoSnackBar('Could not open original URL.');
+      }
+    } catch (_) {
+      _showInfoSnackBar('Could not open original URL.');
+    }
+  }
+
+  Future<void> _openOriginalFile(String path) async {
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final result = await OpenFilex.open(path);
+      if (result.type != ResultType.done) {
+        _showInfoSnackBar('Could not open original file.');
+      }
+    } catch (_) {
+      _showInfoSnackBar('Could not open original file.');
+    }
+  }
+
+  void _showInfoSnackBar(String message) {
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _trackDuplicateDecision({
+    required String source,
+    required DuplicateResolution resolution,
+  }) {
+    debugPrint(
+      'ShareService: duplicate decision source=$source resolution=$resolution',
     );
   }
 

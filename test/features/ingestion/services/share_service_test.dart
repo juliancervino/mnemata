@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/features/ingestion/presentation/ingestion_failure_actions_sheet.dart';
 import 'package:mnemata/features/ingestion/services/share_service.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/ingestion/services/pdf_extraction_service.dart';
@@ -21,7 +22,6 @@ class MockNavigatorState extends Mock implements NavigatorState {
 
 void main() {
   late AppDatabase database;
-  late ShareService shareService;
   late MockExtractionService mockExtractionService;
   late MockPdfExtractionService mockPdfExtractionService;
   late MockNavigatorKey mockNavigatorKey;
@@ -51,13 +51,6 @@ void main() {
       .thenAnswer((_) => Future<Object?>.value(null));
     when(() => mockNavigatorState.push<Object?>(any()))
       .thenAnswer((_) => Future<Object?>.value(null));
-
-    shareService = ShareService(
-      database, 
-      mockExtractionService, 
-      mockPdfExtractionService, 
-      mockNavigatorKey
-    );
   });
 
   tearDown(() async {
@@ -74,8 +67,25 @@ void main() {
     );
   }
 
+  Future<void> insertFileItem(String filePath) async {
+    await database.insertItem(
+      MnemataItemsCompanion.insert(
+        type: 'file',
+        createdAt: DateTime.now(),
+        filePath: Value(filePath),
+      ),
+    );
+  }
+
   test('handleUrl triggers extraction and navigates to summary', () async {
     const url = 'https://example.com/article';
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+    );
+
     when(() => mockExtractionService.extractContent(url))
         .thenAnswer((_) async => (title: 'Test Title', content: 'Test Content', thumbnailUrl: null));
 
@@ -88,47 +98,149 @@ void main() {
     verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
   });
 
-  test('duplicate lookup uses normalized URL key', () async {
+  test('duplicate decision can keep current item without extracting', () async {
     const storedUrl = 'https://example.com/page';
     const incomingUrl = 'HTTPS://EXAMPLE.COM/page';
     await insertUrlItem(storedUrl);
 
-    final duplicateShareService = ShareService(
+    final shareService = ShareService(
       database,
       mockExtractionService,
       mockPdfExtractionService,
       mockNavigatorKey,
-      duplicatePromptOverride: (_) async => false,
+      duplicateResolutionOverride: ({
+        required String identifier,
+        required MnemataItem existingItem,
+      }) async =>
+          DuplicateResolution.keepCurrentItem,
     );
 
-    await duplicateShareService.handleUrl(incomingUrl);
+    await shareService.handleUrl(incomingUrl);
 
     verifyNever(() => mockExtractionService.extractContent(any()));
     verifyNever(() => mockNavigatorState.push<dynamic>(any()));
   });
 
-  test('duplicate lookup finds legacy URL variant with trailing slash', () async {
+  test('duplicate decision can open existing item', () async {
     const storedUrl = 'HTTPS://EXAMPLE.COM/page/';
     const incomingUrl = 'https://example.com/page';
     await insertUrlItem(storedUrl);
 
-    final duplicateShareService = ShareService(
+    final shareService = ShareService(
       database,
       mockExtractionService,
       mockPdfExtractionService,
       mockNavigatorKey,
-      duplicatePromptOverride: (_) async => false,
+      duplicateResolutionOverride: ({
+        required String identifier,
+        required MnemataItem existingItem,
+      }) async =>
+          DuplicateResolution.openExistingItem,
     );
 
-    await duplicateShareService.handleUrl(incomingUrl);
+    await shareService.handleUrl(incomingUrl);
 
     verifyNever(() => mockExtractionService.extractContent(any()));
+    verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
+  });
+
+  test('duplicate decision can add duplicate item intentionally', () async {
+    const storedUrl = 'https://example.com/page';
+    const incomingUrl = 'https://example.com/page';
+    await insertUrlItem(storedUrl);
+
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+      duplicateResolutionOverride: ({
+        required String identifier,
+        required MnemataItem existingItem,
+      }) async =>
+          DuplicateResolution.addDuplicateItem,
+    );
+
+    when(() => mockExtractionService.extractContent(incomingUrl))
+        .thenAnswer((_) async => (title: 'Dup', content: 'Content', thumbnailUrl: null));
+
+    await shareService.handleUrl(incomingUrl);
+
+    verify(() => mockExtractionService.extractContent(incomingUrl)).called(1);
+    verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
+  });
+
+  test('extraction failure uses guided actions instead of silent drop', () async {
+    const url = 'https://example.com/fail';
+    var prompted = false;
+
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+      failureActionOverride: ({
+        required String sourceLabel,
+        required bool canOpenOriginal,
+      }) async {
+        prompted = true;
+        return IngestionFailureAction.dismiss;
+      },
+    );
+
+    when(() => mockExtractionService.extractContent(url)).thenAnswer((_) async => null);
+
+    await shareService.handleUrl(url);
+
+    expect(prompted, isTrue);
+    verify(() => mockExtractionService.extractContent(url)).called(1);
     verifyNever(() => mockNavigatorState.push<dynamic>(any()));
+  });
+
+  test('retry extraction action retries and then proceeds to summary', () async {
+    const url = 'https://example.com/retry';
+    var failurePromptCount = 0;
+
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+      failureActionOverride: ({
+        required String sourceLabel,
+        required bool canOpenOriginal,
+      }) async {
+        failurePromptCount += 1;
+        return IngestionFailureAction.retryExtraction;
+      },
+    );
+
+    var extractionCallCount = 0;
+    when(() => mockExtractionService.extractContent(url)).thenAnswer((_) async {
+      extractionCallCount += 1;
+      if (extractionCallCount == 1) {
+        return null;
+      }
+      return (title: 'Recovered', content: 'Recovered content', thumbnailUrl: null);
+    });
+
+    await shareService.handleUrl(url);
+
+    expect(failurePromptCount, 1);
+    verify(() => mockExtractionService.extractContent(url)).called(2);
+    verify(() => mockNavigatorState.push<dynamic>(any())).called(1);
   });
 
   test('sequential shares process each payload independently', () async {
     const urlA = 'https://example.com/a';
     const urlB = 'https://example.com/b';
+
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+    );
 
     when(() => mockExtractionService.extractContent(urlA))
         .thenAnswer((_) async => (title: 'A', content: 'Content A', thumbnailUrl: null));
@@ -144,25 +256,53 @@ void main() {
     verify(() => mockNavigatorState.push<dynamic>(any())).called(2);
   });
 
-  test('discarding duplicate does not affect next shared url', () async {
-    const duplicateUrl = 'https://example.com/dup';
-    const nextUrl = 'https://example.com/next';
-    await insertUrlItem(duplicateUrl);
+  test('file duplicate keep current avoids file summary navigation', () async {
+    const filePath = '/tmp/sample.pdf';
+    await insertFileItem(filePath);
 
-    final duplicateDiscardService = ShareService(
+    final shareService = ShareService(
       database,
       mockExtractionService,
       mockPdfExtractionService,
       mockNavigatorKey,
-      duplicatePromptOverride: (_) async => false,
+      duplicateResolutionOverride: ({
+        required String identifier,
+        required MnemataItem existingItem,
+      }) async =>
+          DuplicateResolution.keepCurrentItem,
+    );
+
+    await shareService.handleWebFile(
+      fileName: filePath,
+      bytes: Uint8List.fromList(<int>[1, 2, 3]),
+    );
+
+    verifyNever(() => mockNavigatorState.push<dynamic>(any()));
+  });
+
+  test('keeping duplicate does not affect next shared url', () async {
+    const duplicateUrl = 'https://example.com/dup';
+    const nextUrl = 'https://example.com/next';
+    await insertUrlItem(duplicateUrl);
+
+    final shareService = ShareService(
+      database,
+      mockExtractionService,
+      mockPdfExtractionService,
+      mockNavigatorKey,
+      duplicateResolutionOverride: ({
+        required String identifier,
+        required MnemataItem existingItem,
+      }) async =>
+          DuplicateResolution.keepCurrentItem,
     );
 
     when(() => mockExtractionService.extractContent(nextUrl))
         .thenAnswer((_) async => (title: 'Next', content: 'Next content', thumbnailUrl: null));
 
-    await duplicateDiscardService.handleUrl(duplicateUrl);
+    await shareService.handleUrl(duplicateUrl);
     await Future<void>.delayed(const Duration(milliseconds: 10));
-    await duplicateDiscardService.handleUrl(nextUrl);
+    await shareService.handleUrl(nextUrl);
 
     verifyNever(() => mockExtractionService.extractContent(duplicateUrl));
     verify(() => mockExtractionService.extractContent(nextUrl)).called(1);
