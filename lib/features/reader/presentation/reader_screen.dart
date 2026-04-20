@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/core/utils/share_utils.dart';
+import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
 import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
@@ -12,8 +16,12 @@ import 'package:mnemata/features/intelligence/presentation/tag_suggestion_sheet.
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
-import 'package:mnemata/core/utils/share_utils.dart';
+import 'package:mnemata/features/reader/presentation/reader_controls_bar.dart';
+import 'package:mnemata/features/reader/presentation/reader_pdf_view.dart';
+import 'package:mnemata/features/reader/presentation/reader_side_panel.dart';
 import 'package:mnemata/features/reader/presentation/widgets/reader_action_pill.dart';
+import 'package:mnemata/features/reader/services/reader_position_store.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -26,21 +34,48 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
+  static const double _desktopBreakpoint = 1024;
+  static const double _sidePanelWidth = 312;
+  static const int _wordsPerSectionBucket = 120;
+
   late final AppDatabase _database;
   late final AnnotationService _annotationService;
-  late final String _plainContent;
-  late final String _readTime;
+  late final ReaderPositionStore _positionStore;
+  late String _plainContent;
+  late String _readTime;
+
+  final ScrollController _scrollController = ScrollController();
 
   List<AnnotationRecord> _annotations = const <AnnotationRecord>[];
+  ReaderFontScale _fontScale = ReaderFontScale.standard;
+  ReaderVisualTheme _visualTheme = ReaderVisualTheme.light;
+  double _columnWidth = 720;
+  bool _showSidePanel = true;
+  int _activeSectionBucket = 0;
+  Timer? _persistBucketTimer;
 
   @override
   void initState() {
     super.initState();
     _database = GetIt.instance<AppDatabase>();
     _annotationService = GetIt.instance<AnnotationService>();
+    _positionStore = GetIt.instance.isRegistered<ReaderPositionStore>()
+        ? GetIt.instance<ReaderPositionStore>()
+        : SharedPrefsReaderPositionStore();
     _plainContent = _extractPlainText(widget.item.content ?? '');
     _readTime = _estimateReadTime(_plainContent);
+    _scrollController.addListener(_handleScrollCheckpoint);
     _reloadAnnotations();
+    _restoreSectionBucket();
+  }
+
+  @override
+  void dispose() {
+    _persistBucketTimer?.cancel();
+    _scrollController
+      ..removeListener(_handleScrollCheckpoint)
+      ..dispose();
+    super.dispose();
   }
 
   Future<void> _reloadAnnotations() async {
@@ -57,10 +92,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final hasContent =
-        widget.item.content != null && widget.item.content!.isNotEmpty;
-
     final source = _deriveSource();
+    final hasContent = _plainContent.trim().isNotEmpty || _isPdfItem;
+
     final metaTitle = [
       if (source.isNotEmpty) source,
       if (_readTime.isNotEmpty) _readTime,
@@ -68,148 +102,506 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: cs.surface.withValues(alpha: 0),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           metaTitle,
           style: theme.textTheme.mono(
             size: 10,
-            letterSpacing: 1.0,
+            letterSpacing: 1,
             color: cs.onSurfaceVariant,
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_horiz),
-            tooltip: 'More',
-            onPressed: _openMoreMenu,
-          ),
-        ],
       ),
-      body: hasContent
-          ? Stack(
-              children: [
-                SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(28, 36, 28, 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _HeroHeader(
-                          title: widget.item.title ?? '',
-                          author: widget.item.author,
-                          source: source,
-                          createdAt: widget.item.createdAt,
-                        ),
-                        const SizedBox(height: 24),
-                        _LabelsRow(
-                          database: _database,
-                          itemId: widget.item.id,
-                        ),
-                        _AnnotationsExpansion(
-                          itemId: widget.item.id,
-                          service: _annotationService,
-                          onChanged: _reloadAnnotations,
-                        ),
-                        const SizedBox(height: 16),
-                        SelectableText.rich(
-                          _buildHighlightedContentSpan(context),
-                          contextMenuBuilder:
-                              (context, editableTextState) {
-                            final items =
-                                editableTextState.contextMenuButtonItems;
-                            items.insert(
-                              0,
-                              ContextMenuButtonItem(
-                                label: 'Highlight',
-                                onPressed: () {
-                                  final selection = editableTextState
-                                      .textEditingValue
-                                      .selection;
-                                  editableTextState.hideToolbar();
-                                  _saveHighlightOnlyFromSelection(selection);
-                                },
-                              ),
-                            );
-                            items.insert(
-                              1,
-                              ContextMenuButtonItem(
-                                label: 'Highlight + note',
-                                onPressed: () {
-                                  final selection = editableTextState
-                                      .textEditingValue
-                                      .selection;
-                                  editableTextState.hideToolbar();
-                                  _saveHighlightWithNoteFromSelection(
-                                    selection,
-                                  );
-                                },
-                              ),
-                            );
-                            return AdaptiveTextSelectionToolbar.buttonItems(
-                              anchors: editableTextState.contextMenuAnchors,
-                              buttonItems: items,
-                            );
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= _desktopBreakpoint;
+          final canToggleSidePanel = isDesktop && hasContent;
+          final showSidePanel = canToggleSidePanel && _showSidePanel;
+          final shellWidth = showSidePanel
+              ? _columnWidth + _sidePanelWidth + 24
+              : _columnWidth;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: hasContent
+                    ? _buildReadableSurface(
+                        context,
+                        source: source,
+                        showSidePanel: showSidePanel,
+                      )
+                    : _buildNoContentState(context),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: shellWidth),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: ReaderControlsBar(
+                          sectionLabel: _buildSectionLabel(),
+                          fontScale: _fontScale,
+                          visualTheme: _visualTheme,
+                          columnWidth: _columnWidth,
+                          canToggleSidePanel: canToggleSidePanel,
+                          isSidePanelVisible: _showSidePanel,
+                          onFontScaleChanged: (value) {
+                            setState(() {
+                              _fontScale = value;
+                            });
                           },
-                          style: theme.textTheme.titleLarge,
+                          onVisualThemeChanged: (value) {
+                            setState(() {
+                              _visualTheme = value;
+                            });
+                          },
+                          onColumnWidthChanged: (value) {
+                            setState(() {
+                              _columnWidth = value;
+                            });
+                          },
+                          onSidePanelToggled: (value) {
+                            setState(() {
+                              _showSidePanel = value;
+                            });
+                          },
+                          onOpenOriginal: _openOriginal,
+                          onShare: _shareItem,
+                          onMore: _openMoreMenu,
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: MediaQuery.of(context).viewPadding.bottom + 16,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: ReaderActionPill(
-                      onSummary: _openSummary,
-                      onHighlight: _startHighlight,
-                      onTag: _openTagSuggestions,
-                      onShare: _shareItem,
-                      onBookmark: _togglePin,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : SafeArea(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.article_outlined,
-                      size: 64,
-                      color: cs.outlineVariant,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No content extracted yet.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    if (widget.item.url != null) ...[
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: _openItemUrl,
-                        child: const Text('Open in Browser'),
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                bottom: MediaQuery.of(context).viewPadding.bottom + 16,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: ReaderActionPill(
+                    onSummary: _openSummary,
+                    onHighlight: _startHighlight,
+                    onTag: _openTagSuggestions,
+                    onShare: _shareItem,
+                    onBookmark: _togglePin,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  Future<void> _openMoreMenu() async {
+  Widget _buildReadableSurface(
+    BuildContext context, {
+    required String source,
+    required bool showSidePanel,
+  }) {
+    final tone = _bodyToneFor(context);
+    final sectionLabels = _isPdfItem ? const <String>['PDF'] : _sectionLabels();
+
+    final mainPane = _isPdfItem
+        ? _buildPdfBody(context)
+        : _buildScrollableBody(context, source: source, tone: tone);
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: showSidePanel
+                ? _columnWidth + _sidePanelWidth + 24
+                : _columnWidth,
+          ),
+          child: showSidePanel
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: _columnWidth, child: mainPane),
+                    const SizedBox(width: 24),
+                    SizedBox(
+                      width: _sidePanelWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 132, bottom: 24),
+                        child: ReaderSidePanel(
+                          source: source,
+                          readTime: _readTime,
+                          createdAt: widget.item.createdAt,
+                          sectionLabels: sectionLabels,
+                          activeSection: _isPdfItem ? 0 : _activeSectionBucket,
+                          onSelectSection: _jumpToSection,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: _columnWidth),
+                  child: mainPane,
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPdfBody(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 132, 0, 140),
+      child: ReaderPdfView(
+        sourceUri: _pdfSourceUri,
+        onOpenOriginal: _openOriginal,
+        onRetryExtraction: _retryExtraction,
+        onReportIssue: _reportIssue,
+      ),
+    );
+  }
+
+  Widget _buildScrollableBody(
+    BuildContext context, {
+    required String source,
+    required _ReaderBodyTone tone,
+  }) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      controller: _scrollController,
+      key: const Key('reader-scroll-view'),
+      padding: const EdgeInsets.fromLTRB(0, 132, 0, 140),
+      child: Container(
+        key: const Key('reader-content-container'),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        decoration: BoxDecoration(
+          color: tone.surfaceColor,
+          borderRadius: BorderRadius.circular(MnemataRadii.lg),
+          border: Border.all(color: tone.borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _HeroHeader(
+              title: widget.item.title ?? '',
+              author: widget.item.author,
+              source: source,
+              createdAt: widget.item.createdAt,
+              textColor: tone.textColor,
+              mutedTextColor: tone.mutedTextColor,
+            ),
+            const SizedBox(height: 24),
+            _LabelsRow(database: _database, itemId: widget.item.id),
+            _AnnotationsExpansion(
+              itemId: widget.item.id,
+              service: _annotationService,
+              onChanged: _reloadAnnotations,
+            ),
+            const SizedBox(height: 16),
+            SelectableText.rich(
+              _buildHighlightedContentSpan(context),
+              key: const Key('reader-body-text'),
+              contextMenuBuilder: (context, editableTextState) {
+                final items = editableTextState.contextMenuButtonItems;
+                items.insert(
+                  0,
+                  ContextMenuButtonItem(
+                    label: 'Highlight',
+                    onPressed: () {
+                      final selection =
+                          editableTextState.textEditingValue.selection;
+                      editableTextState.hideToolbar();
+                      _saveHighlightOnlyFromSelection(selection);
+                    },
+                  ),
+                );
+                items.insert(
+                  1,
+                  ContextMenuButtonItem(
+                    label: 'Highlight + note',
+                    onPressed: () {
+                      final selection =
+                          editableTextState.textEditingValue.selection;
+                      editableTextState.hideToolbar();
+                      _saveHighlightWithNoteFromSelection(selection);
+                    },
+                  ),
+                );
+                return AdaptiveTextSelectionToolbar.buttonItems(
+                  anchors: editableTextState.contextMenuAnchors,
+                  buttonItems: items,
+                );
+              },
+              style: _contentTextStyle(theme, tone.textColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoContentState(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return SafeArea(
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 640),
+          margin: const EdgeInsets.fromLTRB(16, 132, 16, 32),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(MnemataRadii.lg),
+            border: Border.all(color: cs.outline),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.article_outlined,
+                size: 48,
+                color: cs.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Could not load readable content.',
+                style: theme.textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Use one of the guided actions below to recover this reader state.',
+                style: theme.textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  FilledButton(
+                    onPressed: _retryExtraction,
+                    child: const Text('Retry Extraction'),
+                  ),
+                  OutlinedButton(
+                    onPressed: _openOriginal,
+                    child: const Text('Open Original'),
+                  ),
+                  TextButton(
+                    onPressed: _reportIssue,
+                    child: const Text('Report Issue'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  _ReaderBodyTone _bodyToneFor(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDarkAppTheme = Theme.of(context).brightness == Brightness.dark;
+
+    switch (_visualTheme) {
+      case ReaderVisualTheme.light:
+        return _ReaderBodyTone(
+          surfaceColor: cs.surface,
+          borderColor: cs.outline,
+          textColor: cs.onSurface,
+          mutedTextColor: cs.onSurfaceVariant,
+          highlightColor: isDarkAppTheme
+              ? MnemataColors.accentSoftDark
+              : MnemataColors.accentSoft,
+        );
+      case ReaderVisualTheme.sepia:
+        return _ReaderBodyTone(
+          surfaceColor: isDarkAppTheme
+              ? MnemataColors.accentSoftDark
+              : MnemataColors.accentSoft,
+          borderColor: cs.outline,
+          textColor: cs.onSurface,
+          mutedTextColor: cs.onSurfaceVariant,
+          highlightColor: cs.primary.withValues(alpha: 0.2),
+        );
+      case ReaderVisualTheme.dark:
+        return _ReaderBodyTone(
+          surfaceColor: MnemataColors.paperDark,
+          borderColor: MnemataColors.ruleDark,
+          textColor: MnemataColors.inkDark,
+          mutedTextColor: MnemataColors.ink3Dark,
+          highlightColor: MnemataColors.accentSoftDark,
+        );
+    }
+  }
+
+  TextStyle? _contentTextStyle(ThemeData theme, Color textColor) {
+    final baseStyle = theme.textTheme.titleLarge;
+    if (baseStyle == null) {
+      return null;
+    }
+
+    final scale = switch (_fontScale) {
+      ReaderFontScale.compact => 0.92,
+      ReaderFontScale.standard => 1.0,
+      ReaderFontScale.roomy => 1.1,
+    };
+
+    final scaledSize = baseStyle.fontSize == null
+        ? null
+        : baseStyle.fontSize! * scale;
+
+    return baseStyle.copyWith(fontSize: scaledSize, color: textColor);
+  }
+
+  String _buildSectionLabel() {
+    if (_isPdfItem) {
+      return 'PDF preview';
+    }
+
+    final count = _sectionCount();
+    final clamped = _activeSectionBucket.clamp(0, count - 1);
+    return 'Section ${clamped + 1} of $count';
+  }
+
+  List<String> _sectionLabels() {
+    final count = _sectionCount();
+    return List<String>.generate(count, (index) => 'Section ${index + 1}');
+  }
+
+  int _sectionCount() {
+    if (_isPdfItem) {
+      return 1;
+    }
+
+    final words = _plainContent.trim().isEmpty
+        ? 0
+        : _plainContent.trim().split(RegExp(r'\s+')).length;
+    if (words == 0) {
+      return 1;
+    }
+    return (words / _wordsPerSectionBucket).ceil().clamp(1, 32);
+  }
+
+  void _handleScrollCheckpoint() {
+    if (_isPdfItem || !_scrollController.hasClients) {
+      return;
+    }
+
+    final nextBucket = _bucketForOffset(_scrollController.offset);
+    if (nextBucket != _activeSectionBucket && mounted) {
+      setState(() {
+        _activeSectionBucket = nextBucket;
+      });
+      _schedulePersistBucket();
+    }
+  }
+
+  Future<void> _restoreSectionBucket() async {
+    if (_isPdfItem || _plainContent.trim().isEmpty) {
+      return;
+    }
+
+    final storedBucket = await _positionStore.readBucket(widget.item.id);
+    if (!mounted || storedBucket == null) {
+      return;
+    }
+
+    final clampedBucket = storedBucket.clamp(0, _sectionCount() - 1);
+    setState(() {
+      _activeSectionBucket = clampedBucket;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.jumpTo(_offsetForBucket(clampedBucket));
+    });
+  }
+
+  void _schedulePersistBucket() {
+    _persistBucketTimer?.cancel();
+    _persistBucketTimer = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted || _isPdfItem) {
+        return;
+      }
+      unawaited(
+        _positionStore.writeBucket(widget.item.id, _activeSectionBucket),
+      );
+    });
+  }
+
+  int _bucketForOffset(double offset) {
+    if (!_scrollController.hasClients) {
+      return 0;
+    }
+
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) {
+      return 0;
+    }
+
+    final count = _sectionCount();
+    final ratio = (offset / maxExtent).clamp(0.0, 1.0);
+    return (ratio * (count - 1)).round().clamp(0, count - 1);
+  }
+
+  double _offsetForBucket(int bucket) {
+    if (!_scrollController.hasClients) {
+      return 0;
+    }
+
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) {
+      return 0;
+    }
+
+    final count = _sectionCount();
+    final normalized = bucket.clamp(0, count - 1);
+    final ratio = count == 1 ? 0.0 : normalized / (count - 1);
+    return maxExtent * ratio;
+  }
+
+  Future<void> _jumpToSection(int bucket) async {
+    if (_isPdfItem || !_scrollController.hasClients) {
+      return;
+    }
+
+    final target = _offsetForBucket(bucket);
+    if (mounted) {
+      setState(() {
+        _activeSectionBucket = bucket.clamp(0, _sectionCount() - 1);
+      });
+    }
+
+    await _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+    _schedulePersistBucket();
+  }
+
+  Future<void> _openMoreMenu() async {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -218,20 +610,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (widget.item.url != null)
+              if (_canOpenOriginal)
                 ListTile(
                   leading: const Icon(Icons.open_in_new),
-                  title: const Text('Open in Browser'),
+                  title: const Text('Open Original'),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    _openItemUrl();
+                    _openOriginal();
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Retry Extraction'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _retryExtraction();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.bug_report_outlined),
+                title: const Text('Report Issue'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _reportIssue();
+                },
+              ),
               ListTile(
                 leading: Icon(Icons.delete_outline, color: cs.error),
                 title: Text(
                   'Delete',
-                  style: TextStyle(color: cs.error),
+                  style: theme.textTheme.bodyLarge?.copyWith(color: cs.error),
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -260,6 +668,111 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  bool get _isPdfItem {
+    final url = widget.item.url?.toLowerCase() ?? '';
+    final filePath = widget.item.filePath?.toLowerCase() ?? '';
+    return url.endsWith('.pdf') || filePath.endsWith('.pdf');
+  }
+
+  Uri? get _pdfSourceUri {
+    final rawUrl = widget.item.url?.trim();
+    if (rawUrl != null && rawUrl.isNotEmpty) {
+      final urlUri = _parseLaunchableUri(rawUrl);
+      if (urlUri != null && urlUri.toString().toLowerCase().contains('.pdf')) {
+        return urlUri;
+      }
+    }
+
+    final rawFilePath = widget.item.filePath?.trim();
+    if (rawFilePath == null || rawFilePath.isEmpty) {
+      return null;
+    }
+
+    final fileUri = Uri.tryParse(rawFilePath);
+    if (fileUri != null &&
+        fileUri.hasScheme &&
+        fileUri.toString().toLowerCase().contains('.pdf')) {
+      return fileUri;
+    }
+    return null;
+  }
+
+  Future<void> _retryExtraction() async {
+    final rawUrl = widget.item.url;
+    if (rawUrl == null || rawUrl.trim().isEmpty) {
+      _reportIssue(message: 'Retry extraction is unavailable for this item.');
+      return;
+    }
+
+    if (!GetIt.instance.isRegistered<ExtractionService>()) {
+      _reportIssue(message: 'Extraction service is unavailable.');
+      return;
+    }
+
+    final extractionService = GetIt.instance<ExtractionService>();
+
+    try {
+      final extracted = await extractionService.extractContent(rawUrl.trim());
+      if (extracted == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Retry extraction returned no readable content.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      await _database.updateItemContent(
+        widget.item.id,
+        extracted.content,
+        extracted.title,
+        extracted.thumbnailUrl,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _plainContent = _extractPlainText(extracted.content);
+        _readTime = _estimateReadTime(_plainContent);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Extraction retried successfully.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Retry extraction failed. Open original or report issue.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _reportIssue({String? message}) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message ??
+              'Issue report noted. Please share the source URL and item title with support.',
+        ),
+      ),
+    );
+  }
+
   String _deriveSource() {
     final rawUrl = widget.item.url;
     if (rawUrl == null || rawUrl.trim().isEmpty) {
@@ -278,11 +791,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   TextSpan _buildHighlightedContentSpan(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.titleLarge;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final highlightColor = isDark
-        ? MnemataColors.accentSoftDark
-        : MnemataColors.accentSoft;
+    final tone = _bodyToneFor(context);
+    final baseStyle = _contentTextStyle(Theme.of(context), tone.textColor);
     if (_annotations.isEmpty || _plainContent.isEmpty) {
       return TextSpan(text: _plainContent, style: baseStyle);
     }
@@ -318,9 +828,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         spans.add(
           TextSpan(
             text: _plainContent.substring(start, end),
-            style: baseStyle?.copyWith(
-              backgroundColor: highlightColor,
-            ),
+            style: baseStyle?.copyWith(backgroundColor: tone.highlightColor),
           ),
         );
       }
@@ -468,6 +976,67 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return Uri.tryParse('https://$trimmed');
   }
 
+  bool get _canOpenOriginal {
+    final hasUrl =
+        widget.item.url != null && widget.item.url!.trim().isNotEmpty;
+    final hasFilePath =
+        widget.item.filePath != null && widget.item.filePath!.trim().isNotEmpty;
+    return hasUrl || hasFilePath;
+  }
+
+  Future<void> _openOriginal() async {
+    final rawUrl = widget.item.url;
+    if (rawUrl != null && rawUrl.trim().isNotEmpty) {
+      await _openItemUrl();
+      return;
+    }
+
+    final filePath = widget.item.filePath;
+    if (filePath != null && filePath.trim().isNotEmpty) {
+      await _openFilePath(filePath);
+      return;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No original source found.')),
+      );
+    }
+  }
+
+  Future<void> _openFilePath(String filePath) async {
+    if (kIsWeb) {
+      final parsed = Uri.tryParse(filePath);
+      if (parsed != null && parsed.hasScheme) {
+        final opened = await launchUrl(parsed);
+        if (!opened && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open original source')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Open original is unavailable for this imported file.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final result = await OpenFilex.open(filePath);
+    if (result.type != ResultType.done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open original source')),
+      );
+    }
+  }
+
   Future<void> _openItemUrl() async {
     final rawUrl = widget.item.url;
     if (rawUrl == null || rawUrl.trim().isEmpty) {
@@ -562,11 +1131,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       return;
     }
 
-    await ShareUtils.shareItem(
-      context,
-      widget.item,
-      summaryText: summaryText,
-    );
+    await ShareUtils.shareItem(context, widget.item, summaryText: summaryText);
   }
 
   String _summaryToShareText(SummaryResult result) {
@@ -613,18 +1178,38 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 }
 
+class _ReaderBodyTone {
+  const _ReaderBodyTone({
+    required this.surfaceColor,
+    required this.borderColor,
+    required this.textColor,
+    required this.mutedTextColor,
+    required this.highlightColor,
+  });
+
+  final Color surfaceColor;
+  final Color borderColor;
+  final Color textColor;
+  final Color mutedTextColor;
+  final Color highlightColor;
+}
+
 class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
     required this.title,
     required this.author,
     required this.source,
     required this.createdAt,
+    required this.textColor,
+    required this.mutedTextColor,
   });
 
   final String title;
   final String? author;
   final String source;
   final DateTime createdAt;
+  final Color textColor;
+  final Color mutedTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -643,7 +1228,7 @@ class _HeroHeader extends StatelessWidget {
       children: [
         if (kicker != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               kicker.toUpperCase(),
               style: theme.textTheme.tracked(cs.secondary),
@@ -651,15 +1236,11 @@ class _HeroHeader extends StatelessWidget {
           ),
         Text(
           title,
-          style: theme.textTheme.displaySmall!.copyWith(
-            fontSize: 36,
-            height: 1.08,
-            letterSpacing: -0.9,
-          ),
+          style: theme.textTheme.displaySmall?.copyWith(color: textColor),
         ),
-        const SizedBox(height: 28),
-        const Divider(),
-        const SizedBox(height: 18),
+        const SizedBox(height: 24),
+        Divider(color: cs.outline),
+        const SizedBox(height: 16),
         Row(
           children: [
             Container(
@@ -676,10 +1257,7 @@ class _HeroHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 metaText,
-                style: theme.textTheme.mono(
-                  size: 11,
-                  color: cs.onSurfaceVariant,
-                ),
+                style: theme.textTheme.mono(size: 11, color: mutedTextColor),
               ),
             ),
           ],
