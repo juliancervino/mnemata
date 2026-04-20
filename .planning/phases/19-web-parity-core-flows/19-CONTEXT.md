@@ -82,6 +82,19 @@ This phase does not expand product capability beyond WEB-01..WEB-04. New capabil
 - `.planning/PROJECT.md` - Milestone constraints and reliability-first boundaries.
 - `.planning/STATE.md` - Current milestone status and phase readiness context.
 
+### Visual system anchors (mandatory for UI tasks)
+- `CLAUDE.md` - UI guardrails: token usage, typography hierarchy, shared widgets, app bar and sheet conventions.
+- `handoff/DESIGN_TOKENS.md` - Canonical color, spacing, radii, and shadow tokens.
+- `handoff/TYPOGRAPHY.md` - Serif/sans/mono role mapping and text hierarchy rules.
+- `handoff/COMPONENTS.md` - Shared component behavior contracts (`TagChip`, `ItemCard`, `SectionLabel`, `ReaderActionPill`).
+- `handoff/SCREENS.md` - Screen-level composition patterns for list/reader/sheets/settings.
+- `handoff/DARK_MODE.md` - Dark-mode palette and contrast expectations.
+- `lib/core/theme/app_theme.dart` - Active runtime theme, color scheme mapping, and text extensions.
+- `lib/core/widgets/tag_chip.dart` - Canonical tag surface primitive.
+- `lib/core/widgets/item_card.dart` - Canonical list row primitive.
+- `lib/core/widgets/section_label.dart` - Canonical grouping header primitive.
+- `lib/features/reader/presentation/widgets/reader_action_pill.dart` - Canonical reader floating action cluster.
+
 ### Existing implementation anchors
 - `lib/features/ingestion/services/share_service.dart` - Mobile ingestion orchestration, dedupe prompt, URL/file branch behavior.
 - `lib/features/ingestion/presentation/ingestion_summary_screen.dart` - Summary/edit-before-save flow and save/discard outcomes.
@@ -107,6 +120,8 @@ This phase does not expand product capability beyond WEB-01..WEB-04. New capabil
 - Soft-delete with recycle bin semantics is established and should remain consistent on web.
 - Search and filtering are stream-driven from Drift queries; UI responds reactively to DB state.
 - Error communication currently favors inline text/snackbar patterns over silent failures.
+- Theme and component system is already migrated: feature UI must consume `MnemataTheme` tokens and shared core widgets instead of bespoke styles.
+- Dark mode is first-class (`ThemeMode.system`): all in-scope UI states must be legible in both light and dark variants.
 
 ### Integration Points
 - Web ingest entry should flow into existing ingestion summary save/discard semantics.

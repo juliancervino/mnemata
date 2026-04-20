@@ -4,7 +4,7 @@ slug: web-parity-core-flows
 status: draft
 shadcn_initialized: false
 preset: none
-created: 2026-04-19
+created: 2026-04-20
 ---
 
 # Phase 19 - UI Design Contract
@@ -19,6 +19,7 @@ created: 2026-04-19
 - Deterministic failure handling: no silent failures. Every failure path must include explicit user-visible recovery actions.
 - State continuity: returning from reader preserves list query, filters, and scroll position.
 - Scope guardrail: no multi-select bulk actions, no list or reader keyboard shortcut packages, no fuzzy search, no persisted search history.
+- Visual coherence guardrail: Phase 19 UI work MUST follow the already-migrated Mnemata design system in `CLAUDE.md`, `handoff/`, and `lib/core/theme/app_theme.dart`.
 
 ---
 
@@ -30,8 +31,23 @@ created: 2026-04-19
 | Preset | not applicable |
 | Component library | Flutter Material 3 |
 | Icon library | Material Symbols (Flutter Icons) |
-| Font | Roboto (Material 3 default) |
-| Foundation tokens | ThemeData + ColorScheme.fromSeed(seed #2E7D32, light) |
+| Typography families | Instrument Serif (editorial), Geist (UI), JetBrains Mono (metadata) |
+| Foundation tokens | `MnemataColors`, `MnemataRadii`, `MnemataShadows` in `lib/core/theme/app_theme.dart` |
+| Shared UI primitives | `TagChip`, `ItemCard`, `SectionLabel`, `ReaderActionPill` |
+| Theme mode | `ThemeMode.system` with `MnemataTheme.light` + `MnemataTheme.dark` |
+
+Canonical UI references for this phase:
+- `CLAUDE.md`
+- `handoff/DESIGN_TOKENS.md`
+- `handoff/TYPOGRAPHY.md`
+- `handoff/COMPONENTS.md`
+- `handoff/SCREENS.md`
+- `handoff/DARK_MODE.md`
+- `lib/core/theme/app_theme.dart`
+- `lib/core/widgets/tag_chip.dart`
+- `lib/core/widgets/item_card.dart`
+- `lib/core/widgets/section_label.dart`
+- `lib/features/reader/presentation/widgets/reader_action_pill.dart`
 
 ---
 
@@ -58,15 +74,21 @@ Exceptions:
 
 ## Typography
 
-Allowed font sizes for Phase 19 surfaces: 14, 16, 20, 28.
-Allowed weights for Phase 19 surfaces: 400 and 600.
+Allowed typography in Phase 19 must come from `Theme.of(context).textTheme` and `textTheme.mono()` / `textTheme.tracked()` extensions.
+
+Hierarchy contract:
+- Serif (Instrument Serif): editorial headers and reader body.
+- Sans (Geist): UI body, controls, labels.
+- Mono (JetBrains Mono): tracked kickers and metadata (`source · read time`).
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body | 16px | 400 | 1.5 |
-| Label | 14px | 600 | 1.4 |
-| Heading | 20px | 600 | 1.2 |
-| Display | 28px | 600 | 1.15 |
+| UI Body (`bodyLarge`) | 15px | 400 | 1.5 |
+| UI Label (`labelLarge`) | 14px | 500 | 1.4 |
+| Editorial H3 (`headlineSmall`) | 20px | 400 (serif) | 1.25 |
+| Editorial body (`titleLarge`) | 19px | 400 (serif) | 1.55 |
+
+Do not hardcode font sizes in feature code unless explicitly required by design token exceptions.
 
 ---
 
@@ -74,9 +96,9 @@ Allowed weights for Phase 19 surfaces: 400 and 600.
 
 | Role | Value | Usage |
 |------|-------|-------|
-| Dominant (60%) | ColorScheme.surface (seeded by #2E7D32) | App backgrounds, reader surface, form surfaces |
-| Secondary (30%) | ColorScheme.surfaceContainer and primaryContainer | Cards, filter bar, optional reader side panel, grouped controls |
-| Accent (10%) | #2E7D32 / ColorScheme.primary | Primary CTA, selected chips, active search state, progress emphasis |
+| Dominant (60%) | `MnemataColors.paper` / `paperDark` (`ColorScheme.surface`) | App backgrounds, reader surface, form surfaces |
+| Secondary (30%) | `paper2/paper3` (`surfaceContainer*`) | Cards, filter bar, optional reader side panel, grouped controls |
+| Accent (10%) | `MnemataColors.accent` (`ColorScheme.primary`) | Primary CTA, selected chips, active search state, progress emphasis |
 | Destructive | ColorScheme.error (material default red family) | Delete and other destructive confirmations only |
 
 Accent reserved for:
@@ -86,6 +108,23 @@ Accent reserved for:
 - Focus-visible outline for keyboard users on actionable controls
 
 Accent must not be used for passive metadata text or decorative-only icons.
+
+Hard rule for Phase 19 UI work:
+- No `Colors.white/black/grey/red/...` in feature widgets.
+- Use only `Theme.of(context).colorScheme.*` or `MnemataColors.*`.
+
+---
+
+## Radius and Shape
+
+Use only `MnemataRadii` tokens:
+- `sm = 6`
+- `md = 10`
+- `lg = 14`
+- `xl = 22`
+- `full = 999`
+
+Do not use ad-hoc `BorderRadius.circular(N)` values in feature UI for this phase.
 
 ---
 
@@ -134,6 +173,10 @@ Desktop reader layout contract:
 - Optional side panel width: 300-320.
 - Sticky header height target: 56-64.
 
+Global nav/header rules:
+- AppBar stays transparent/flat per theme (no primary-colored app bars).
+- Pushed screens must keep visible back affordance (do not rely only on iOS swipe gesture).
+
 ---
 
 ## Accessibility Constraints
@@ -151,6 +194,22 @@ Desktop reader layout contract:
 ---
 
 ## Component Behavior and Interaction States
+
+### Shared component usage contract (mandatory)
+
+- Tags in list/filter surfaces: use `TagChip`.
+- List rows: use `ItemCard`.
+- Group headers: use `SectionLabel` from `lib/core/widgets/section_label.dart`.
+- Reader bottom action cluster: use `ReaderActionPill`.
+
+If an equivalent shared component exists, do not reimplement local variants in feature code.
+
+### Bottom-sheet contract (mandatory)
+
+- Top radius from theme (`MnemataRadii.xl`).
+- Drag handle color `cs.outlineVariant`.
+- Header with kicker via `textTheme.tracked(cs.secondary)` + serif title.
+- Actions use themed `FilledButton` and `OutlinedButton` styles.
 
 ### WEB-01 Ingest (URL and file)
 
@@ -181,13 +240,16 @@ Deterministic failure states:
 Post-save contract:
 - Navigate to list.
 - Show snackbar confirmation Item saved successfully.
+- Keep summary visual pattern aligned with current ingestion screen style (tracked kicker + serif title + tokenized containers).
 
 ### WEB-02 List and filter parity
 
 Components:
-- Search field in app bar.
-- Horizontal chips for quick filters and explicit More filters affordance.
-- Item card with quick actions: Open, Mark Read or Unread, Favorite, Delete, Share.
+- `ItemListHeader` top row with monogram + icon actions.
+- `LibraryTitleBlock` editorial headline beneath the top row.
+- Horizontal `TagChip` filters with explicit More filters affordance.
+- `ItemCard` row with quick actions: Open, Mark Read or Unread, Favorite, Delete, Share.
+- `SectionLabel` date grouping for chronological sections.
 - Infinite scroll pagination for long datasets.
 
 State rules:
@@ -207,6 +269,7 @@ Components:
 - Desktop-centered reading column with optional side panel (metadata and TOC-ready slot).
 - Reader controls: font size, column width, theme (light, sepia, dark).
 - Embedded PDF viewer plus Open in new tab fallback.
+- Floating `ReaderActionPill` pinned above safe area.
 
 State rules:
 - Reading position restore is approximate by section bucket.
@@ -265,6 +328,12 @@ Deterministic failure rules:
 - [ ] AC-14: Search empty and error states provide actionable recovery and never fail silently.
 - [ ] AC-15: Mobile and desktop web layouts follow the responsive contract without behavior drift.
 - [ ] AC-16: Accessibility constraints are satisfied, including contrast, keyboard reachability, visible focus, and 44x44 touch targets.
+- [ ] AC-17: Feature UI files touched in Phase 19 contain no hardcoded `Colors.*` values outside theme/token references.
+- [ ] AC-18: Feature UI files touched in Phase 19 contain no ad-hoc `fontSize:` values outside approved token exceptions.
+- [ ] AC-19: Feature UI files touched in Phase 19 contain no ad-hoc radius values outside `MnemataRadii`.
+- [ ] AC-20: List/filter surfaces use `TagChip`, `ItemCard`, and `SectionLabel` instead of duplicated feature-local widgets.
+- [ ] AC-21: Reader action cluster uses `ReaderActionPill` with theme shadows and safe-area positioning.
+- [ ] AC-22: Bottom sheets in scope follow drag handle + tracked kicker + serif title pattern in both light and dark modes.
 
 ---
 
