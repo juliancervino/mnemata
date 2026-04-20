@@ -18,11 +18,7 @@ import 'package:path/path.dart' as p;
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-enum DuplicateResolution {
-  openExistingItem,
-  addDuplicateItem,
-  keepCurrentItem,
-}
+enum DuplicateResolution { openExistingItem, addDuplicateItem, keepCurrentItem }
 
 class ShareService {
   final AppDatabase _database;
@@ -34,11 +30,13 @@ class ShareService {
   final Future<DuplicateResolution?> Function({
     required String identifier,
     required MnemataItem existingItem,
-  })? _duplicateResolutionOverride;
+  })?
+  _duplicateResolutionOverride;
   final Future<IngestionFailureAction> Function({
     required String sourceLabel,
     required bool canOpenOriginal,
-  })? _failureActionOverride;
+  })?
+  _failureActionOverride;
   StreamSubscription? _intentDataStreamSubscription;
 
   bool _isInitialized = false;
@@ -51,24 +49,24 @@ class ShareService {
     this._database,
     this._extractionService,
     this._pdfExtractionService,
-    this._navigatorKey,
-    {
+    this._navigatorKey, {
     AuthorExtractionService? authorExtractionService,
     Future<bool?> Function(String identifier)? duplicatePromptOverride,
     Future<DuplicateResolution?> Function({
       required String identifier,
       required MnemataItem existingItem,
     })?
-        duplicateResolutionOverride,
+    duplicateResolutionOverride,
     Future<IngestionFailureAction> Function({
       required String sourceLabel,
       required bool canOpenOriginal,
     })?
-        failureActionOverride,
-  })  : _authorExtractionService = authorExtractionService ?? AuthorExtractionService(),
-        _duplicatePromptOverride = duplicatePromptOverride,
-        _duplicateResolutionOverride = duplicateResolutionOverride,
-        _failureActionOverride = failureActionOverride;
+    failureActionOverride,
+  }) : _authorExtractionService =
+           authorExtractionService ?? AuthorExtractionService(),
+       _duplicatePromptOverride = duplicatePromptOverride,
+       _duplicateResolutionOverride = duplicateResolutionOverride,
+       _failureActionOverride = failureActionOverride;
 
   void init() {
     if (_isInitialized) return;
@@ -80,25 +78,27 @@ class ShareService {
 
     _isInitialized = true;
 
-    _intentDataStreamSubscription =
-        ReceiveSharingIntent.instance.getMediaStream().listen(
-      (List<SharedMediaFile> value) {
-        unawaited(_processIncomingShare(value, source: 'stream'));
-      },
-      onError: (Object err) {
-        debugPrint('getMediaStream error: $err');
-        unawaited(_resetShareIntentBuffer());
-      },
-    );
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance
+        .getMediaStream()
+        .listen(
+          (List<SharedMediaFile> value) {
+            unawaited(_processIncomingShare(value, source: 'stream'));
+          },
+          onError: (Object err) {
+            debugPrint('getMediaStream error: $err');
+            unawaited(_resetShareIntentBuffer());
+          },
+        );
 
-    ReceiveSharingIntent.instance.getInitialMedia().then(
-      (List<SharedMediaFile> value) {
-        unawaited(_processIncomingShare(value, source: 'initial'));
-      },
-    ).catchError((Object err) {
-      debugPrint('getInitialMedia error: $err');
-      unawaited(_resetShareIntentBuffer());
-    });
+    ReceiveSharingIntent.instance
+        .getInitialMedia()
+        .then((List<SharedMediaFile> value) {
+          unawaited(_processIncomingShare(value, source: 'initial'));
+        })
+        .catchError((Object err) {
+          debugPrint('getInitialMedia error: $err');
+          unawaited(_resetShareIntentBuffer());
+        });
   }
 
   void dispose() {
@@ -122,14 +122,18 @@ class ShareService {
 
     if (_isProcessingIncomingShare) {
       _pendingIncomingShare = (snapshot, source);
-      debugPrint('ShareService: queued latest $source payload while another is active');
+      debugPrint(
+        'ShareService: queued latest $source payload while another is active',
+      );
       await _resetShareIntentBuffer();
       return;
     }
 
     _isProcessingIncomingShare = true;
     _activeIncomingFingerprint = _buildBatchFingerprint(snapshot);
-    debugPrint('ShareService: received $source payload fingerprint=$_activeIncomingFingerprint size=${snapshot.length}');
+    debugPrint(
+      'ShareService: received $source payload fingerprint=$_activeIncomingFingerprint size=${snapshot.length}',
+    );
 
     // Clear plugin state immediately so stale payloads are not replayed later.
     await _resetShareIntentBuffer();
@@ -137,7 +141,9 @@ class ShareService {
     try {
       await _handleSharedMedia(snapshot);
     } finally {
-      debugPrint('ShareService: cleanup payload fingerprint=$_activeIncomingFingerprint');
+      debugPrint(
+        'ShareService: cleanup payload fingerprint=$_activeIncomingFingerprint',
+      );
       _clearShareProcessingState();
       await _resetShareIntentBuffer();
 
@@ -182,7 +188,8 @@ class ShareService {
       }
       batchProcessedKeys.add(payloadKey);
 
-      if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
+      if (file.type == SharedMediaType.text ||
+          file.type == SharedMediaType.url) {
         await _handleUrl(file.path);
       } else {
         await _handleFile(file);
@@ -218,10 +225,7 @@ class ShareService {
         normalizedName,
         existingItem: existingFile,
       );
-      _trackDuplicateDecision(
-        source: normalizedName,
-        resolution: resolution,
-      );
+      _trackDuplicateDecision(source: normalizedName, resolution: resolution);
 
       if (resolution == DuplicateResolution.openExistingItem) {
         await _openExistingItem(existingFile);
@@ -244,9 +248,9 @@ class ShareService {
           title: normalizedName,
         ),
       );
+      _handleSummaryOutcome(resultFromSummary, source: normalizedName);
       debugPrint(
-        'ShareService: web file summary closed with result=$resultFromSummary '
-        'mimeType=$mimeType bytes=${bytes.lengthInBytes}',
+        'ShareService: web file ingest mimeType=$mimeType bytes=${bytes.lengthInBytes}',
       );
     } finally {
       _hideLoadingOverlay();
@@ -256,10 +260,7 @@ class ShareService {
   Future<void> _handleUrl(String? text) async {
     if (text == null || text.isEmpty) return;
 
-    final urlRegex = RegExp(
-      r'https?://[^\s]+',
-      caseSensitive: false,
-    );
+    final urlRegex = RegExp(r'https?://[^\s]+', caseSensitive: false);
 
     final match = urlRegex.firstMatch(text);
     if (match == null) return;
@@ -334,7 +335,7 @@ class ShareService {
             thumbnailUrl: result?.thumbnailUrl,
           ),
         );
-        debugPrint('ShareService: url summary closed with result=$resultFromSummary');
+        _handleSummaryOutcome(resultFromSummary, source: trimmedUrl);
         return;
       }
 
@@ -430,7 +431,9 @@ class ShareService {
           }
 
           if (action == IngestionFailureAction.reportIssue) {
-            _showInfoSnackBar('Please report this issue from Settings > About.');
+            _showInfoSnackBar(
+              'Please report this issue from Settings > About.',
+            );
           }
 
           return;
@@ -446,15 +449,13 @@ class ShareService {
           content: extractedText,
         ),
       );
-      debugPrint('ShareService: file summary closed with result=$resultFromSummary');
+      _handleSummaryOutcome(resultFromSummary, source: fileName);
     } finally {
       _hideLoadingOverlay();
     }
   }
 
-  Future<Object?> _pushSummaryWhenNavigatorReady(
-    WidgetBuilder builder,
-  ) async {
+  Future<Object?> _pushSummaryWhenNavigatorReady(WidgetBuilder builder) async {
     const int maxAttempts = 20;
 
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -489,10 +490,11 @@ class ShareService {
         'archive.vn',
         'archive.fo',
         'archive.md',
-        'archive.moe'
+        'archive.moe',
       ];
-      return archiveDomains
-          .any((domain) => uri.host == domain || uri.host.endsWith('.$domain'));
+      return archiveDomains.any(
+        (domain) => uri.host == domain || uri.host.endsWith('.$domain'),
+      );
     } catch (_) {
       return false;
     }
@@ -511,8 +513,9 @@ class ShareService {
       'turn on javascript',
     ];
 
-    final hasBlockerMessage = blockers.any((k) =>
-        lowerContent.contains(k) || lowerTitle.contains(k));
+    final hasBlockerMessage = blockers.any(
+      (k) => lowerContent.contains(k) || lowerTitle.contains(k),
+    );
 
     // Heuristic: blocker pages are usually short and repetitive.
     final contentLength = (content ?? '').trim().length;
@@ -534,10 +537,7 @@ class ShareService {
   String? _extractFirstUrl(String? text) {
     if (text == null || text.trim().isEmpty) return null;
 
-    final urlRegex = RegExp(
-      r'https?://[^\s]+',
-      caseSensitive: false,
-    );
+    final urlRegex = RegExp(r'https?://[^\s]+', caseSensitive: false);
 
     final match = urlRegex.firstMatch(text);
     return match?.group(0)?.trim();
@@ -581,35 +581,33 @@ class ShareService {
     }
 
     return (await showDialog<DuplicateResolution>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Duplicate Detected'),
-        content: Text('This item is already in your list:\n\n$identifier'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              DuplicateResolution.openExistingItem,
-            ),
-            child: const Text('Open Existing Item'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Duplicate Detected'),
+            content: Text('This item is already in your list:\n\n$identifier'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  DuplicateResolution.openExistingItem,
+                ),
+                child: const Text('Open Existing Item'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  DuplicateResolution.addDuplicateItem,
+                ),
+                child: const Text('Add Duplicate Item'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(context, DuplicateResolution.keepCurrentItem),
+                child: const Text('Keep Current Item'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              DuplicateResolution.addDuplicateItem,
-            ),
-            child: const Text('Add Duplicate Item'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              DuplicateResolution.keepCurrentItem,
-            ),
-            child: const Text('Keep Current Item'),
-          ),
-        ],
-      ),
-    )) ??
+        )) ??
         DuplicateResolution.keepCurrentItem;
   }
 
@@ -693,6 +691,21 @@ class ShareService {
     debugPrint(
       'ShareService: duplicate decision source=$source resolution=$resolution',
     );
+  }
+
+  void _handleSummaryOutcome(Object? result, {required String source}) {
+    if (result == IngestionSummaryResult.saved) {
+      debugPrint('ShareService: summary saved source=$source');
+      return;
+    }
+
+    if (result == IngestionSummaryResult.discarded) {
+      _hideLoadingOverlay();
+      debugPrint('ShareService: summary discarded source=$source');
+      return;
+    }
+
+    debugPrint('ShareService: summary closed source=$source result=$result');
   }
 
   void _showLoadingOverlay(String message) {

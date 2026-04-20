@@ -78,7 +78,9 @@ void main() {
     );
   });
 
-  testWidgets('picker rejects oversized files with explicit copy', (tester) async {
+  testWidgets('picker rejects oversized files with explicit copy', (
+    tester,
+  ) async {
     await pumpSheet(
       tester,
       pickFile: () async => WebIngestFile(
@@ -119,5 +121,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(submittedFileName, 'paper.pdf');
+  });
+
+  testWidgets('default submit closes sheet and calls callback once', (
+    tester,
+  ) async {
+    var submitCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  builder: (_) => WebAddItemSheet(
+                    enableDragAndDrop: false,
+                    onSubmitUrl: (url) async {
+                      submitCount += 1;
+                    },
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://example.com/close-check',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Item'));
+    await tester.pumpAndSettle();
+
+    expect(submitCount, 1);
+    expect(find.byType(WebAddItemSheet), findsNothing);
   });
 }
