@@ -96,15 +96,23 @@ class AppDatabase extends _$AppDatabase {
   }
 
   static QueryExecutor _openConnection() {
-    return driftDatabase(name: databaseName);
+    return driftDatabase(
+      name: databaseName,
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    );
   }
 
   Stream<List<MnemataItem>> watchAllItems() {
     return (select(mnemataItems)
           ..where((t) => t.deletedAt.isNull())
           ..orderBy([
-            (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
-            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+            (t) =>
+                OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
           ]))
         .watch();
   }
@@ -113,8 +121,10 @@ class AppDatabase extends _$AppDatabase {
     return (select(mnemataItems)
           ..where((t) => t.deletedAt.isNotNull())
           ..orderBy([
-            (t) => OrderingTerm(expression: t.deletedAt, mode: OrderingMode.desc),
-            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+            (t) =>
+                OrderingTerm(expression: t.deletedAt, mode: OrderingMode.desc),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
           ]))
         .watch();
   }
@@ -122,18 +132,33 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<MnemataItem>> watchRecentlyOpened(int limit) {
     return (select(mnemataItems)
           ..where((t) => t.lastOpenedAt.isNotNull() & t.deletedAt.isNull())
-          ..orderBy([(t) => OrderingTerm(expression: t.lastOpenedAt, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.lastOpenedAt,
+              mode: OrderingMode.desc,
+            ),
+          ])
           ..limit(limit))
         .watch();
   }
 
   Stream<List<MnemataItem>> watchRecentlyOpenedByLabel(int labelId, int limit) {
-    final query = select(mnemataItems).join([
-      innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
-    ])
-      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.lastOpenedAt.isNotNull() & mnemataItems.deletedAt.isNull())
-      ..orderBy([OrderingTerm(expression: mnemataItems.lastOpenedAt, mode: OrderingMode.desc)])
-      ..limit(limit);
+    final query =
+        select(mnemataItems).join([
+            innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
+          ])
+          ..where(
+            itemLabels.labelId.equals(labelId) &
+                mnemataItems.lastOpenedAt.isNotNull() &
+                mnemataItems.deletedAt.isNull(),
+          )
+          ..orderBy([
+            OrderingTerm(
+              expression: mnemataItems.lastOpenedAt,
+              mode: OrderingMode.desc,
+            ),
+          ])
+          ..limit(limit);
 
     return query.watch().map((rows) {
       return rows.map((row) => row.readTable(mnemataItems)).toList();
@@ -145,7 +170,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<MnemataItem?> getItemByUrl(String url) {
-    return (select(mnemataItems)..where((t) => t.url.equals(url) & t.deletedAt.isNull()))
+    return (select(mnemataItems)
+          ..where((t) => t.url.equals(url) & t.deletedAt.isNull()))
         .getSingleOrNull();
   }
 
@@ -159,7 +185,8 @@ class AppDatabase extends _$AppDatabase {
       'WHERE deleted_at IS NULL AND url IS NOT NULL AND LOWER(url) IN ($placeholders) '
       'LIMIT 1',
       variables: [
-        for (final candidate in candidates) Variable<String>(candidate.toLowerCase()),
+        for (final candidate in candidates)
+          Variable<String>(candidate.toLowerCase()),
       ],
       readsFrom: {mnemataItems},
     ).get();
@@ -178,12 +205,11 @@ class AppDatabase extends _$AppDatabase {
     return (select(mnemataItems)
           ..where(
             (t) =>
-                t.deletedAt.isNull() &
-                t.type.equals('url') &
-                t.url.isNotNull(),
+                t.deletedAt.isNull() & t.type.equals('url') & t.url.isNotNull(),
           )
           ..orderBy([
-            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
             (t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc),
           ]))
         .get();
@@ -191,9 +217,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> markItemDeletedAt(int id, DateTime deletedAt) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
-      MnemataItemsCompanion(
-        deletedAt: Value(deletedAt.toUtc()),
-      ),
+      MnemataItemsCompanion(deletedAt: Value(deletedAt.toUtc())),
     );
   }
 
@@ -207,27 +231,23 @@ class AppDatabase extends _$AppDatabase {
     }
 
     return (update(mnemataItems)..where((t) => t.id.isIn(ids))).write(
-      MnemataItemsCompanion(
-        deletedAt: Value(DateTime.now().toUtc()),
-      ),
+      MnemataItemsCompanion(deletedAt: Value(DateTime.now().toUtc())),
     );
   }
 
   Future<int> restoreItemFromRecycle(int id) {
     return (update(mnemataItems)
           ..where((t) => t.id.equals(id) & t.deletedAt.isNotNull()))
-        .write(
-          const MnemataItemsCompanion(
-            deletedAt: Value(null),
-          ),
-        );
+        .write(const MnemataItemsCompanion(deletedAt: Value(null)));
   }
 
   Future<int> permanentlyDeleteItem(int id) {
     return transaction(() async {
       await (delete(annotationRecords)..where((t) => t.itemId.equals(id))).go();
       await (delete(semanticChunks)..where((t) => t.itemId.equals(id))).go();
-      await (delete(semanticIndexStates)..where((t) => t.itemId.equals(id))).go();
+      await (delete(
+        semanticIndexStates,
+      )..where((t) => t.itemId.equals(id))).go();
       await (delete(summaryCaches)..where((t) => t.itemId.equals(id))).go();
       await (delete(itemLabels)..where((t) => t.itemId.equals(id))).go();
       return (delete(mnemataItems)..where((t) => t.id.equals(id))).go();
@@ -242,30 +262,49 @@ class AppDatabase extends _$AppDatabase {
     return transaction(() async {
       await (delete(annotationRecords)..where((t) => t.itemId.isIn(ids))).go();
       await (delete(semanticChunks)..where((t) => t.itemId.isIn(ids))).go();
-      await (delete(semanticIndexStates)..where((t) => t.itemId.isIn(ids))).go();
+      await (delete(
+        semanticIndexStates,
+      )..where((t) => t.itemId.isIn(ids))).go();
       await (delete(summaryCaches)..where((t) => t.itemId.isIn(ids))).go();
       await (delete(itemLabels)..where((t) => t.itemId.isIn(ids))).go();
       return (delete(mnemataItems)..where((t) => t.id.isIn(ids))).go();
     });
   }
 
-  Future<int> purgeRecycleBinBefore(DateTime cutoff, {int batchSize = 200}) async {
+  Future<int> purgeRecycleBinBefore(
+    DateTime cutoff, {
+    int batchSize = 200,
+  }) async {
     final purgedCount = await transaction(() async {
-      final idsToDelete = await (select(mnemataItems)
-            ..where((t) => t.deletedAt.isSmallerThanValue(cutoff.toUtc()))
-            ..orderBy([(t) => OrderingTerm(expression: t.deletedAt, mode: OrderingMode.asc)])
-            ..limit(batchSize))
-          .map((row) => row.id)
-          .get();
+      final idsToDelete =
+          await (select(mnemataItems)
+                ..where((t) => t.deletedAt.isSmallerThanValue(cutoff.toUtc()))
+                ..orderBy([
+                  (t) => OrderingTerm(
+                    expression: t.deletedAt,
+                    mode: OrderingMode.asc,
+                  ),
+                ])
+                ..limit(batchSize))
+              .map((row) => row.id)
+              .get();
 
       if (idsToDelete.isEmpty) {
         return 0;
       }
 
-      await (delete(annotationRecords)..where((t) => t.itemId.isIn(idsToDelete))).go();
-      await (delete(semanticChunks)..where((t) => t.itemId.isIn(idsToDelete))).go();
-      await (delete(semanticIndexStates)..where((t) => t.itemId.isIn(idsToDelete))).go();
-      await (delete(summaryCaches)..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(
+        annotationRecords,
+      )..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(
+        semanticChunks,
+      )..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(
+        semanticIndexStates,
+      )..where((t) => t.itemId.isIn(idsToDelete))).go();
+      await (delete(
+        summaryCaches,
+      )..where((t) => t.itemId.isIn(idsToDelete))).go();
       await (delete(itemLabels)..where((t) => t.itemId.isIn(idsToDelete))).go();
       return (delete(mnemataItems)..where((t) => t.id.isIn(idsToDelete))).go();
     });
@@ -285,20 +324,25 @@ class AppDatabase extends _$AppDatabase {
         content: Value(content),
         title: title != null ? Value(title) : const Value.absent(),
         author: author != null ? Value(author) : const Value.absent(),
-        thumbnailUrl: thumbnailUrl != null ? Value(thumbnailUrl) : const Value.absent(),
+        thumbnailUrl: thumbnailUrl != null
+            ? Value(thumbnailUrl)
+            : const Value.absent(),
       ),
     );
   }
 
   Future<void> updateLastOpenedAt(int id) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
-      MnemataItemsCompanion(
-        lastOpenedAt: Value(DateTime.now()),
-      ),
+      MnemataItemsCompanion(lastOpenedAt: Value(DateTime.now())),
     );
   }
 
-  Future<void> updateItemDetails(int id, String title, String? url, String? author) {
+  Future<void> updateItemDetails(
+    int id,
+    String title,
+    String? url,
+    String? author,
+  ) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
       MnemataItemsCompanion(
         title: Value(title),
@@ -310,19 +354,21 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> updateItemSortOrder(int id, int newOrder) {
     return (update(mnemataItems)..where((t) => t.id.equals(id))).write(
-      MnemataItemsCompanion(
-        sortOrder: Value(newOrder),
-      ),
+      MnemataItemsCompanion(sortOrder: Value(newOrder)),
     );
   }
 
   // Label Operations
   Future<int> insertLabel(LabelsCompanion label) => into(labels).insert(label);
-  Future<bool> updateLabel(LabelsCompanion label) => update(labels).replace(label);
-  Future<int> deleteLabel(int id) => (delete(labels)..where((t) => t.id.equals(id))).go();
+  Future<bool> updateLabel(LabelsCompanion label) =>
+      update(labels).replace(label);
+  Future<int> deleteLabel(int id) =>
+      (delete(labels)..where((t) => t.id.equals(id))).go();
 
   Future<Label?> getLabelByName(String name) {
-    return (select(labels)..where((t) => t.name.equals(name))).getSingleOrNull();
+    return (select(
+      labels,
+    )..where((t) => t.name.equals(name))).getSingleOrNull();
   }
 
   Future<int> getOrCreateLabel(String name, {int? color}) async {
@@ -330,16 +376,19 @@ class AppDatabase extends _$AppDatabase {
     if (existing != null) {
       return existing.id;
     }
-    return await insertLabel(LabelsCompanion.insert(
-      name: name,
-      color: Value(color),
-      isFolder: const Value(false),
-    ));
+    return await insertLabel(
+      LabelsCompanion.insert(
+        name: name,
+        color: Value(color),
+        isFolder: const Value(false),
+      ),
+    );
   }
 
   Stream<List<Label>> watchAllLabels() {
-    return (select(labels)..orderBy([(t) => OrderingTerm(expression: t.name)]))
-        .watch();
+    return (select(
+      labels,
+    )..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
   }
 
   // Item Label Operations
@@ -363,15 +412,15 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<int> removeLabelFromItem(int itemId, int labelId) {
-    return (delete(itemLabels)
-          ..where((t) => t.itemId.equals(itemId) & t.labelId.equals(labelId)))
-        .go();
+    return (delete(
+      itemLabels,
+    )..where((t) => t.itemId.equals(itemId) & t.labelId.equals(labelId))).go();
   }
 
   Future<int> removeLabelFromItems(List<int> itemIds, int labelId) {
-    return (delete(itemLabels)
-          ..where((t) => t.itemId.isIn(itemIds) & t.labelId.equals(labelId)))
-        .go();
+    return (delete(
+      itemLabels,
+    )..where((t) => t.itemId.isIn(itemIds) & t.labelId.equals(labelId))).go();
   }
 
   Future<int> clearLabelsForItem(int itemId) {
@@ -381,8 +430,7 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Label>> watchLabelsForItem(int itemId) {
     final query = select(labels).join([
       innerJoin(itemLabels, itemLabels.labelId.equalsExp(labels.id)),
-    ])
-      ..where(itemLabels.itemId.equals(itemId));
+    ])..where(itemLabels.itemId.equals(itemId));
 
     return query.watch().map((rows) {
       return rows.map((row) => row.readTable(labels)).toList();
@@ -410,18 +458,29 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Stream<List<MnemataItem>> watchItemsByLabel(int labelId) {
-    final query = select(mnemataItems).join([
-      innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
-    ])
-      ..where(itemLabels.labelId.equals(labelId) & mnemataItems.deletedAt.isNull())
-      ..orderBy([OrderingTerm(expression: mnemataItems.createdAt, mode: OrderingMode.desc)]);
+    final query =
+        select(mnemataItems).join([
+            innerJoin(itemLabels, itemLabels.itemId.equalsExp(mnemataItems.id)),
+          ])
+          ..where(
+            itemLabels.labelId.equals(labelId) &
+                mnemataItems.deletedAt.isNull(),
+          )
+          ..orderBy([
+            OrderingTerm(
+              expression: mnemataItems.createdAt,
+              mode: OrderingMode.desc,
+            ),
+          ]);
 
     return query.watch().map((rows) {
       return rows.map((row) => row.readTable(mnemataItems)).toList();
     });
   }
 
-  Future<void> updateItemsSortOrderInBatch(List<MnemataItem> orderedItems) async {
+  Future<void> updateItemsSortOrderInBatch(
+    List<MnemataItem> orderedItems,
+  ) async {
     await batch((b) {
       for (var i = 0; i < orderedItems.length; i++) {
         b.update(
@@ -440,11 +499,12 @@ class AppDatabase extends _$AppDatabase {
     required List<String> keyPoints,
     required String whyItMatters,
   }) async {
-    final existing = await (select(summaryCaches)
-          ..where(
-            (t) => t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
-          ))
-        .getSingleOrNull();
+    final existing =
+        await (select(summaryCaches)..where(
+              (t) =>
+                  t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
+            ))
+            .getSingleOrNull();
 
     final companion = SummaryCachesCompanion(
       itemId: Value(itemId),
@@ -460,19 +520,18 @@ class AppDatabase extends _$AppDatabase {
       return;
     }
 
-    await (update(summaryCaches)..where((t) => t.id.equals(existing.id))).write(
-      companion,
-    );
+    await (update(
+      summaryCaches,
+    )..where((t) => t.id.equals(existing.id))).write(companion);
   }
 
   Future<SummaryCache?> getSummaryCache({
     required int itemId,
     required String contentHash,
   }) {
-    return (select(summaryCaches)
-          ..where(
-            (t) => t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
-          ))
+    return (select(summaryCaches)..where(
+          (t) => t.itemId.equals(itemId) & t.contentHash.equals(contentHash),
+        ))
         .getSingleOrNull();
   }
 
@@ -482,9 +541,9 @@ class AppDatabase extends _$AppDatabase {
     required String embeddingModel,
     required int chunkCount,
   }) async {
-    final existing = await (select(semanticIndexStates)
-          ..where((t) => t.itemId.equals(itemId)))
-        .getSingleOrNull();
+    final existing = await (select(
+      semanticIndexStates,
+    )..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
     final companion = SemanticIndexStatesCompanion(
       itemId: Value(itemId),
       contentHash: Value(contentHash),
@@ -496,8 +555,9 @@ class AppDatabase extends _$AppDatabase {
       await into(semanticIndexStates).insert(companion);
       return;
     }
-    await (update(semanticIndexStates)..where((t) => t.id.equals(existing.id)))
-        .write(companion);
+    await (update(
+      semanticIndexStates,
+    )..where((t) => t.id.equals(existing.id))).write(companion);
   }
 
   Future<void> replaceSemanticChunks({
@@ -505,7 +565,9 @@ class AppDatabase extends _$AppDatabase {
     required List<SemanticChunkInput> chunks,
   }) async {
     await transaction(() async {
-      await (delete(semanticChunks)..where((t) => t.itemId.equals(itemId))).go();
+      await (delete(
+        semanticChunks,
+      )..where((t) => t.itemId.equals(itemId))).go();
       if (chunks.isEmpty) {
         return;
       }
@@ -533,17 +595,17 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<SemanticChunk>> listAllSemanticChunks() {
-    return (select(semanticChunks)
-          ..orderBy([
-            (t) => OrderingTerm(expression: t.itemId),
-            (t) => OrderingTerm(expression: t.chunkIndex),
-          ]))
+    return (select(semanticChunks)..orderBy([
+          (t) => OrderingTerm(expression: t.itemId),
+          (t) => OrderingTerm(expression: t.chunkIndex),
+        ]))
         .get();
   }
 
   Future<SemanticIndexState?> readSemanticIndexState(int itemId) {
-    return (select(semanticIndexStates)..where((t) => t.itemId.equals(itemId)))
-        .getSingleOrNull();
+    return (select(
+      semanticIndexStates,
+    )..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
   }
 
   Future<List<MnemataItem>> getItemsByIds(List<int> itemIds) async {
@@ -551,9 +613,9 @@ class AppDatabase extends _$AppDatabase {
       return const <MnemataItem>[];
     }
 
-    final rows = await (select(mnemataItems)
-          ..where((t) => t.id.isIn(itemIds)))
-        .get();
+    final rows = await (select(
+      mnemataItems,
+    )..where((t) => t.id.isIn(itemIds))).get();
     final byId = <int, MnemataItem>{for (final row in rows) row.id: row};
     return itemIds
         .where(byId.containsKey)
@@ -610,21 +672,22 @@ class AppDatabase extends _$AppDatabase {
     required String anchorJson,
     String? note,
   }) {
-    return (update(annotationRecords)
-          ..where((t) => t.id.equals(annotationId)))
-        .write(
-          AnnotationRecordsCompanion(
-            quoteText: Value(quoteText),
-            anchorJson: Value(anchorJson),
-            note: Value(note),
-            updatedAt: Value(DateTime.now().toUtc()),
-          ),
-        );
+    return (update(
+      annotationRecords,
+    )..where((t) => t.id.equals(annotationId))).write(
+      AnnotationRecordsCompanion(
+        quoteText: Value(quoteText),
+        anchorJson: Value(anchorJson),
+        note: Value(note),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   Future<int> deleteAnnotation(int annotationId) {
-    return (delete(annotationRecords)..where((t) => t.id.equals(annotationId)))
-        .go();
+    return (delete(
+      annotationRecords,
+    )..where((t) => t.id.equals(annotationId))).go();
   }
 
   Stream<List<MnemataItem>> watchItemsByMultipleLabels(List<int> labelIds) {
@@ -648,7 +711,10 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  Stream<List<MnemataItem>> searchItems(String query, {List<int> labelIds = const []}) {
+  Stream<List<MnemataItem>> searchItems(
+    String query, {
+    List<int> labelIds = const [],
+  }) {
     if (labelIds.isEmpty) {
       return customSelect(
         'SELECT i.* FROM mnemata_items i '
@@ -665,7 +731,7 @@ class AppDatabase extends _$AppDatabase {
     final variables = [
       Variable(query),
       ...labelIds.map((id) => Variable(id)),
-      Variable(labelIds.length)
+      Variable(labelIds.length),
     ];
 
     return customSelect(
@@ -696,7 +762,10 @@ class AppDatabase extends _$AppDatabase {
 
     final normalized = _normalizeUrlForLookup(parsed);
     final withSlash = _normalizePathSlash(normalized, withTrailingSlash: true);
-    final withoutSlash = _normalizePathSlash(normalized, withTrailingSlash: false);
+    final withoutSlash = _normalizePathSlash(
+      normalized,
+      withTrailingSlash: false,
+    );
 
     return <String>{trimmed, normalized, withSlash, withoutSlash};
   }
@@ -709,7 +778,10 @@ class AppDatabase extends _$AppDatabase {
     return '$scheme://$host$path$query';
   }
 
-  String _normalizePathSlash(String normalizedUrl, {required bool withTrailingSlash}) {
+  String _normalizePathSlash(
+    String normalizedUrl, {
+    required bool withTrailingSlash,
+  }) {
     final parsed = Uri.tryParse(normalizedUrl);
     if (parsed == null) return normalizedUrl;
 
@@ -717,8 +789,8 @@ class AppDatabase extends _$AppDatabase {
     final updatedPath = withTrailingSlash
         ? (currentPath.endsWith('/') ? currentPath : '$currentPath/')
         : (currentPath.length > 1 && currentPath.endsWith('/')
-            ? currentPath.substring(0, currentPath.length - 1)
-            : currentPath);
+              ? currentPath.substring(0, currentPath.length - 1)
+              : currentPath);
 
     final query = parsed.hasQuery ? '?${parsed.query}' : '';
     return '${parsed.scheme}://${parsed.host}$updatedPath$query';
