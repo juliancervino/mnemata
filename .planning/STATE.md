@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Web Client and Multi-Device Synchronization
-status: phase 19 planned; ready to execute
-last_updated: "2026-04-18T23:10:04.852Z"
+milestone: v1.0
+milestone_name: milestone
+status: Phase 19 complete; Phase 20 ready
+last_updated: "2026-04-21T09:40:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_plans: 5
+  percent: 25
 ---
 
 # Project State: Mnemata
@@ -18,22 +18,22 @@ progress:
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: v2.0 Phase 19 execution readiness (web parity baseline)
+**Current Focus**: v2.0 Phase 20 planning and execution kickoff
 
 ## Current Position
 
-Phase: 19 of 22 (Web Parity Core Flows)
-Plan: 5 plans ready
+Phase: 20 (account-sessions-device-linking) — READY
+Plan: 0 of TBD
 
-- **Phase**: 19 (planned)
-- **Plan**: 5 plans generated across waves 1-4
-- **Status**: Plan-phase completed with context, research, UI-SPEC, and validation strategy; ready to run `/gsd-execute-phase 19`
-- **Last activity**: 2026-04-18 - Generated Phase 19 plans in `.planning/phases/19-web-parity-core-flows/`.
-- **Progress**: [░░░░░░░░░░] 0% (v2.0)
+- **Phase**: 20 (planned)
+- **Plan**: Phase 19 plans complete (5/5)
+- **Status**: Phase 19 web parity completed and documented; Phase 20 can start.
+- **Last activity**: 2026-04-21 - Completed Phase 19 plans and verification artifacts.
+- **Progress**: [██░░░░░░░░] 25% (v2.0)
 
 ## Performance Metrics
 
-- **Velocity**: Baseline (v2.0 execution not yet started)
+- **Velocity**: Phase 19 delivered (5 plans complete)
 - **Requirement Coverage**: 100% (14/14 mapped to phases)
 - **Phase Completion**: 0/4 (v2.0)
 
@@ -53,8 +53,8 @@ Plan: 5 plans ready
 
 ### Todos
 
-- [ ] Run `/gsd-execute-phase 19`.
-- [ ] Confirm phase-level plan decomposition for Phases 20-22 after Phase 19 execution feedback.
+- [ ] Run `/gsd-plan-phase 20` and generate executable plans.
+- [ ] Execute `/gsd-execute-phase 20` once plans are reviewed.
 
 ### Blockers
 
@@ -64,9 +64,9 @@ Plan: 5 plans ready
 
 ### Last Session Summary
 
-- Phase 19 discussion was consolidated and moved into canonical phase directory.
-- Phase 19 research, UI-SPEC, validation strategy, and 5 execution plans were generated.
+- Phase 19 plans 19-01..19-05 were executed and summarized.
+- Phase 19 roadmap/state closure artifacts were updated.
 
 ### Next Session Guidance
 
-- Begin with `/gsd-execute-phase 19`.
+- Begin with `/gsd-plan-phase 20`.

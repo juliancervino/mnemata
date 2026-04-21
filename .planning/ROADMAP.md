@@ -12,7 +12,7 @@
 
 ## Phases
 
-- [ ] **Phase 19: Web Parity Core Flows** - Web ingest, list, reader, and search behave consistently with mobile.
+- [x] **Phase 19: Web Parity Core Flows** - Web ingest, list, reader, and search behave consistently with mobile.
 - [ ] **Phase 20: Account Sessions and Device Linking** - Secure account identity and linked-device session management for sync trust.
 - [ ] **Phase 21: Deterministic Sync and Conflict Convergence** - Offline-safe bidirectional sync with reproducible conflict outcomes and sync diagnostics.
 - [ ] **Phase 22: Collaboration Primitive Access Model** - Controlled sharing links, collaborator invites, and basic role enforcement.
@@ -31,11 +31,11 @@
   4. User can run search on web with query behavior and empty/error states consistent with mobile.
 **Plans**: 5 plans
 Plans:
-- [ ] 19-01-PLAN.md - Web-safe startup and Drift web runtime foundation
-- [ ] 19-02-PLAN.md - WEB-01 ingestion parity (unified add, validation, duplicate/recovery)
-- [ ] 19-03-PLAN.md - WEB-03 reader and PDF parity (layout, controls, restore, guided errors)
-- [ ] 19-04-PLAN.md - WEB-02 list/filter parity (quick actions, pagination, delete undo, state continuity)
-- [ ] 19-05-PLAN.md - WEB-04 search parity (debounce, snippets, actionable empty/error states)
+- [x] 19-01-PLAN.md - Web-safe startup and Drift web runtime foundation
+- [x] 19-02-PLAN.md - WEB-01 ingestion parity (unified add, validation, duplicate/recovery)
+- [x] 19-03-PLAN.md - WEB-03 reader and PDF parity (layout, controls, restore, guided errors)
+- [x] 19-04-PLAN.md - WEB-02 list/filter parity (quick actions, pagination, delete undo, state continuity)
+- [x] 19-05-PLAN.md - WEB-04 search parity (debounce, snippets, actionable empty/error states)
 **UI hint**: yes
 
 ### Phase 20: Account Sessions and Device Linking
@@ -76,7 +76,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 19. Web Parity Core Flows | 0/5 | Not started | - |
+| 19. Web Parity Core Flows | 5/5 | Completed | 2026-04-20 |
 | 20. Account Sessions and Device Linking | 0/0 | Not started | - |
 | 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
 | 22. Collaboration Primitive Access Model | 0/0 | Not started | - |

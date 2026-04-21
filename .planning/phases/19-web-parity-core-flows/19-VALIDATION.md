@@ -1,9 +1,9 @@
 ---
 phase: 19
 slug: web-parity-core-flows
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: completed
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-18
 ---
 
@@ -38,10 +38,10 @@ created: 2026-04-18
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 19-01-01 | 01 | 1 | WEB-01 | T-19-01 | Web ingest blocks unsupported/oversize inputs and exposes deterministic recovery actions | widget/unit | `flutter test test/features/ingestion/services/share_service_test.dart` | ✅ | ⬜ pending |
-| 19-02-01 | 02 | 2 | WEB-02 | T-19-02 | List order/filter semantics match mobile and delete undo path remains deterministic | widget | `flutter test test/features/chronological_list/presentation/item_list_screen_test.dart` | ✅ | ⬜ pending |
-| 19-03-01 | 03 | 3 | WEB-03 | T-19-03 | Reader/PDF states expose non-silent failures and preserve state continuity | widget/integration | `flutter test test/features/reader/presentation/reader_screen_web_test.dart` | ❌ W0 | ⬜ pending |
-| 19-04-01 | 04 | 4 | WEB-04 | T-19-04 | Search debounce/semantics and empty/error states remain deterministic | unit/widget | `flutter test test/features/intelligence/services/semantic_search_service_test.dart test/features/chronological_list/presentation/item_list_screen_test.dart` | ✅ | ⬜ pending |
+| 19-01-01 | 01 | 1 | WEB-01 | T-19-01 | Web ingest blocks unsupported/oversize inputs and exposes deterministic recovery actions | widget/unit | `flutter test test/features/ingestion/services/share_service_test.dart` | ✅ | ✅ green |
+| 19-02-01 | 02 | 2 | WEB-02 | T-19-02 | List order/filter semantics match mobile and delete undo path remains deterministic | widget | `flutter test test/features/chronological_list/presentation/item_list_screen_test.dart` | ✅ | ✅ green |
+| 19-03-01 | 03 | 3 | WEB-03 | T-19-03 | Reader/PDF states expose non-silent failures and preserve state continuity | widget/integration | `flutter test test/features/reader/presentation/reader_screen_web_test.dart` | ✅ | ✅ green |
+| 19-04-01 | 04 | 4 | WEB-04 | T-19-04 | Search debounce/semantics and empty/error states remain deterministic | unit/widget | `flutter test test/features/intelligence/services/semantic_search_service_test.dart test/features/chronological_list/presentation/item_list_screen_test.dart` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,10 +49,10 @@ created: 2026-04-18
 
 ## Wave 0 Requirements
 
-- [ ] `test/features/reader/presentation/reader_screen_web_test.dart` - WEB-03 reader/PDF parity checks for web behavior and deterministic failures.
-- [ ] `test/features/ingestion/presentation/ingestion_summary_screen_web_test.dart` - WEB-01 summary/edit-before-save parity on web.
-- [ ] `test/features/chronological_list/presentation/item_list_web_parity_test.dart` - WEB-02 list/filter restore and delete undo behavior.
-- [ ] `test/features/search/search_web_parity_test.dart` - WEB-04 debounce/snippet/empty/error contract.
+- [x] `test/features/reader/presentation/reader_screen_web_test.dart` - WEB-03 reader/PDF parity checks for web behavior and deterministic failures.
+- [x] `test/features/ingestion/presentation/web_add_item_sheet_test.dart` and `test/features/ingestion/services/share_service_test.dart` - WEB-01 intake and summary outcome parity coverage.
+- [x] `test/features/chronological_list/presentation/item_list_web_parity_test.dart` - WEB-02 list/filter restore and delete undo behavior.
+- [x] `test/features/search/search_web_parity_test.dart` - WEB-04 debounce/snippet/empty/error contract.
 
 ---
 
@@ -68,11 +68,11 @@ created: 2026-04-18
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** completed
