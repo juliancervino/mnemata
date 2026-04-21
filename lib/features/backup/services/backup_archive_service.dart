@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/features/backup/domain/backup_manifest.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
@@ -51,6 +52,12 @@ class BackupArchiveService {
   ];
 
   Future<String> createBackupArchive() async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'Backup archive creation requires local filesystem access, which is not available on web.',
+      );
+    }
+
     final stagingDir = await _storageService.createStagingDir();
 
     try {

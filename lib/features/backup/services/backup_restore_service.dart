@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mnemata/features/backup/domain/backup_manifest.dart';
 import 'package:mnemata/features/backup/services/backup_archive_service.dart';
 import 'package:mnemata/features/backup/services/backup_storage_service.dart';
@@ -81,6 +82,12 @@ class BackupRestoreService {
     Uint8List archiveBytes, {
     required String backupId,
   }) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'Restore preview requires filesystem staging, which is not available on web.',
+      );
+    }
+
     final stagingDir = await _storageService.createStagingDir();
     final safeBackupId = backupId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     final stagedPath = p.join(stagingDir.path, 'cloud_restore_$safeBackupId.zip');
@@ -91,6 +98,12 @@ class BackupRestoreService {
   }
 
   Future<RestorePreview> previewBackup(String archivePath) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'Restore preview requires filesystem access, which is not available on web.',
+      );
+    }
+
     final missingRequiredEntries =
         await _archiveService.inspectArchiveRequiredEntries(archivePath);
 
@@ -119,6 +132,15 @@ class BackupRestoreService {
     String archivePath, {
     required bool confirmed,
   }) async {
+    if (kIsWeb) {
+      return const RestoreApplyResult(
+        applied: false,
+        errorCode: RestoreErrorCode.applyFailed,
+        errorMessage:
+            'Restore apply is not available on web because it requires local filesystem access.',
+      );
+    }
+
     if (!confirmed) {
       return const RestoreApplyResult(
         applied: false,

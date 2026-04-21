@@ -334,16 +334,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _toggleSelection(int id) {
-    if (kIsWeb) {
-      return;
-    }
-
     setState(() {
       if (_selectedItemIds.contains(id)) {
         _selectedItemIds.remove(id);
-        if (_selectedItemIds.isEmpty) {
-          _isMultiSelectMode = false;
-        }
+        if (_selectedItemIds.isEmpty) _isMultiSelectMode = false;
       } else {
         _selectedItemIds.add(id);
       }
@@ -351,10 +345,6 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 
   void _enterMultiSelectMode(int id) {
-    if (kIsWeb) {
-      return;
-    }
-
     setState(() {
       _isMultiSelectMode = true;
       _selectedItemIds.add(id);
@@ -1310,9 +1300,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
               );
 
               return GestureDetector(
-                onLongPress: _isMultiSelectMode || kIsWeb
-                    ? null
-                    : () => _enterMultiSelectMode(item.id),
+                onLongPress: _isMultiSelectMode
+                  ? null
+                  : () => _enterMultiSelectMode(item.id),
+                onSecondaryTap: _isMultiSelectMode
+                  ? null
+                  : () => _enterMultiSelectMode(item.id),
                 behavior: HitTestBehavior.opaque,
                 child: KeyedSubtree(key: ValueKey(item.id), child: tile),
               );
@@ -1348,12 +1341,13 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 isMultiSelectMode: _isMultiSelectMode,
                 groupHeader: header,
                 onLongPress: () => _enterMultiSelectMode(item.id),
+                onSecondaryTap: () => _enterMultiSelectMode(item.id),
                 onTap: () =>
                     _isMultiSelectMode ? _toggleSelection(item.id) : null,
                 onOpenItem: () => _openItem(item),
                 onQuickActionSelected: (action) =>
                     _handleQuickAction(item, itemLabels, action),
-                canUseMultiSelect: !kIsWeb,
+                canUseMultiSelect: true,
               );
             },
           );
@@ -1547,6 +1541,7 @@ class _ItemTile extends StatelessWidget {
   final bool isMultiSelectMode;
   final String? groupHeader;
   final VoidCallback onLongPress;
+  final VoidCallback onSecondaryTap;
   final VoidCallback onTap;
   final VoidCallback onOpenItem;
   final ValueChanged<ItemQuickAction> onQuickActionSelected;
@@ -1561,6 +1556,7 @@ class _ItemTile extends StatelessWidget {
     required this.isMultiSelectMode,
     required this.groupHeader,
     required this.onLongPress,
+    required this.onSecondaryTap,
     required this.onTap,
     required this.onOpenItem,
     required this.onQuickActionSelected,
@@ -1671,6 +1667,7 @@ class _ItemTile extends StatelessWidget {
         isMultiSelectMode: isMultiSelectMode,
         onTap: onTap,
         onLongPress: onLongPress,
+        onSecondaryTap: onSecondaryTap,
         onOpenItem: onOpenItem,
         canUseMultiSelect: canUseMultiSelect,
         trailingAction: ItemQuickActionsMenu(
@@ -1709,6 +1706,7 @@ class _ItemRow extends StatelessWidget {
     required this.isMultiSelectMode,
     required this.onTap,
     required this.onLongPress,
+    required this.onSecondaryTap,
     required this.onOpenItem,
     required this.canUseMultiSelect,
     required this.trailingAction,
@@ -1720,6 +1718,7 @@ class _ItemRow extends StatelessWidget {
   final bool isMultiSelectMode;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onSecondaryTap;
   final VoidCallback onOpenItem;
   final bool canUseMultiSelect;
   final Widget trailingAction;
@@ -1737,6 +1736,9 @@ class _ItemRow extends StatelessWidget {
     // shared ItemCard widget.
     return GestureDetector(
       onLongPress: isMultiSelectMode || !canUseMultiSelect ? null : onLongPress,
+      onSecondaryTap: isMultiSelectMode || !canUseMultiSelect
+          ? null
+          : onSecondaryTap,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [

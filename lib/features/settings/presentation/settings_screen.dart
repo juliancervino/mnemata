@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
@@ -81,6 +82,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   BookmarkExportService? _bookmarkExportService;
   BookmarkImportService? _bookmarkImportService;
 
+  bool get _isRestoreSupportedOnCurrentPlatform => !kIsWeb;
+
   @override
   void initState() {
     super.initState();
@@ -112,10 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         storageService: backupStorageService,
         database: GetIt.instance<AppDatabase>(),
         settingsService: _settingsService,
-        attachmentsDirectoryPathProvider: () async {
-          final dir = await getApplicationDocumentsDirectory();
-          return dir.path;
-        },
+        attachmentsDirectoryPathProvider: _resolveDocumentsDirectoryPath,
       );
 
       _backupRestoreService =
@@ -142,8 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
             liveAttachmentsDirectoryPathProvider: () async {
-              final documentsDir = await getApplicationDocumentsDirectory();
-              return documentsDir.path;
+              return _resolveDocumentsDirectoryPath();
             },
             settingsImporter: (json) async {
               final autoTagDomain = json['autoTagDomain'];
@@ -425,11 +424,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.restore),
                   title: const Text('Restore from backup'),
-                  subtitle: const Text(
-                    'Preview and validate a backup before applying restore.',
+                  subtitle: Text(
+                    _isRestoreSupportedOnCurrentPlatform
+                        ? 'Preview and validate a backup before applying restore.'
+                        : 'Not available on web runtime.',
                   ),
-                  enabled: !_isPreparingRestore && _googleUserEmail != null,
-                  onTap: _isPreparingRestore ? null : _openRestorePreviewFlow,
+                  enabled:
+                      _isRestoreSupportedOnCurrentPlatform &&
+                      !_isPreparingRestore &&
+                      _googleUserEmail != null,
+                  onTap: _isRestoreSupportedOnCurrentPlatform && !_isPreparingRestore
+                      ? _openRestorePreviewFlow
+                      : null,
                   trailing: _isPreparingRestore
                       ? const SizedBox(
                           width: 16,
@@ -438,6 +444,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         )
                       : null,
                 ),
+                if (_restoreProgressMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      _restoreProgressMessage!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: _isPreparingRestore
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
                 ListTile(
                   leading: const Icon(Icons.layers_outlined),
                   title: const Text('Maximum backups to keep'),
@@ -522,14 +540,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
-                if (_isPreparingRestore)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      _restoreProgressMessage ?? 'Preparing restore...',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
               ],
             ),
             _SettingsGroup(
@@ -779,6 +789,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Text('Cloud backup failed: ${error.message}.$diagnostics'),
         ),
       );
+    } on UnsupportedError catch (error) {
+      await _settingsService.setLastBackupResultStatus('manual_upload_unsupported');
+      await _settingsService.setLastBackupFailureReason(
+        'manual_upload_unsupported',
+      );
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cloud backup is not available on this platform: ${error.message}',
+          ),
+        ),
+      );
     } catch (error) {
       await _settingsService.setLastBackupResultStatus('manual_upload_unknown');
       await _settingsService.setLastBackupFailureReason(
@@ -821,10 +847,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openRestorePreviewFlow() async {
+    if (kIsWeb) {
+      _setRestoreBusy(
+        false,
+        'Restore preview is not available on web runtime.',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Restore preview is not available on web runtime.'),
+          ),
+        );
+      }
+      return;
+    }
+
     _setRestoreBusy(true, 'Fetching backups from Google Drive...');
     try {
       final archivePath = await _resolveRestoreArchivePath();
       if (!mounted || archivePath == null) {
+        if (mounted && _restoreProgressMessage == null) {
+          _setRestoreBusy(false, 'Restore cancelled.');
+        }
         return;
       }
 
@@ -841,7 +885,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       );
     } finally {
-      _setRestoreBusy(false, null);
+      if (mounted && _isPreparingRestore) {
+        _setRestoreBusy(false, _restoreProgressMessage);
+      }
     }
   }
 
@@ -855,6 +901,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _setRestoreBusy(true, 'Fetching backups from Google Drive...');
       final backups = await cloudProvider.listBackups();
       if (backups.isEmpty) {
+        _setRestoreBusy(false, 'No backups found on Google Drive.');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No backups found on Google Drive.')),
@@ -868,19 +915,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _setRestoreBusy(false, null);
       final selected = await _promptForCloudBackupSelection(sorted);
       if (selected == null) {
+        _setRestoreBusy(false, 'Restore cancelled.');
         return null;
       }
 
-      _setRestoreBusy(true, 'Downloading selected backup...');
-      final archiveBytes = await cloudProvider.downloadBackup(
-        backupId: selected.backupId,
-      );
-      _setRestoreBusy(true, 'Preparing restore preview...');
-      return _backupRestoreService.stageDownloadedArchive(
-        archiveBytes,
-        backupId: selected.backupId,
-      );
+      try {
+        _setRestoreBusy(true, 'Downloading selected backup...');
+        final archiveBytes = await cloudProvider.downloadBackup(
+          backupId: selected.backupId,
+        );
+        _setRestoreBusy(true, 'Preparing restore preview...');
+        return _backupRestoreService.stageDownloadedArchive(
+          archiveBytes,
+          backupId: selected.backupId,
+        );
+      } on CloudBackupProviderException catch (error) {
+        _setRestoreBusy(
+          false,
+          'Unable to download selected backup (${error.code.name}).',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Unable to download selected backup (${error.code.name}).',
+              ),
+            ),
+          );
+        }
+        return null;
+      } catch (error) {
+        final message = error is UnsupportedError
+            ? 'Restore preview is not available on this platform.'
+            : 'Unable to prepare restore preview: $error';
+        _setRestoreBusy(false, message);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+            ),
+          );
+        }
+        return null;
+      }
     } on CloudBackupProviderException catch (error) {
+      _setRestoreBusy(
+        false,
+        'Unable to list cloud backups (${error.code.name}).',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -889,11 +971,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
       return null;
-    } catch (_) {
+    } catch (error) {
+      final message = error is UnsupportedError
+          ? 'Restore preview is not available on this platform.'
+          : 'Unable to list cloud backups. $error';
+      _setRestoreBusy(false, message);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to list cloud backups. Please try again.'),
+          SnackBar(
+            content: Text(
+              error is UnsupportedError
+                  ? message
+                  : 'Unable to list cloud backups. Please try again.',
+            ),
           ),
         );
       }
@@ -1272,6 +1362,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return path;
   }
 
+  Future<String> _resolveDocumentsDirectoryPath() async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'Document directory access is not available on web runtime.',
+      );
+    }
+
+    try {
+      return (await getApplicationDocumentsDirectory()).path;
+    } on MissingPluginException {
+      throw UnsupportedError(
+        'No document directory provider is available on this platform.',
+      );
+    } on UnsupportedError {
+      throw UnsupportedError(
+        'No document directory provider is available on this platform.',
+      );
+    }
+  }
+
   void _setRestoreBusy(bool value, String? message) {
     if (!mounted) {
       return;
@@ -1279,7 +1389,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       _isPreparingRestore = value;
-      _restoreProgressMessage = value ? message : null;
+      _restoreProgressMessage = message;
     });
   }
 
