@@ -1,76 +1,80 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-04
+**Analysis Date:** 2024-05-24
 
 ## APIs & External Services
 
-**Web content ingestion:**
-- Arbitrary public websites are fetched for metadata/content extraction.
-  - SDK/Client: `http`, `metadata_fetch`, `readability`, `favicon` in `lib/features/ingestion/services/extraction_service.dart`.
-  - Auth: Not required by current implementation (no API key or OAuth flow detected).
+**Intelligence / LLM Providers:**
+- Google Gemini - Generative AI (`gemini-2.5-flash-lite`).
+  - Implementation: Built-in HTTP integration to `generativelanguage.googleapis.com`.
+  - Auth: API Key (`mnemata.intelligence.apiKey` stored securely).
+- OpenAI - Generative AI (`gpt-5-nano`).
+  - Implementation: Built-in HTTP integration to `api.openai.com`.
+  - Auth: Bearer Token (API Key stored securely).
+- Anthropic Claude - Generative AI (`claude-haiku-4-5-20251001`).
+  - Implementation: Built-in HTTP integration to `api.anthropic.com`.
+  - Auth: API Key (`x-api-key` header stored securely).
 
-**Archive-hosted page handling:**
-- Archive mirrors are specially recognized and routed for manual JS-assisted extraction.
-  - Domains handled: `archive.ph`, `archive.today`, `archive.is`, `archive.li`, `archive.vn`, `archive.fo`, `archive.md`, `archive.moe` in `lib/features/ingestion/services/share_service.dart`.
-  - SDK/Client: `webview_flutter` + custom processors in `lib/features/ingestion/presentation/archive_scraper_screen.dart` and `lib/features/ingestion/services/archive_content_processor.dart`.
+**File Backup & Cloud Storage:**
+- Google Drive API - Cloud syncing of SQLite databases and assets.
+  - Implementation: Custom HTTP Client (`GoogleDriveHttpClient`) built around `http` and `googleapis.com/drive/v3`.
+  - Auth: OAuth Access Tokens via `google_sign_in`.
 
 ## Data Storage
 
 **Databases:**
-- SQLite via Drift.
-  - Connection: local on-device DB opened with `driftDatabase(name: 'mnemata_db')` in `lib/core/database/app_database.dart`.
-  - Client: `drift`/`drift_flutter` in `lib/core/database/app_database.dart`.
-  - Search: SQLite FTS5 module enabled in `build.yaml` and materialized in generated SQL in `lib/core/database/app_database.g.dart`.
+- SQLite (Drift ORM)
+  - Connection: Local disk initialization for native platforms; `sqlite3.wasm` and Web Workers (`drift_worker.js`) for the Web.
+  - Client: `drift` and `drift_flutter` packages.
 
 **File Storage:**
-- Local app documents directory for copied inbound files in `lib/features/ingestion/services/share_service.dart`.
-- Temporary filesystem use during readability fallback in `lib/features/ingestion/services/extraction_service.dart`.
+- Local filesystem only (via `path_provider`).
+- Google Drive for cloud-based exports and backups.
 
 **Caching:**
-- Network image caching through `cached_network_image` in `lib/features/chronological_list/presentation/item_list_screen.dart`.
-- Plugin/runtime caching directories are generated under `build/` (tool-managed artifacts).
+- None for explicit caching. AI responses and embedding representations (like Semantic Chunks, Summaries, Index States) are cached persistently within the primary SQLite Database (`SummaryCaches`, `SemanticIndexStates`, `SemanticChunks` tables).
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Custom/no user authentication layer detected.
-  - Implementation: local-only app state, no account/session service referenced in `lib/`.
+- Custom (Offline First)
+  - Implementation: The app operates entirely offline and requires no centralized authentication.
+- Google Sign-In
+  - Implementation: Strictly used for acquiring OAuth authorization to user's Google Drive (`auth/drive.appdata` scope) for backing up data. This runs via `GoogleDriveAuthClient`.
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None detected (no Sentry/Firebase Crashlytics/etc. dependency in `pubspec.yaml`).
+- None built-in. Standard Flutter exception reporting.
 
 **Logs:**
-- Runtime diagnostics via `debugPrint(...)` and occasional `print(...)` in ingestion services (for example `lib/features/ingestion/services/share_service.dart`, `lib/features/ingestion/services/extraction_service.dart`).
+- Basic runtime debug and logging (`debugPrint`/`print`). No external logging aggregation services detected.
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- App is configured for device/desktop/web distribution via Flutter target directories (`android/`, `ios/`, `macos/`, `linux/`, `windows/`, `web/`).
+- Not applicable for native targets; typically hosted on standard static file servers or CDN for Web implementations.
 
 **CI Pipeline:**
-- Not detected (`.github/workflows/` absent).
+- Standard Flutter CI mechanisms implied, but no specific external pipelines (like GitHub Actions definitions or Bitrise) were reviewed.
 
 ## Environment Configuration
 
 **Required env vars:**
-- Not detected; no environment variable lookups under `lib/`.
+- `GOOGLE_OAUTH_CLIENT_ID`: Required for Google Sign-In on Web (via `--dart-define` or injected `<meta>` tags in `web/index.html`).
 
 **Secrets location:**
-- No repository-managed secret file pattern detected (`.env*` not present at root).
-- Platform/local developer config exists in `android/local.properties` (path noted; values not inspected).
+- External AI Provider API keys are entered by the user within the App settings at runtime and written locally to `flutter_secure_storage`.
+  - Keys are namespaced using `mnemata.intelligence.apiKey.[provider]`.
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- OS share intent callback stream through `ReceiveSharingIntent.instance.getMediaStream()` and initial payload via `getInitialMedia()` in `lib/features/ingestion/services/share_service.dart`.
-- iOS document handling for PDFs declared in `ios/Runner/Info.plist` (`CFBundleDocumentTypes`).
+- System URL Handlers (`receive_sharing_intent`) - OS-level hooks for dropping links, files, or text directly into the application.
 
 **Outgoing:**
-- External browser handoff via `launchUrl(..., mode: LaunchMode.externalApplication)` in `lib/features/reader/presentation/reader_screen.dart`.
-- Outbound share sheet dispatch via `Share.share(...)` in `lib/core/utils/share_utils.dart`.
+- None
 
 ---
 
-*Integration audit: 2026-04-04*
+*Integration audit: 2024-05-24*

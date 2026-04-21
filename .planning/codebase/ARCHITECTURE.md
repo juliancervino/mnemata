@@ -1,104 +1,88 @@
 # Architecture
 
-**Analysis Date:** 2026-04-04
+**Analysis Date:** 2024-05-24
 
 ## Pattern Overview
 
-**Overall:** Feature-first modular monolith with layered responsibilities (presentation -> services -> persistence).
+**Overall:** Feature-First (Feature Slices) Architecture
 
 **Key Characteristics:**
-- Use `lib/features/*/presentation/` for UI state and interaction orchestration.
-- Use `lib/features/*/services/` for extraction, ingestion, parsing, and platform-integration logic.
-- Centralize persistence and query logic in `lib/core/database/app_database.dart` with Drift streams and SQL helpers.
+- **Modular by Feature:** Code is organized by functional domain (e.g., `chronological_list`, `ingestion`, `intelligence`) rather than by technical layer (e.g., all models, all views).
+- **Dependency Injection:** `get_it` is used extensively for singleton and lazy singleton management of services.
+- **Reactive Data:** High usage of `Stream` and `StreamBuilder` mapping directly from the local SQLite (Drift) database to the UI.
 
 ## Layers
 
-| Layer | Purpose | Location | Depends on | Used by |
-| --- | --- | --- | --- | --- |
-| Presentation | Screens, dialogs, navigation, user interaction state | `lib/features/*/presentation/*.dart` | Flutter widgets, `GetIt`, service/database APIs | App entry and user routes |
-| Services | Content extraction, share-intent orchestration, file/pdf processing | `lib/features/ingestion/services/*.dart`, `lib/features/settings/services/settings_service.dart` | HTTP/WebView/readability libs, database, navigator key | Presentation layer and bootstrap |
-| Persistence | SQLite schema, migrations, FTS index, CRUD/query streams | `lib/core/database/app_database.dart`, `lib/core/database/tables.dart`, `lib/core/database/tables.drift` | Drift/SQLite | All features |
-| Utilities | Shared cross-feature helpers (share formatting) | `lib/core/utils/share_utils.dart` | `share_plus`, database model types | List and reader presentation |
+**Core Layer:**
+- Purpose: Application-wide shared infrastructure, utilities, database setup, and generic UI components.
+- Location: `lib/core/`
+- Contains: Database definition (`app_database.dart`), foundational widgets (`item_card.dart`), theme configuration.
+- Used by: Feature layers.
+
+**Feature Layer - Services:**
+- Purpose: Business logic, API communication, background processing, and orchestration.
+- Location: `lib/features/[feature_name]/services/`
+- Contains: Classes like `SummaryService`, `SemanticSearchService`, `ShareService`.
+- Depends on: Core database, standard libraries, other feature services (via DI).
+- Used by: Feature presentation layer.
+
+**Feature Layer - Presentation:**
+- Purpose: User interface, screen definitions, and view-specific state management.
+- Location: `lib/features/[feature_name]/presentation/`
+- Contains: Flutter widgets, screens (e.g., `ItemListScreen.dart`), sheets, and view components.
+- Depends on: Feature services and Core widgets.
 
 ## Data Flow
 
-**Flow: Share Intent Ingestion (URL/File)**
-1. `lib/main.dart` boots and registers `ShareService`, then calls `ShareService.init()`.
-2. `lib/features/ingestion/services/share_service.dart` listens to `ReceiveSharingIntent` stream and initial payload.
-3. `ShareService` performs duplicate checks via `AppDatabase` (`getItemByCanonicalUrl`, `getItemByFilePath`).
-4. URL path uses `ExtractionService`; archive/JS-blocked pages route to WebView-based extractors.
-5. `lib/features/ingestion/presentation/ingestion_summary_screen.dart` confirms metadata and labels, then writes item + label links.
-
-**Flow: Browse and Read**
-1. `lib/features/chronological_list/presentation/item_list_screen.dart` subscribes to Drift streams (`watchAllItems`, `searchItems`, label filters).
-2. Opening URL items navigates to `lib/features/reader/presentation/reader_screen.dart`.
-3. Opening file items delegates to platform launcher via `open_filex`.
-4. Read/open actions update recency through `AppDatabase.updateLastOpenedAt`.
-
-**Flow: Label Management**
-1. Label CRUD happens in `lib/features/organization/presentation/label_manager_screen.dart`.
-2. Assignment paths use `label_selector_sheet.dart`, `item_editor_screen.dart`, and `ingestion_summary_screen.dart`.
-3. Persistence uses `Labels` and `ItemLabels` tables with many-to-many mapping in `app_database.dart`.
+**List & Read Flow:**
+1. Database queries expose continuous `Stream<List<MnemataItem>>` objects.
+2. `ItemListScreen` uses a `StreamBuilder` to listen to these streams.
+3. UI automatically reacts and rebuilds when underlying data in Drift is modified (e.g., a background service updates a summary).
 
 **State Management:**
-- Widget-local state (`StatefulWidget`, controllers, `setState`) in presentation screens.
-- Reactive data state through Drift streams (`StreamBuilder`) from `AppDatabase`.
-- App-wide service instances via `GetIt` singleton/lazy-singleton registration in `lib/main.dart`.
+- Application state (like current user query, active labels) is primarily handled using `StatefulWidget` combined with standard Flutter `setState`.
+- Background tasks and long-running operations are encapsulated in injected Services.
+- Global singletons (like `GlobalKey<NavigatorState>`) are managed by `GetIt`.
 
 ## Key Abstractions
 
-**AppDatabase (repository + query gateway):**
-- Purpose: Encapsulate schema migrations, indexes, CRUD, FTS search, sort-order updates, and label joins.
-- Examples: `lib/core/database/app_database.dart`, `lib/core/database/tables.dart`, `lib/core/database/tables.drift`.
-- Pattern: Single database facade consumed directly by UI/services via dependency locator.
+**Dependency Injection:**
+- Purpose: Decouples object creation from usage, allowing easier testing and modularity.
+- Examples: `getIt.registerLazySingleton<AppDatabase>(() => AppDatabase())`
+- Pattern: Service Locator (via `get_it`).
 
-**ShareService (ingestion orchestrator):**
-- Purpose: Normalize incoming shared payloads, dedupe, and route extraction/navigation.
-- Examples: `lib/features/ingestion/services/share_service.dart`.
-- Pattern: Long-lived service with stream subscription lifecycle and navigation side effects.
-
-**Content processors (specialized extraction pipelines):**
-- Purpose: Transform captured HTML into readable title/content/thumbnail payloads.
-- Examples: `lib/features/ingestion/services/archive_content_processor.dart`, `lib/features/ingestion/services/js_rendered_content_processor.dart`, `lib/features/ingestion/services/extraction_service.dart`.
-- Pattern: Focused processors invoked by presentation/service orchestration layers.
+**Database Access:**
+- Purpose: Type-safe SQL querying and reactive streams.
+- Examples: `lib/core/database/app_database.dart`
+- Pattern: Active Record / DAO hybrid through the `drift` package.
 
 ## Entry Points
 
-**Flutter app entry:**
+**Application Start:**
 - Location: `lib/main.dart`
-- Triggers: Process launch.
-- Responsibilities: DI registration (`GetIt`), share listener startup, root `MaterialApp` configuration.
+- Triggers: OS launch
+- Responsibilities: Initializes Flutter bindings, sets up DI locator (`setupLocator()`), fires startup background tasks (e.g., `BackupSchedulerService`, `ShareService`), and runs the root `MyApp` widget.
 
-**Primary user route:**
+**Item List:**
 - Location: `lib/features/chronological_list/presentation/item_list_screen.dart`
-- Triggers: `MaterialApp.home`.
-- Responsibilities: Listing, filtering/search, multi-select actions, reorder, navigation drawer.
-
-**Ingestion extractor routes:**
-- Location: `lib/features/ingestion/presentation/archive_scraper_screen.dart`, `lib/features/ingestion/presentation/js_rendered_scraper_screen.dart`
-- Triggers: ShareService URL heuristics for archive/JS-gated pages.
-- Responsibilities: Render page in WebView, capture HTML, forward processed output to summary/save flow.
+- Triggers: Default home screen routing.
+- Responsibilities: Displays primary list, handles search, tag filtering, and delegates to item detail/reader views.
 
 ## Error Handling
 
-**Strategy:** Local try/catch with user-facing `SnackBar` feedback and conservative fallback behavior.
+**Strategy:** Pragmatic try-catch blocks with UI feedback.
 
 **Patterns:**
-- Guard clauses for null/empty payloads and existence checks before work (`share_service.dart`, `pdf_extraction_service.dart`).
-- UI-level failure reporting with `ScaffoldMessenger` in ingestion, reader, and list interactions.
-- Best-effort parsing fallback in extraction processors when readability/native parsing fails.
+- Standard asynchronous `try/catch` wrapping API or file system calls.
+- User-facing errors are surfaced via `ScaffoldMessenger.of(context).showSnackBar()`.
+- Background initialization errors (e.g., recycle purge failure) are swallowed/logged with `debugPrint`.
 
 ## Cross-Cutting Concerns
 
-**Logging:**
-- Use `debugPrint`/`print` for runtime diagnostics in service and extraction code (`share_service.dart`, `extraction_service.dart`).
-
-**Validation:**
-- URL parsing/normalization and duplicate detection via helper methods in `share_service.dart` and `app_database.dart`.
-
-**Authentication:**
-- Not detected in application architecture.
+**Logging:** Standard `debugPrint` or simple `print` for non-critical developer output.
+**Authentication:** Delegated to `GoogleDriveAuthClient` or specific API key stores (`ApiKeyStore`).
+**Theming:** Centralized in `lib/core/theme/app_theme.dart` supporting both light and dark mode automatically via `ThemeMode.system`.
 
 ---
 
-*Architecture analysis: 2026-04-04*
+*Architecture analysis: 2024-05-24*

@@ -1,94 +1,78 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-04-04
+**Analysis Date:** 2024-05-24
 
 ## Naming Patterns
 
 **Files:**
-- Use `snake_case.dart` for files in both app and tests (for example `lib/features/ingestion/services/share_service.dart`, `test/features/ingestion/services/share_service_test.dart`).
-- Generated Drift files use `.g.dart` suffix (for example `lib/core/database/app_database.g.dart`).
+- `snake_case.dart` for all Dart source files (e.g., `item_list_screen.dart`, `recycle_purge_service.dart`).
 
 **Functions:**
-- Public APIs use lowerCamelCase (`setupLocator`, `extractContent`, `watchAllItems`).
-- Private helpers are prefixed with `_` (`_handleUrl`, `_buildPayloadKey`, `_createPerformanceIndexes`).
-- Async methods usually return `Future<T>`/`Future<void>` and are verb-first (`insertItem`, `updateItemContent`, `handleUrl`).
+- `camelCase` for methods and variables (e.g., `purgeExpired`, `settingsService`).
 
 **Variables:**
-- lowerCamelCase for locals/fields (`_searchQuery`, `mockExtractionService`, `finalContent`).
-- `const`/`final` is preferred for immutability throughout services and widgets (`lib/features/ingestion/services/extraction_service.dart`, `lib/features/chronological_list/presentation/item_list_screen.dart`).
+- `camelCase` for local variables and properties. Private properties prefixed with underscore (e.g., `_nowProvider`).
 
 **Types:**
-- Class names use PascalCase (`ShareService`, `ArchiveContentProcessor`, `ItemListScreen`).
-- Stateful widget state classes use leading underscore + widget name (`_ItemListScreenState` in `lib/features/chronological_list/presentation/item_list_screen.dart`).
+- `PascalCase` for classes, enums, and typedefs (e.g., `RecyclePurgeService`, `AppDatabase`).
 
 ## Code Style
 
 **Formatting:**
-- Analyzer config includes `flutter_lints` via `analysis_options.yaml`.
-- No project-specific formatter overrides detected; default Dart formatter style is used.
+- Dart standard formatting (`dart format`).
 
 **Linting:**
-- Lint baseline is `package:flutter_lints/flutter.yaml` (`analysis_options.yaml`).
-- Local suppressions are rare and mostly in generated code (`// ignore_for_file: type=lint` in `lib/core/database/app_database.g.dart`).
+- `flutter_lints` is used as configured in `analysis_options.yaml`.
+- Rule customization occurs in `analysis_options.yaml` (e.g., potential custom ignoring).
 
 ## Import Organization
 
 **Order:**
-1. Dart SDK imports (`dart:async`, `dart:io`, `dart:convert`).
-2. Third-party package imports (`package:flutter/...`, `package:http/http.dart`).
-3. Internal package imports via `package:mnemata/...`.
+1. `dart:` imports (e.g., `dart:ffi`, `dart:io`).
+2. `package:` imports (e.g., `package:flutter/material.dart`, `package:drift/drift.dart`).
+3. Project internal imports (e.g., `package:mnemata/...`).
+4. Relative imports are rarely used; absolute `package:mnemata/` imports are preferred for project files.
 
 **Path Aliases:**
-- Internal imports consistently use package paths (`package:mnemata/core/database/app_database.dart`) instead of relative `../` traversal.
+- `package:mnemata/` is used as the base path.
+
+## Dependency Injection
+
+**Pattern:**
+- Service Locator pattern using the `get_it` package. Services and Data stores are registered as singletons (e.g., `GetIt.instance.registerSingleton<SettingsService>`).
 
 ## Error Handling
 
 **Patterns:**
-- Service-layer operations use `try/catch` with graceful fallback (`extractContent` returns `null` on failure in `lib/features/ingestion/services/extraction_service.dart`).
-- Database APIs often propagate exceptions directly and keep methods thin wrappers over Drift (`lib/core/database/app_database.dart`).
-- UI async flows guard interactions after await using `context.mounted` checks (for example bulk delete flow in `lib/features/chronological_list/presentation/item_list_screen.dart`).
+- Try/catch blocks for asynchronous operations.
+- Graceful degradation (e.g., falling back to default values if secure store reads fail).
 
 ## Logging
 
-**Framework:**
-- Uses `debugPrint` for UI/service lifecycle logs and `print` in extraction/PDF service error paths.
+**Framework:** `debugPrint` from `package:flutter/foundation.dart`.
 
 **Patterns:**
-- Diagnostic logs focus on share-intent lifecycle and extraction outcomes (`lib/features/ingestion/services/share_service.dart`, `lib/features/ingestion/services/extraction_service.dart`).
-- Keep logs as operational breadcrumbs, not structured telemetry.
+- Prefixing logs with feature context (e.g., `debugPrint('recycle_purge.completed retentionDays=...')`).
+- Avoid standard `print` in production code.
 
 ## Comments
 
 **When to Comment:**
-- Comments are used sparingly for non-obvious intent (dedupe semantics, SQL logic, platform sqlite override, heuristic behavior).
-- Prefer concise inline comments near tricky blocks (`lib/features/ingestion/services/share_service.dart`, `lib/core/database/app_database.dart`, `test/core/database/app_database_test.dart`).
+- Clarification of domain logic, test setups, or non-obvious workarounds (e.g., platform-specific library loading).
 
 **JSDoc/TSDoc:**
-- Not applicable in this Dart codebase.
-- Dart doc comments (`///`) are uncommon in sampled production code.
+- Dartdoc standard `///` is used for public APIs, though many internal services rely on clear naming over extensive comments.
 
 ## Function Design
 
-**Size:**
-- Service methods can be medium/large when orchestrating flows (`_handleUrl` in `lib/features/ingestion/services/share_service.dart`, `extractFromCapturedHtml` in `lib/features/ingestion/services/archive_content_processor.dart`).
+**Size:** Concise functions focusing on single responsibilities.
 
-**Parameters:**
-- Named required parameters are used for complex inputs (`extractFromCapturedHtml({required String sourceUrl, required String rawHtml})`).
-- Optional dependencies are constructor-injected to enable testing (`ExtractionService([ReadabilityWrapper? wrapper])`).
+**Parameters:** Named parameters are heavily used, especially for constructors and complex methods, utilizing `required` modifier.
 
-**Return Values:**
-- Uses nullable returns for failure/fallback (`Future<MnemataItem?>`, `Future<...?>`).
-- Uses Dart records for multi-value results in extraction paths (`({String title, String content, String? thumbnailUrl})`).
+**Return Values:** Explicit return types are used (e.g., `Future<int>`).
 
 ## Module Design
 
-**Exports:**
-- Modules are file-oriented with direct imports; no barrel exports detected.
-- Feature-first packaging under `lib/features/*` with shared primitives in `lib/core/*`.
-
-**Barrel Files:**
-- Not detected in sampled source tree.
-
----
-
-*Convention analysis: 2026-04-04*
+**Exports:** 
+- Explicit imports are used per file. Barrel files are not heavily utilized. 
+- Folder structure dictates module boundaries (`lib/features/...`).

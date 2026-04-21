@@ -1,82 +1,77 @@
 # Technology Stack
 
-**Analysis Date:** 2026-04-04
+**Analysis Date:** 2024-05-24
 
 ## Languages
 
 **Primary:**
-- Dart `>=3.11.1 <4.0.0` for app and domain logic in `lib/**/*.dart` and tests in `test/**/*.dart` (constraint in `pubspec.lock`).
-- Kotlin (Android build/plugin layer) in `android/build.gradle.kts` and `android/app/build.gradle.kts`.
+- Dart ^3.11.1 - Core application logic, UI components, state management, database schema definition
 
 **Secondary:**
-- Swift/Objective-C bridge surface via Flutter iOS runner in `ios/Runner/Info.plist`.
-- C++ build scaffolding for desktop runners in `linux/CMakeLists.txt` and `windows/CMakeLists.txt`.
-- HTML/JSON for web shell in `web/index.html` and `web/manifest.json`.
+- JavaScript - Web workers for database operations (`web/drift_worker.js`)
+- C/C++ - WebAssembly support for SQLite (`web/sqlite3.wasm`)
+- Kotlin / Swift / C++ - Native runner code for Android, iOS/macOS, Windows/Linux
 
 ## Runtime
 
 **Environment:**
-- Flutter app runtime (project type `app`) tracked in `.metadata`.
-- Flutter channel `stable` and toolchain revision recorded in `.metadata`.
+- Flutter SDK
 
 **Package Manager:**
-- Dart/Flutter `pub` with dependency lock in `pubspec.lock`.
-- Lockfile: present (`pubspec.lock`).
+- `pub` (via Flutter)
+- Lockfile: `pubspec.lock` present
 
 ## Frameworks
 
 **Core:**
-- Flutter (Material 3 UI) used from entrypoint `lib/main.dart`.
-- Drift + SQLite (reactive persistence and FTS5) configured in `lib/core/database/app_database.dart`, `lib/core/database/tables.drift`, and `build.yaml`.
-- GetIt for dependency injection in `lib/main.dart`.
+- Flutter - Cross-platform UI framework
 
 **Testing:**
-- `flutter_test` for unit/widget tests (declared in `pubspec.yaml`, test tree under `test/`).
-- `mocktail` for mocking in tests (declared in `pubspec.yaml`).
+- `flutter_test` - Standard Flutter testing framework
+- `mocktail` ^1.0.4 - Mocking library for unit tests
 
 **Build/Dev:**
-- `build_runner` + `drift_dev` for DB code generation (`pubspec.yaml`, generated output `lib/core/database/app_database.g.dart`).
-- `flutter_lints` via analyzer include in `analysis_options.yaml`.
-- Android Gradle Plugin `8.11.1` and Kotlin plugin `2.2.20` in `android/settings.gradle.kts`.
+- `build_runner` ^2.4.9 - Code generation tool
+- `drift_dev` ^2.16.0 - Database schema and query generation
+- `flutter_lints` ^6.0.0 - Static analysis rules
+- `flutter_launcher_icons` ^0.13.1 - App icon generation
 
 ## Key Dependencies
 
 **Critical:**
-- `drift` / `drift_flutter` for local DB and migrations (`lib/core/database/app_database.dart`).
-- `receive_sharing_intent` for inbound share intents (`lib/features/ingestion/services/share_service.dart`).
-- `readability`, `metadata_fetch`, `http`, `favicon` for article extraction (`lib/features/ingestion/services/extraction_service.dart`).
-- `webview_flutter` for JS-rendered/archive fallback extraction (`lib/features/ingestion/presentation/js_rendered_scraper_screen.dart`, `lib/features/ingestion/presentation/archive_scraper_screen.dart`).
+- `drift` ^2.16.0 & `drift_flutter` ^0.2.0 - SQLite ORM and reactive data layer. Crucial for the offline-first architecture.
+- `sqlite3` ^2.9.4 - Native SQLite implementation (including WebAssembly support).
+- `get_it` ^9.2.1 - Dependency injection and service locator.
+- `http` ^1.2.0 - Core networking for external API integrations (AI providers, extraction).
 
 **Infrastructure:**
-- `path_provider` + `path` for app document storage paths (`lib/features/ingestion/services/share_service.dart`).
-- `shared_preferences` for user settings persistence (`lib/features/settings/services/settings_service.dart`).
-- `share_plus`, `url_launcher`, `open_filex` for OS integrations (`lib/core/utils/share_utils.dart`, `lib/features/reader/presentation/reader_screen.dart`, `lib/features/chronological_list/presentation/item_list_screen.dart`).
-- `package_info_plus` for runtime app metadata (`lib/features/settings/presentation/about_screen.dart`).
+- `google_sign_in` ^6.2.1 - OAuth authentication for cloud backups.
+- `flutter_secure_storage` ^9.2.2 - Secure credential storage for API keys.
+- `shared_preferences` ^2.5.5 - Lightweight local key-value storage.
+- `path_provider` ^2.1.2 - File system path resolution.
+- `receive_sharing_intent` ^1.8.1, `share_plus` ^10.1.2, `flutter_dropzone` ^4.2.1 - OS-level data ingestion and extraction.
+- `syncfusion_flutter_pdf` ^33.1.44, `webview_flutter` ^4.10.0, `flutter_widget_from_html` ^0.15.0 - Rich content parsing and rendering.
 
 ## Configuration
 
 **Environment:**
-- No `.env` files detected in repository root; runtime configuration is code/config-file driven.
-- No `String.fromEnvironment(...)` or dotenv usage detected under `lib/`.
+- Dart compile-time variables (via `--dart-define`), specifically for configurations like `GOOGLE_OAUTH_CLIENT_ID`. Web platform uses meta tags in `web/index.html`.
+- User-provided API keys are configured at runtime and stored in secure storage.
 
 **Build:**
-- Lint config: `analysis_options.yaml`.
-- Drift SQLite module config (FTS5): `build.yaml`.
-- Android build configs: `android/settings.gradle.kts`, `android/build.gradle.kts`, `android/app/build.gradle.kts`.
-- Desktop build configs: `linux/CMakeLists.txt`, `windows/CMakeLists.txt`.
-- Web shell config: `web/index.html`, `web/manifest.json`.
+- `pubspec.yaml` - Primary project configuration
+- `build.yaml` - Build runner configuration
+- `analysis_options.yaml` - Linter settings
 
 ## Platform Requirements
 
 **Development:**
-- Flutter SDK compatible with locked constraint `flutter: ">=3.38.4"` and Dart `>=3.11.1 <4.0.0` (`pubspec.lock`).
-- Android toolchain with AGP `8.11.1` and Kotlin `2.2.20` (`android/settings.gradle.kts`).
-- Flutter code generation step required when schema changes: `flutter pub run build_runner build --delete-conflicting-outputs` (documented in `README.md`).
+- Flutter SDK
+- Android Studio / Xcode / CMake (depending on target platform)
 
 **Production:**
-- Multi-platform targets are configured: Android (`android/`), iOS (`ios/`), macOS (`macos/`), Linux (`linux/`), Windows (`windows/`), Web (`web/`).
-- Local/offline-first persistence target through on-device SQLite DB named `mnemata_db` (`lib/core/database/app_database.dart`).
+- Cross-platform support for Android (min SDK 21), iOS, macOS, Windows, Linux, and Web (WASM).
 
 ---
 
-*Stack analysis: 2026-04-04*
+*Stack analysis: 2024-05-24*
