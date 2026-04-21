@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
@@ -96,10 +98,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _aiTagSuggestionsEnabled = _settingsService.aiTagSuggestionsEnabled;
     _selectedAiProvider = _settingsService.aiProvider;
     _apiKeyStore =
-      widget.apiKeyStore ??
-      (GetIt.instance.isRegistered<ApiKeyStore>()
-        ? GetIt.instance<ApiKeyStore>()
-        : ApiKeyStore(secureStore: _InMemorySecureKeyValueStore()));
+        widget.apiKeyStore ??
+        (GetIt.instance.isRegistered<ApiKeyStore>()
+            ? GetIt.instance<ApiKeyStore>()
+            : ApiKeyStore(secureStore: _InMemorySecureKeyValueStore()));
     _loadApiKeyState();
     _loadGoogleAccountState();
 
@@ -169,7 +171,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         GetIt.instance.isRegistered<CloudBackupProvider>()) {
       _cloudBackupProvider = GetIt.instance<CloudBackupProvider>();
     }
-
   }
 
   @override
@@ -182,9 +183,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 24),
-              child: Text(
-                'Settings',
-                style: theme.textTheme.displaySmall,
+              child: Row(
+                children: [
+                  if (Navigator.canPop(context))
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_ios_new),
+                      tooltip: 'Back',
+                    ),
+                  Expanded(
+                    child: Text(
+                      'Settings',
+                      style: theme.textTheme.displaySmall,
+                    ),
+                  ),
+                ],
               ),
             ),
             _SettingsGroup(
@@ -309,7 +322,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (value) => _onIntelligenceToggleChanged(
                     value: value,
                     currentSetter: (enabled) async {
-                      await _settingsService.setAiTagSuggestionsEnabled(enabled);
+                      await _settingsService.setAiTagSuggestionsEnabled(
+                        enabled,
+                      );
                       if (!mounted) {
                         return;
                       }
@@ -493,8 +508,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             });
                           },
                           onChangeEnd: (value) {
-                            _settingsService
-                                .setRecycleBinRetentionDays(value.round());
+                            _settingsService.setRecycleBinRetentionDays(
+                              value.round(),
+                            );
                           },
                         ),
                       ),
@@ -621,9 +637,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _googleUserEmail = user.email;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Signed in as ${user.email}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Signed in as ${user.email}')));
       }
     } on GoogleDriveAuthException catch (error) {
       if (mounted) {
@@ -639,9 +655,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _googleUserEmail = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign in failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sign in failed: $e')));
       }
     }
   }
@@ -687,9 +703,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error signing out: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error signing out: $e')));
     }
   }
 
@@ -868,9 +884,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Unable to list cloud backups (${error.code.name}).',
-            ),
+            content: Text('Unable to list cloud backups (${error.code.name}).'),
           ),
         );
       }
@@ -1104,7 +1118,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               (() async {
                 final service =
                     _bookmarkExportService ??
-                    BookmarkExportService(database: GetIt.instance<AppDatabase>());
+                    BookmarkExportService(
+                      database: GetIt.instance<AppDatabase>(),
+                    );
                 _bookmarkExportService = service;
                 final file = await service.exportBookmarksFile();
                 return file.path;
@@ -1127,9 +1143,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bookmark export failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Bookmark export failed: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -1145,6 +1161,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
+      final service =
+          _bookmarkImportService ??
+          BookmarkImportService(database: GetIt.instance<AppDatabase>());
+      _bookmarkImportService = service;
+
+      if (kIsWeb) {
+        final html = await _pickBookmarkImportHtml();
+        if (html == null || html.isEmpty) {
+          return;
+        }
+
+        final result = await service.importBookmarksHtml(html);
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Imported ${result.importedCount} bookmarks (${result.duplicateCount} duplicates, ${result.invalidCount} invalid).',
+            ),
+          ),
+        );
+        return;
+      }
+
       final importPath =
           await (widget.pickBookmarkImportFileAction?.call() ??
               _pickBookmarkImportFilePath());
@@ -1154,13 +1196,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final result =
           await (widget.importBookmarksFromFileAction?.call(importPath) ??
-              (() {
-                final service =
-                    _bookmarkImportService ??
-                    BookmarkImportService(database: GetIt.instance<AppDatabase>());
-                _bookmarkImportService = service;
-                return service.importBookmarksFile(importPath);
-              })());
+              service.importBookmarksFile(importPath));
 
       if (!mounted) {
         return;
@@ -1184,15 +1220,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bookmark import failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Bookmark import failed: $error')));
     } finally {
       if (mounted) {
         setState(() {
           _isImportingBookmarks = false;
         });
       }
+    }
+  }
+
+  Future<String?> _pickBookmarkImportHtml() async {
+    final selected = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const <String>['html', 'htm'],
+      withData: true,
+    );
+
+    if (selected == null || selected.files.isEmpty) {
+      return null;
+    }
+
+    final bytes = selected.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      return null;
+    }
+
+    try {
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return latin1.decode(bytes, allowInvalid: true);
     }
   }
 

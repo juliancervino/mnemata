@@ -286,7 +286,7 @@ class ShareService {
       }
     }
 
-    if (_isArchiveUrl(trimmedUrl)) {
+    if (!kIsWeb && _isArchiveUrl(trimmedUrl)) {
       await _pushSummaryWhenNavigatorReady(
         (context) => ArchiveScraperScreen(url: trimmedUrl),
       );
@@ -317,7 +317,8 @@ class ShareService {
         _hideLoadingOverlay();
       }
 
-      if (_looksLikeJsRequiredContent(result?.content, result?.title)) {
+      if (!kIsWeb &&
+          _looksLikeJsRequiredContent(result?.content, result?.title)) {
         await _pushSummaryWhenNavigatorReady(
           (context) => JsRenderedScraperScreen(url: trimmedUrl),
         );

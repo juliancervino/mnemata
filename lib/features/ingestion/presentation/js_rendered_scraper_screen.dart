@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
@@ -12,11 +13,12 @@ class JsRenderedScraperScreen extends StatefulWidget {
   const JsRenderedScraperScreen({super.key, required this.url});
 
   @override
-  State<JsRenderedScraperScreen> createState() => _JsRenderedScraperScreenState();
+  State<JsRenderedScraperScreen> createState() =>
+      _JsRenderedScraperScreenState();
 }
 
 class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
   final ReadabilityWrapper _readabilityWrapper = ReadabilityWrapper();
   late final JsRenderedContentProcessor _processor;
   bool _isProcessing = false;
@@ -25,11 +27,14 @@ class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
   void initState() {
     super.initState();
     _processor = JsRenderedContentProcessor(_readabilityWrapper);
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-      ..loadRequest(Uri.parse(widget.url));
+    if (!kIsWeb) {
+      _controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        )
+        ..loadRequest(Uri.parse(widget.url));
+    }
   }
 
   Future<void> _extractAndContinue() async {
@@ -37,7 +42,14 @@ class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final Object result = await _controller.runJavaScriptReturningResult(
+      final controller = _controller;
+      if (controller == null) {
+        throw StateError(
+          'Rendered preview is unavailable on web. Retry regular ingestion for this URL.',
+        );
+      }
+
+      final Object result = await controller.runJavaScriptReturningResult(
         'document.documentElement.outerHTML;',
       );
 
@@ -77,9 +89,9 @@ class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extraction failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
       }
     } finally {
       if (mounted) {
@@ -90,6 +102,8 @@ class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rendered Content Extraction'),
@@ -125,7 +139,18 @@ class _JsRenderedScraperScreenState extends State<JsRenderedScraperScreen> {
             ),
           ),
           Expanded(
-            child: WebViewWidget(controller: _controller),
+            child: controller == null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Rendered preview is not available on web builds. Use standard URL ingestion for this page.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : WebViewWidget(controller: controller),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 enum GoogleDriveAuthErrorCode {
@@ -86,7 +87,21 @@ class GoogleDriveAuthClient {
   GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
 
   Future<GoogleSignInAccount?> signIn() async {
-    return _googleSignIn.signIn();
+    try {
+      return _googleSignIn.signIn();
+    } catch (error) {
+      final message = error.toString();
+      if (kIsWeb &&
+          (message.contains('ClientID not set') ||
+              message.contains('appClientId != null'))) {
+        throw const GoogleDriveAuthException(
+          code: GoogleDriveAuthErrorCode.unknown,
+          message:
+              'Google Sign-In is not configured for web. Add GOOGLE_OAUTH_CLIENT_ID via --dart-define or set the google-signin-client_id meta tag in web/index.html.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {

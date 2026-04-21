@@ -25,7 +25,11 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
     super.dispose();
   }
 
-  void _pickColor(BuildContext context, Color initialColor, Function(Color) onColorChanged) {
+  void _pickColor(
+    BuildContext context,
+    Color initialColor,
+    Function(Color) onColorChanged,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -48,11 +52,13 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
     if (name.isEmpty) return;
 
     final database = GetIt.instance<AppDatabase>();
-    database.insertLabel(LabelsCompanion.insert(
-      name: name,
-      color: drift.Value(_selectedColor.toARGB32()),
-      isFolder: drift.Value(_isFolder),
-    ));
+    database.insertLabel(
+      LabelsCompanion.insert(
+        name: name,
+        color: drift.Value(_selectedColor.toARGB32()),
+        isFolder: drift.Value(_isFolder),
+      ),
+    );
 
     _nameController.clear();
     setState(() {
@@ -63,8 +69,9 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
 
   void _editLabel(Label label) {
     final nameController = TextEditingController(text: label.name);
-    Color editColor =
-        label.color != null ? Color(label.color!) : MnemataColors.tag1;
+    Color editColor = label.color != null
+        ? Color(label.color!)
+        : MnemataColors.tag1;
 
     showDialog(
       context: context,
@@ -84,7 +91,10 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                 trailing: Container(
                   width: 24,
                   height: 24,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: editColor),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: editColor,
+                  ),
                 ),
                 onTap: () => _pickColor(context, editColor, (color) {
                   setDialogState(() => editColor = color);
@@ -93,15 +103,20 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             TextButton(
               onPressed: () {
                 final database = GetIt.instance<AppDatabase>();
-                database.updateLabel(LabelsCompanion(
-                  id: drift.Value(label.id),
-                  name: drift.Value(nameController.text.trim()),
-                  color: drift.Value(editColor.toARGB32()),
-                ));
+                database.updateLabel(
+                  LabelsCompanion(
+                    id: drift.Value(label.id),
+                    name: drift.Value(nameController.text.trim()),
+                    color: drift.Value(editColor.toARGB32()),
+                  ),
+                );
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -128,14 +143,20 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (Navigator.canPop(context))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_ios_new),
+                        tooltip: 'Back',
+                      ),
+                    ),
                   const Padding(
                     padding: EdgeInsets.only(top: 8, bottom: 8),
                     child: SectionLabel('Organization'),
                   ),
-                  Text(
-                    'Labels',
-                    style: theme.textTheme.displaySmall,
-                  ),
+                  Text('Labels', style: theme.textTheme.displaySmall),
                 ],
               ),
             ),
@@ -162,11 +183,7 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                           color: _selectedColor,
                           border: Border.all(color: cs.outline, width: 0.5),
                         ),
-                        child: Icon(
-                          Icons.palette,
-                          size: 16,
-                          color: cs.surface,
-                        ),
+                        child: Icon(Icons.palette, size: 16, color: cs.surface),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -225,15 +242,12 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerLow,
-                          borderRadius:
-                              BorderRadius.circular(MnemataRadii.lg),
-                          border:
-                              Border.all(color: cs.outline, width: 0.5),
+                          borderRadius: BorderRadius.circular(MnemataRadii.lg),
+                          border: Border.all(color: cs.outline, width: 0.5),
                         ),
                         child: ListView.separated(
                           itemCount: labels.length,
-                          separatorBuilder: (_, _) =>
-                              const Divider(height: 1),
+                          separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final label = labels[index];
                             final color = label.color != null
@@ -244,8 +258,7 @@ class _LabelManagerScreenState extends State<LabelManagerScreen> {
                               label: label,
                               color: color,
                               onEdit: () => _editLabel(label),
-                              onDelete: () =>
-                                  database.deleteLabel(label.id),
+                              onDelete: () => database.deleteLabel(label.id),
                             );
                           },
                         ),

@@ -23,16 +23,22 @@ class AboutScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (Navigator.canPop(context))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_ios_new),
+                    tooltip: 'Back',
+                  ),
+                ),
               const Padding(
                 padding: EdgeInsets.only(top: 8, bottom: 8),
                 child: SectionLabel('About'),
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 24),
-                child: Text(
-                  'Mnemata',
-                  style: theme.textTheme.displaySmall,
-                ),
+                child: Text('Mnemata', style: theme.textTheme.displaySmall),
               ),
               Container(
                 padding: const EdgeInsets.all(24),
@@ -48,8 +54,7 @@ class AboutScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(MnemataRadii.lg),
+                          borderRadius: BorderRadius.circular(MnemataRadii.lg),
                           child: Image.asset(
                             'assets/mnemata.jpg',
                             height: 72,
@@ -113,8 +118,7 @@ class AboutScreen extends StatelessWidget {
                       applicationIcon: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(MnemataRadii.md),
+                          borderRadius: BorderRadius.circular(MnemataRadii.md),
                           child: Image.asset(
                             'assets/mnemata.jpg',
                             height: 48,

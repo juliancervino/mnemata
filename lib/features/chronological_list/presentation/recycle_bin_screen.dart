@@ -25,14 +25,20 @@ class RecycleBinScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (Navigator.canPop(context))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_ios_new),
+                        tooltip: 'Back',
+                      ),
+                    ),
                   const Padding(
                     padding: EdgeInsets.only(top: 8, bottom: 8),
                     child: SectionLabel('Recycle bin'),
                   ),
-                  Text(
-                    'Trashed items',
-                    style: theme.textTheme.displaySmall,
-                  ),
+                  Text('Trashed items', style: theme.textTheme.displaySmall),
                 ],
               ),
             );
@@ -92,11 +98,8 @@ class RecycleBinScreen extends StatelessWidget {
                 return _RecycleRow(
                   item: item,
                   onRestore: () => _restoreItem(context, database, item),
-                  onDelete: () => _confirmPermanentDelete(
-                    context,
-                    database,
-                    item,
-                  ),
+                  onDelete: () =>
+                      _confirmPermanentDelete(context, database, item),
                   showDivider: index < items.length,
                 );
               },

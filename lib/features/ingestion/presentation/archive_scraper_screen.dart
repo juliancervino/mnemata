@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
@@ -15,7 +16,7 @@ class ArchiveScraperScreen extends StatefulWidget {
 }
 
 class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
   final ReadabilityWrapper _readabilityWrapper = ReadabilityWrapper();
   late final ArchiveContentProcessor _archiveProcessor;
   bool _isProcessing = false;
@@ -24,11 +25,14 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
   void initState() {
     super.initState();
     _archiveProcessor = ArchiveContentProcessor(_readabilityWrapper);
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-      ..loadRequest(Uri.parse(widget.url));
+    if (!kIsWeb) {
+      _controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        )
+        ..loadRequest(Uri.parse(widget.url));
+    }
   }
 
   Future<void> _extractAndContinue() async {
@@ -36,8 +40,15 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final Object result = await _controller.runJavaScriptReturningResult(
-        "document.documentElement.outerHTML;"
+      final controller = _controller;
+      if (controller == null) {
+        throw StateError(
+          'Archive preview is unavailable on web. Retry regular ingestion for this URL.',
+        );
+      }
+
+      final Object result = await controller.runJavaScriptReturningResult(
+        "document.documentElement.outerHTML;",
       );
 
       // runJavaScriptReturningResult can return a JSON-encoded string
@@ -71,7 +82,9 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
       final originalUrl = extraction.originalUrl;
 
       debugPrint('ArchiveScraper: Final title: $finalTitle');
-      debugPrint('ArchiveScraper: Final content length: ${finalContent.length}');
+      debugPrint(
+        'ArchiveScraper: Final content length: ${finalContent.length}',
+      );
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -89,9 +102,9 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extraction failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
       }
     } finally {
       if (mounted) {
@@ -102,24 +115,30 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Archive Content Extraction'),
         actions: [
           if (_isProcessing)
             const Center(
-                child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: SizedBox(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0),
+                child: SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
-            ))
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
           else
             TextButton(
               onPressed: _extractAndContinue,
-              child: const Text('EXTRACT',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'EXTRACT',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
         ],
       ),
@@ -133,7 +152,18 @@ class _ArchiveScraperScreenState extends State<ArchiveScraperScreen> {
             ),
           ),
           Expanded(
-            child: WebViewWidget(controller: _controller),
+            child: controller == null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Archive preview is not available on web builds. Use standard URL ingestion for this page.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : WebViewWidget(controller: controller),
           ),
         ],
       ),

@@ -65,6 +65,22 @@ Mnemata is a centralized, cross-platform knowledge repository designed to help y
    flutter run
    ```
 
+### Run Web Locally (Testing URL)
+
+To launch Mnemata as a local web server and test it in your browser:
+
+1. Start the web server on a fixed port:
+   ```bash
+   flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080
+   ```
+2. Open this URL in your browser:
+   - `http://localhost:8080`
+
+Notes:
+- Flutter will print a line like `lib/main.dart is being served at http://0.0.0.0:8080`.
+- Keep the terminal open while testing.
+- To stop the web server, press `q` in the `flutter run` terminal.
+
 ### Google Drive Backup OAuth Setup
 
 Cloud backup/restore requires both OAuth client IDs and Google Drive API enablement in the same Google Cloud project.
