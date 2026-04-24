@@ -79,7 +79,7 @@ class ExtractionService {
       }
 
       if (html != null) {
-        return await _processHtml(html, url);
+        return await processRawHtml(html, url: url);
       }
 
       // 3. Last ditch: try the platform's native parse (might work on mobile/desktop)
@@ -98,6 +98,13 @@ class ExtractionService {
       debugPrint('Extraction error for $url: $e');
       return null;
     }
+  }
+
+  Future<({String title, String content, String? thumbnailUrl})?> processRawHtml(
+    String html, {
+    String? url,
+  }) async {
+    return _processHtml(html, url);
   }
 
   Future<String?> _fetchViaCorsProxy(String url) async {

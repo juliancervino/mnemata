@@ -8,6 +8,7 @@ import 'package:mnemata/features/ingestion/presentation/archive_scraper_screen.d
 import 'package:mnemata/features/ingestion/presentation/ingestion_failure_actions_sheet.dart';
 import 'package:mnemata/features/ingestion/presentation/ingestion_summary_screen.dart';
 import 'package:mnemata/features/ingestion/presentation/js_rendered_scraper_screen.dart';
+import 'package:mnemata/features/ingestion/presentation/manual_ingest_dialog.dart';
 import 'package:mnemata/features/reader/presentation/reader_screen.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:mnemata/features/ingestion/services/author_extraction_service.dart';
@@ -359,6 +360,36 @@ class ShareService {
         continue;
       }
 
+      if (action == IngestionFailureAction.manualIngest) {
+        final pastedContent = await _showManualIngestDialog();
+        if (pastedContent != null && pastedContent.isNotEmpty) {
+          _showLoadingOverlay('Processing pasted content...');
+          try {
+            final result = await _extractionService.processRawHtml(
+              pastedContent,
+              url: trimmedUrl,
+            );
+            if (result != null) {
+              _hideLoadingOverlay();
+              final resultFromSummary = await _pushSummaryWhenNavigatorReady(
+                (context) => IngestionSummaryScreen(
+                  type: 'url',
+                  url: trimmedUrl,
+                  title: result.title,
+                  content: result.content,
+                  thumbnailUrl: result.thumbnailUrl,
+                ),
+              );
+              _handleSummaryOutcome(resultFromSummary, source: trimmedUrl);
+              return;
+            }
+          } finally {
+            _hideLoadingOverlay();
+          }
+        }
+        continue;
+      }
+
       if (action == IngestionFailureAction.openOriginal) {
         await _openOriginalUrl(trimmedUrl);
         return;
@@ -646,6 +677,16 @@ class ShareService {
       context,
       sourceLabel: sourceLabel,
       canOpenOriginal: canOpenOriginal,
+    );
+  }
+
+  Future<String?> _showManualIngestDialog() async {
+    final context = _navigatorKey.currentContext;
+    if (context == null) return null;
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => const ManualIngestDialog(),
     );
   }
 
