@@ -38,6 +38,18 @@ Plans:
 - [x] 19-05-PLAN.md - WEB-04 search parity (debounce, snippets, actionable empty/error states)
 **UI hint**: yes
 
+### Phase 19.1: Fix content extract problems on web version (INSERTED)
+
+**Goal:** Users can reliably ingest URLs and PDFs on the web version using tiered proxies and client-side distillation, with manual fallbacks.
+**Requirements**: WEB-05
+**Depends on:** Phase 19
+**Plans:** 3 plans
+
+Plans:
+- [ ] 19.1-01-PLAN.md - Web Readability Foundation (JS Interop)
+- [ ] 19.1-02-PLAN.md - Tiered Extraction & Heuristics
+- [ ] 19.1-03-PLAN.md - PDF Parity & Manual Ingest
+
 ### Phase 20: Account Sessions and Device Linking
 **Goal**: Users can authenticate into stable account sessions and manage linked devices required for secure sync identity.
 **Depends on**: Phase 19
@@ -77,6 +89,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 19. Web Parity Core Flows | 5/5 | Completed | 2026-04-20 |
+| 19.1 Fix content extract problems on web version | 0/3 | In Progress | - |
 | 20. Account Sessions and Device Linking | 0/0 | Not started | - |
 | 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
 | 22. Collaboration Primitive Access Model | 0/0 | Not started | - |
@@ -85,4 +98,3 @@ Plans:
 
 
 - [x] **v1.1 milestone** - Feature Expansion + Reliability. Released 2026-04-17.
-
