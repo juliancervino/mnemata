@@ -46,10 +46,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 19.1-00-PLAN.md - Extraction Test Scaffolding
-- [ ] 19.1-01-PLAN.md - Web Readability Foundation (JS Interop)
-- [ ] 19.1-02-PLAN.md - Tiered Extraction & Heuristics
-- [ ] 19.1-03-PLAN.md - PDF Parity & Manual Ingest
+- [ ] 19.1-00-PLAN.md — Extraction and Metadata Priority Test Scaffolding
+- [ ] 19.1-01-PLAN.md — Web Foundation (JS-Interop for Defuddle & Metadata priority)
+- [ ] 19.1-02-PLAN.md — Tiered Raw Proxy Pipeline (corsproxy.io, allorigins.win)
+- [ ] 19.1-03-PLAN.md — PDF Web Fix & Manual Ingest UI
 
 ### Phase 20: Account Sessions and Device Linking
 **Goal**: Users can authenticate into stable account sessions and manage linked devices required for secure sync identity.
