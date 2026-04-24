@@ -39,6 +39,10 @@ Plan: 0 of TBD
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 19.1 inserted after Phase 19: Fix content extract problems on web version (URGENT)
+
 ### Key Decisions
 
 - v2.0 remains reliability-first: deterministic sync/convergence is prioritized over visual redesign.
