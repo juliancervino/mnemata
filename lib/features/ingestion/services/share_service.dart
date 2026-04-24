@@ -240,12 +240,18 @@ class ShareService {
     _showLoadingOverlay('Preparing file...');
 
     try {
+      String? extractedText;
+      if (normalizedName.toLowerCase().endsWith('.pdf')) {
+        extractedText = await _pdfExtractionService.extractText(bytes);
+      }
+
       _hideLoadingOverlay();
       final resultFromSummary = await _pushSummaryWhenNavigatorReady(
         (context) => IngestionSummaryScreen(
           type: 'file',
           filePath: normalizedName,
           title: normalizedName,
+          content: extractedText,
         ),
       );
       _handleSummaryOutcome(resultFromSummary, source: normalizedName);
@@ -406,7 +412,8 @@ class ShareService {
       String? extractedText;
       if (fileName.toLowerCase().endsWith('.pdf')) {
         while (true) {
-          extractedText = await _pdfExtractionService.extractText(newPath);
+          final bytes = await readFileBytes(newPath);
+          extractedText = await _pdfExtractionService.extractText(bytes);
           if ((extractedText ?? '').trim().isNotEmpty) {
             break;
           }

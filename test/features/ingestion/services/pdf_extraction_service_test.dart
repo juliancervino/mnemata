@@ -10,13 +10,15 @@ void main() {
   });
 
   group('PdfExtractionService', () {
-    test('TODO: Implement byte-based extraction tests', () {
-      // This will be implemented in a later task
-      expect(pdfExtractionService, isNotNull);
+    test('returns null for empty bytes', () async {
+      final result = await pdfExtractionService.extractText(Uint8List(0));
+      expect(result, isNull);
     });
 
-    test('TODO: Verify web compatibility (no dart:io)', () {
-      // PDF extraction on web shouldn't use File(filePath)
+    test('handles invalid PDF bytes gracefully', () async {
+      // Just some random bytes that are not a valid PDF
+      final result = await pdfExtractionService.extractText(Uint8List.fromList([1, 2, 3, 4, 5]));
+      expect(result, isNull);
     });
   });
 }
