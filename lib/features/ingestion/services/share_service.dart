@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -211,12 +211,12 @@ class ShareService {
     required Uint8List bytes,
     String? mimeType,
   }) async {
-    if (!kIsWeb) {
+    final normalizedName = fileName.trim();
+    if (normalizedName.isEmpty || bytes.isEmpty) {
       return;
     }
 
-    final normalizedName = fileName.trim();
-    if (normalizedName.isEmpty || bytes.isEmpty) {
+    if (!kIsWeb && !normalizedName.toLowerCase().endsWith('.md')) {
       return;
     }
 
@@ -236,6 +236,12 @@ class ShareService {
       if (resolution == DuplicateResolution.keepCurrentItem) {
         return;
       }
+    }
+
+    if (normalizedName.toLowerCase().endsWith('.md')) {
+      final content = utf8.decode(bytes, allowMalformed: true);
+      await handleManualPaste(content, url: '');
+      return;
     }
 
     _showLoadingOverlay('Preparing file...');
@@ -303,21 +309,24 @@ class ShareService {
     while (true) {
       _showLoadingOverlay('Processing content...');
 
-      ({String title, String content, String? thumbnailUrl})? result;
+      ({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})? result;
       String? author;
       try {
         result = await _extractionService.extractContent(trimmedUrl);
         if (result != null) {
-          try {
-            author = await _authorExtractionService.extractAuthor(
-              url: trimmedUrl,
-              metadata: <String, String>{
-                if (result.title.trim().isNotEmpty) 'title': result.title,
-              },
-            );
-          } catch (e) {
-            // Author extraction is additive and must never block ingestion.
-            debugPrint('Author extraction failed for $trimmedUrl: $e');
+          author = result.author;
+          if (author == null || author.isEmpty) {
+            try {
+              author = await _authorExtractionService.extractAuthor(
+                url: trimmedUrl,
+                metadata: <String, String>{
+                  if (result.title.trim().isNotEmpty) 'title': result.title,
+                },
+              );
+            } catch (e) {
+              // Author extraction is additive and must never block ingestion.
+              debugPrint('Author extraction failed for $trimmedUrl: $e');
+            }
           }
         }
       } finally {
@@ -341,6 +350,7 @@ class ShareService {
             content: result?.content,
             author: author,
             thumbnailUrl: result?.thumbnailUrl,
+            initialHighlights: result?.initialHighlights ?? const [],
           ),
         );
         _handleSummaryOutcome(resultFromSummary, source: trimmedUrl);
@@ -365,19 +375,21 @@ class ShareService {
         if (pastedContent != null && pastedContent.isNotEmpty) {
           _showLoadingOverlay('Processing pasted content...');
           try {
-            final result = await _extractionService.processRawHtml(
+            final manualResult = await _extractionService.processRawHtml(
               pastedContent,
               url: trimmedUrl,
             );
-            if (result != null) {
+            if (manualResult != null) {
               _hideLoadingOverlay();
               final resultFromSummary = await _pushSummaryWhenNavigatorReady(
                 (context) => IngestionSummaryScreen(
                   type: 'url',
                   url: trimmedUrl,
-                  title: result.title,
-                  content: result.content,
-                  thumbnailUrl: result.thumbnailUrl,
+                  title: manualResult.title,
+                  content: manualResult.content,
+                  thumbnailUrl: manualResult.thumbnailUrl,
+                  author: manualResult.author,
+                  initialHighlights: manualResult.initialHighlights,
                 ),
               );
               _handleSummaryOutcome(resultFromSummary, source: trimmedUrl);
@@ -788,6 +800,36 @@ class ShareService {
     if (navigator != null) {
       _isLoadingShowing = false;
       navigator.pop();
+    }
+  }
+
+  Future<void> handleManualPaste(String rawContent, {String? url}) async {
+    _showLoadingOverlay('Processing content...');
+    try {
+      final result = await _extractionService.processRawHtml(
+        rawContent,
+        url: url,
+      );
+
+      _hideLoadingOverlay();
+      if (result != null) {
+        final resultFromSummary = await _pushSummaryWhenNavigatorReady(
+          (context) => IngestionSummaryScreen(
+            type: 'url',
+            url: url ?? '',
+            title: result.title,
+            content: result.content,
+            thumbnailUrl: result.thumbnailUrl,
+            author: result.author,
+            initialHighlights: result.initialHighlights,
+          ),
+        );
+        _handleSummaryOutcome(resultFromSummary, source: url ?? 'manual');
+      }
+    } catch (e) {
+      _hideLoadingOverlay();
+      debugPrint('ShareService: manual paste processing failed: $e');
+      _showInfoSnackBar('Failed to process pasted content.');
     }
   }
 }

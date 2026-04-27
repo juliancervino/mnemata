@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
@@ -45,10 +46,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late String _readTime;
 
   final ScrollController _scrollController = ScrollController();
+  final Map<int, GlobalKey> _annotationKeys = {};
 
   List<AnnotationRecord> _annotations = const <AnnotationRecord>[];
   ReaderFontScale _fontScale = ReaderFontScale.standard;
   ReaderVisualTheme _visualTheme = ReaderVisualTheme.light;
+  bool _isHighlightModeActive = false;
+  String? _pendingSelectionText;
   double _columnWidth = 720;
   bool _showSidePanel = true;
   int _activeSectionBucket = 0;
@@ -88,6 +92,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
+  void _scrollToAnnotation(AnnotationRecord record) {
+    final key = _annotationKeys[record.id];
+    if (key != null && key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        alignment: 0.1, // Align near the top of the viewport
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -118,6 +134,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
         ),
         centerTitle: true,
+        actions: kIsWeb
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.open_in_browser),
+                  tooltip: 'Open Original',
+                  onPressed: _openOriginal,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.share),
+                  tooltip: 'Share',
+                  onPressed: _shareItem,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'More options',
+                  onPressed: _openMoreMenu,
+                ),
+              ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -151,37 +186,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       constraints: BoxConstraints(maxWidth: shellWidth),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: ReaderControlsBar(
-                          sectionLabel: _buildSectionLabel(),
-                          fontScale: _fontScale,
-                          visualTheme: _visualTheme,
-                          columnWidth: _columnWidth,
-                          canToggleSidePanel: canToggleSidePanel,
-                          isSidePanelVisible: _showSidePanel,
-                          onFontScaleChanged: (value) {
-                            setState(() {
-                              _fontScale = value;
-                            });
-                          },
-                          onVisualThemeChanged: (value) {
-                            setState(() {
-                              _visualTheme = value;
-                            });
-                          },
-                          onColumnWidthChanged: (value) {
-                            setState(() {
-                              _columnWidth = value;
-                            });
-                          },
-                          onSidePanelToggled: (value) {
-                            setState(() {
-                              _showSidePanel = value;
-                            });
-                          },
-                          onOpenOriginal: _openOriginal,
-                          onShare: _shareItem,
-                          onMore: _openMoreMenu,
-                        ),
+                        child: kIsWeb
+                            ? ReaderControlsBar(
+                                sectionLabel: _buildSectionLabel(),
+                                fontScale: _fontScale,
+                                visualTheme: _visualTheme,
+                                columnWidth: _columnWidth,
+                                canToggleSidePanel: canToggleSidePanel,
+                                isSidePanelVisible: _showSidePanel,
+                                onFontScaleChanged: (value) {
+                                  setState(() {
+                                    _fontScale = value;
+                                  });
+                                },
+                                onVisualThemeChanged: (value) {
+                                  setState(() {
+                                    _visualTheme = value;
+                                  });
+                                },
+                                onColumnWidthChanged: (value) {
+                                  setState(() {
+                                    _columnWidth = value;
+                                  });
+                                },
+                                onSidePanelToggled: (value) {
+                                  setState(() {
+                                    _showSidePanel = value;
+                                  });
+                                },
+                                onOpenOriginal: _openOriginal,
+                                onShare: _shareItem,
+                                onMore: _openMoreMenu,
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -195,6 +232,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   child: ReaderActionPill(
                     onSummary: _openSummary,
                     onHighlight: _startHighlight,
+                    isHighlightActive: _isHighlightModeActive,
                     onTag: _openTagSuggestions,
                     onShare: _shareItem,
                     onBookmark: _togglePin,
@@ -262,7 +300,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildPdfBody(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 132, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 132 : 16, 0, 140),
       child: ReaderPdfView(
         sourceUri: _pdfSourceUri,
         onOpenOriginal: _openOriginal,
@@ -277,12 +315,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     required String source,
     required _ReaderBodyTone tone,
   }) {
-    final theme = Theme.of(context);
-
     return SingleChildScrollView(
       controller: _scrollController,
       key: const Key('reader-scroll-view'),
-      padding: const EdgeInsets.fromLTRB(0, 132, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 132 : 16, 0, 140),
       child: Container(
         key: const Key('reader-content-container'),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -308,50 +344,203 @@ class _ReaderScreenState extends State<ReaderScreen> {
               itemId: widget.item.id,
               service: _annotationService,
               onChanged: _reloadAnnotations,
+              onNavigate: _scrollToAnnotation,
             ),
             const SizedBox(height: 16),
-            SelectableText.rich(
-              _buildHighlightedContentSpan(context),
-              key: const Key('reader-body-text'),
-              contextMenuBuilder: (context, editableTextState) {
-                final items = editableTextState.contextMenuButtonItems;
-                items.insert(
-                  0,
-                  ContextMenuButtonItem(
-                    label: 'Highlight',
-                    onPressed: () {
-                      final selection =
-                          editableTextState.textEditingValue.selection;
-                      editableTextState.hideToolbar();
-                      _saveHighlightOnlyFromSelection(selection);
-                    },
-                  ),
-                );
-                items.insert(
-                  1,
-                  ContextMenuButtonItem(
-                    label: 'Highlight + note',
-                    onPressed: () {
-                      final selection =
-                          editableTextState.textEditingValue.selection;
-                      editableTextState.hideToolbar();
-                      _saveHighlightWithNoteFromSelection(selection);
-                    },
-                  ),
-                );
-                return AdaptiveTextSelectionToolbar.buttonItems(
-                  anchors: editableTextState.contextMenuAnchors,
-                  buttonItems: items,
-                );
-              },
-              style: _contentTextStyle(theme, tone.textColor),
-            ),
+            _buildMainContent(context, tone),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildMainContent(BuildContext context, _ReaderBodyTone tone) {
+    final content = widget.item.content ?? '';
+    final isMarkdown = _looksLikeMarkdown(content);
+    final theme = Theme.of(context);
+    final textStyle = _contentTextStyle(theme, tone.textColor);
+
+    if (kIsWeb && isMarkdown) {
+      // Simple Markdown to HTML conversion for rendering with HtmlWidget
+      // This handles basic Obsidian-style markings and respects line breaks
+      var htmlContent = _convertMarkdownToHtml(content);
+      
+      // Inject highlights into HTML
+      htmlContent = _applyHighlightsToHtml(htmlContent, tone);
+
+      return Listener(
+        onPointerUp: (_) {
+          if (_isHighlightModeActive && _pendingSelectionText != null) {
+            final text = _pendingSelectionText!.trim();
+            if (text.isNotEmpty) {
+              _saveHighlightFromText(text);
+              _pendingSelectionText = null;
+            }
+          }
+        },
+        child: SelectionArea(
+          onSelectionChanged: (selection) {
+            if (_isHighlightModeActive) {
+              _pendingSelectionText = selection?.plainText;
+            }
+          },
+          child: HtmlWidget(
+            htmlContent,
+            textStyle: textStyle,
+            customWidgetBuilder: (element) {
+              if (element.localName == 'anchor') {
+                final idStr = element.attributes['id'];
+                if (idStr != null) {
+                  final id = int.tryParse(idStr);
+                  if (id != null) {
+                    return SizedBox(key: _annotationKeys[id], width: 0, height: 0);
+                  }
+                }
+              }
+              return null;
+            },
+            customStylesBuilder: (element) {
+              if (element.localName == 'p') {
+                return {'margin-bottom': '1.2em'};
+              }
+              if (element.localName == 'mark') {
+                final colorHex = '#${tone.highlightColor.toARGB32().toRadixString(16).substring(2)}';
+                return {'background-color': colorHex};
+              }
+              return null;
+            },
+          ),
+        ),
+      );
+    }
+
+    return SelectableText.rich(
+      _buildHighlightedContentSpan(context),
+      key: const Key('reader-body-text'),
+      contextMenuBuilder: (context, editableTextState) {
+        final items = editableTextState.contextMenuButtonItems.toList();
+        items.insert(
+          0,
+          ContextMenuButtonItem(
+            label: 'Highlight',
+            onPressed: () {
+              final selection =
+                  editableTextState.textEditingValue.selection;
+              editableTextState.hideToolbar();
+              _saveHighlightOnlyFromSelection(selection);
+            },
+          ),
+        );
+        items.insert(
+          1,
+          ContextMenuButtonItem(
+            label: 'Highlight + note',
+            onPressed: () {
+              final selection =
+                  editableTextState.textEditingValue.selection;
+              editableTextState.hideToolbar();
+              _saveHighlightWithNoteFromSelection(selection);
+            },
+          ),
+        );
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableTextState.contextMenuAnchors,
+          buttonItems: items,
+        );
+      },
+      style: textStyle,
+    );
+  }
+
+  bool _looksLikeMarkdown(String text) {
+    if (text.isEmpty) return false;
+    // Common Markdown patterns
+    final hasHeaders = RegExp(r'^#+\s+', multiLine: true).hasMatch(text);
+    final hasBold = RegExp(r'\*\*[\s\S]*?\*\*').hasMatch(text);
+    final hasLists = RegExp(r'^[*-]\s+', multiLine: true).hasMatch(text);
+    final hasFrontmatter = text.startsWith('---');
+    
+    return hasHeaders || hasBold || hasLists || hasFrontmatter;
+  }
+
+  String _convertMarkdownToHtml(String markdown) {
+    var html = markdown.trim();
+    
+    // Remove frontmatter if present
+    if (html.startsWith('---')) {
+      final parts = html.split('---');
+      if (parts.length >= 3) {
+        html = parts.sublist(2).join('---').trim();
+      }
+    }
+
+    // Very basic markdown to HTML converter that respects \n\n as paragraphs
+    // and handles basic marks found in clippings
+    
+    // Standardize newlines
+    html = html.replaceAll('\r\n', '\n');
+
+    // Headers
+    html = html.replaceAllMapped(RegExp(r'^(#+)\s+(.+)$', multiLine: true), (Match match) {
+      final level = match.group(1)!.length;
+      final text = match.group(2)!;
+      return '<h$level>$text</h$level>';
+    });
+
+    // Bold
+    html = html.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (Match match) {
+      return '<strong>${match.group(1)}</strong>';
+    });
+
+    // Italic
+    html = html.replaceAllMapped(RegExp(r'\*(.+?)\*'), (Match match) {
+      return '<em>${match.group(1)}</em>';
+    });
+
+    // Lists
+    html = html.replaceAllMapped(RegExp(r'^[*-]\s+(.+)$', multiLine: true), (Match match) {
+      return '<li>${match.group(1)}</li>';
+    });
+    // Wrap consecutive <li> in <ul> (simple approximation)
+    html = html.replaceAllMapped(RegExp(r'(<li>.*?</li>)+', dotAll: true), (Match match) {
+      return '<ul>${match.group(0)}</ul>';
+    });
+
+    // Paragraphs (double newlines)
+    final paragraphs = html.split('\n\n');
+    html = paragraphs.map((p) {
+      if (p.trim().isEmpty) return '';
+      if (p.trim().startsWith('<h') || p.trim().startsWith('<ul>')) return p;
+      return '<p>${p.replaceAll('\n', '<br>')}</p>';
+    }).join('\n');
+
+    return html;
+  }
+
+  String _applyHighlightsToHtml(String html, _ReaderBodyTone tone) {
+    if (_annotations.isEmpty) return html;
+
+    var result = html;
+    // We sort annotations by length (descending) to avoid partial matches
+    // ruining later replacements of longer strings
+    final sortedAnnotations = List<AnnotationRecord>.from(_annotations)
+      ..sort((a, b) => b.quoteText.length.compareTo(a.quoteText.length));
+
+    for (final annotation in sortedAnnotations) {
+      final quote = annotation.quoteText;
+      if (quote.isEmpty) continue;
+
+      _annotationKeys.putIfAbsent(annotation.id, () => GlobalKey());
+
+      // We use a simple string replacement for HTML.
+      // We wrap it in <mark> and prepend an <anchor> for precise scrolling to the start
+      result = result.replaceFirst(
+        quote,
+        '<anchor id="${annotation.id}"></anchor><mark>$quote</mark>',
+      );
+    }
+    return result;
+  }
   Widget _buildNoContentState(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -655,9 +844,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _startHighlight() {
+    setState(() {
+      _isHighlightModeActive = !_isHighlightModeActive;
+    });
+    
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Select text in the article to highlight it.'),
+      SnackBar(
+        content: Text(_isHighlightModeActive 
+          ? 'Highlight mode active. Selected text will be marked.' 
+          : 'Highlight mode disabled.'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -822,6 +1019,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
         );
       }
 
+      _annotationKeys.putIfAbsent(range.id, () => GlobalKey());
+      spans.add(
+        WidgetSpan(
+          child: SizedBox(
+            key: _annotationKeys[range.id],
+            width: 0,
+            height: 0,
+          ),
+        ),
+      );
+
       final start = range.start.clamp(0, _plainContent.length);
       final end = range.end.clamp(start, _plainContent.length);
       if (end > start) {
@@ -855,7 +1063,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       if (start == null || end == null || end <= start) {
         return null;
       }
-      return _AnchorRange(start: start, end: end);
+      return _AnchorRange(start: start, end: end, id: record.id);
     } catch (_) {
       return null;
     }
@@ -886,6 +1094,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
 
     return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  Future<void> _saveHighlightFromText(String quote) async {
+    if (quote.isEmpty) return;
+    
+    // Check if we already have this highlight to avoid duplicates
+    if (_annotations.any((a) => a.quoteText == quote)) return;
+
+    // Try to find the range in plain text for semantic consistency
+    final startIndex = _plainContent.indexOf(quote);
+    final range = startIndex != -1 
+      ? {'start': startIndex, 'end': startIndex + quote.length}
+      : null;
+
+    await _annotationService.createAnnotation(
+      itemId: widget.item.id,
+      quoteText: quote,
+      anchorJson: jsonEncode(range ?? {}),
+    );
+
+    await _reloadAnnotations();
   }
 
   Future<void> _saveHighlightOnlyFromSelection(TextSelection selection) async {
@@ -1320,11 +1549,13 @@ class _AnnotationsExpansion extends StatelessWidget {
     required this.itemId,
     required this.service,
     required this.onChanged,
+    this.onNavigate,
   });
 
   final int itemId;
   final AnnotationService service;
   final VoidCallback onChanged;
+  final ValueChanged<AnnotationRecord>? onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -1336,6 +1567,7 @@ class _AnnotationsExpansion extends StatelessWidget {
           itemId: itemId,
           service: service,
           onChanged: onChanged,
+          onNavigate: onNavigate,
         ),
       ],
     );
@@ -1343,8 +1575,9 @@ class _AnnotationsExpansion extends StatelessWidget {
 }
 
 class _AnchorRange {
-  const _AnchorRange({required this.start, required this.end});
+  const _AnchorRange({required this.start, required this.end, required this.id});
 
   final int start;
   final int end;
+  final int id;
 }

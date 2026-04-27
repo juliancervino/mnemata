@@ -9,6 +9,7 @@ class ExtractedMetadata {
   final String? siteName;
   final String? description;
   final String? image;
+  final String? articleBody;
 
   ExtractedMetadata({
     this.title,
@@ -17,6 +18,7 @@ class ExtractedMetadata {
     this.siteName,
     this.description,
     this.image,
+    this.articleBody,
   });
 
   @override
@@ -40,6 +42,7 @@ class MetadataExtractionService {
       siteName: _pick(jsonLd['siteName'], openGraph['siteName'], twitter['siteName'], basic['siteName']),
       description: _pick(jsonLd['description'], openGraph['description'], twitter['description'], basic['description']),
       image: _pick(jsonLd['image'], openGraph['image'], twitter['image'], basic['image']),
+      articleBody: jsonLd['articleBody'],
     );
   }
 
@@ -91,13 +94,19 @@ class MetadataExtractionService {
     }
 
     results['datePublished'] ??=
-        json['datePublished']?.toString() ?? json['dateCreated']?.toString();
+        json['datePublished']?.toString() ??
+        json['dateCreated']?.toString() ??
+        json['uploadDate']?.toString();
     results['description'] ??= json['description']?.toString();
+    results['articleBody'] ??= json['articleBody']?.toString() ?? json['text']?.toString();
 
     final publisher = json['publisher'];
     if (publisher is Map) {
       results['siteName'] ??= publisher['name']?.toString();
+    } else if (publisher is String) {
+      results['siteName'] ??= publisher;
     }
+    results['siteName'] ??= json['provider'] is Map ? json['provider']['name']?.toString() : null;
 
     final image = json['image'];
     if (image is Map) {
@@ -164,9 +173,24 @@ class MetadataExtractionService {
 
   Map<String, String?> _extractBasic(Document document) {
     return {
-      'title': document.querySelector('title')?.text ?? document.querySelector('h1')?.text,
-      'author': document.querySelector('meta[name="author"]')?.attributes['content'],
+      'title': document.querySelector('title')?.text ??
+          document.querySelector('h1')?.text ??
+          document.querySelector('meta[name="title"]')?.attributes['content'],
+      'author': document.querySelector('meta[name="author"]')?.attributes['content'] ??
+          document.querySelector('[property*="author"]')?.text ??
+          document.querySelector('[class*="author"]')?.text ??
+          document.querySelector('[rel="author"]')?.text,
+      'datePublished': document.querySelector('meta[name="publish-date"]')?.attributes['content'] ??
+          document.querySelector('meta[property*="published_time"]')?.attributes['content'] ??
+          document.querySelector('meta[name="date"]')?.attributes['content'] ??
+          document.querySelector('time[datetime]')?.attributes['datetime'] ??
+          document.querySelector('time')?.text,
       'description': document.querySelector('meta[name="description"]')?.attributes['content'],
+      'siteName': document.querySelector('meta[property="og:site_name"]')?.attributes['content'] ??
+          document.querySelector('meta[name="application-name"]')?.attributes['content'] ??
+          document.querySelector('meta[name="apple-mobile-web-app-title"]')?.attributes['content'] ??
+          document.querySelector('meta[name="publisher"]')?.attributes['content'] ??
+          document.querySelector('meta[property="article:publisher"]')?.attributes['content'],
     };
   }
 }

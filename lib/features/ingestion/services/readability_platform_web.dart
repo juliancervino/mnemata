@@ -1,36 +1,17 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
-@JS()
-extension type ReadabilityOptions._(JSObject _) implements JSObject {
-  external factory ReadabilityOptions({
-    bool? debug,
-    int? maxElemsToParse,
-    int? nbTopCandidates,
-    int? charThreshold,
-    JSArray<JSString>? classesToPreserve,
-    bool? keepClasses,
-  });
+@JS('Readability')
+extension type Readability._(JSObject _) implements JSObject {
+  external factory Readability(web.Node doc);
+  external ReadabilityResult? parse();
 }
 
 @JS()
 extension type ReadabilityResult._(JSObject _) implements JSObject {
   external String? get title;
   external String? get content;
-  external String? get textContent;
-  external String? get length;
-  external String? get excerpt;
-  external String? get byline;
-  external String? get dir;
-  external String? get siteName;
-  external String? get lang;
-  external String? get publishedTime;
-}
-
-@JS('Readability')
-extension type Readability._(JSObject _) implements JSObject {
-  external factory Readability(web.Node doc, [ReadabilityOptions options]);
-  external ReadabilityResult? parse();
 }
 
 @JS('Defuddle')
@@ -43,34 +24,92 @@ extension type Defuddle._(JSObject _) implements JSObject {
 extension type DefuddleResult._(JSObject _) implements JSObject {
   external String? get title;
   external String? get content;
-  external String? get author;
-  external String? get published;
-  external String? get site;
-  external String? get description;
-  external String? get image;
-  external String? get language;
 }
 
 class Article {
   const Article({this.title, this.content});
-
   final String? title;
   final String? content;
 }
 
-Future<Article?> parseAsync(String url) async {
-  // On web, direct URL parsing is usually not possible due to CORS.
-  // We expect the caller to fetch the HTML and use parseHtmlDocument.
-  return null;
+Future<Article?> parseAsync(String url) async => null;
+
+Future<Article?> parseWithBrowser(String url) async {
+  final completer = Completer<Article?>();
+  final iframe = web.HTMLIFrameElement();
+  
+  iframe.style.display = 'none';
+  iframe.src = url;
+
+  StreamSubscription? subscription;
+  
+  void cleanup() {
+    subscription?.cancel();
+    iframe.remove();
+  }
+
+  subscription = iframe.onLoad.listen((_) async {
+    try {
+      final doc = iframe.contentDocument;
+      if (doc == null) {
+        completer.complete(null);
+        return;
+      }
+
+      // Try Defuddle first on the rendered document
+      if (_hasGlobal('Defuddle')) {
+        final defuddle = Defuddle(doc);
+        final result = defuddle.parse();
+        if (result != null && result.content != null) {
+          completer.complete(Article(
+            title: result.title,
+            content: result.content,
+          ));
+          return;
+        }
+      }
+
+      // Fallback to Readability
+      if (_hasGlobal('Readability')) {
+        final readability = Readability(doc);
+        final result = readability.parse();
+        if (result != null) {
+          completer.complete(Article(
+            title: result.title,
+            content: result.content,
+          ));
+          return;
+        }
+      }
+      
+      completer.complete(null);
+    } catch (e) {
+      web.console.error('Browser extraction error: ${e.toString()}'.toJS);
+      completer.complete(null);
+    } finally {
+      cleanup();
+    }
+  });
+
+  web.document.body?.append(iframe);
+
+  // Timeout after 20 seconds
+  return completer.future.timeout(
+    const Duration(seconds: 20),
+    onTimeout: () {
+      cleanup();
+      return null;
+    },
+  );
 }
 
 Future<Article?> parseHtmlDocument(String html) async {
   final parser = web.DOMParser();
-  final doc = parser.parseFromString(html, 'text/html');
+  final doc = parser.parseFromString(html.toJS, 'text/html');
 
-  // Try Defuddle first if available
+  // Try Defuddle first
   try {
-    if (globalContext.has('Defuddle')) {
+    if (_hasGlobal('Defuddle')) {
       final defuddle = Defuddle(doc);
       final result = defuddle.parse();
       if (result != null && result.content != null) {
@@ -81,12 +120,12 @@ Future<Article?> parseHtmlDocument(String html) async {
       }
     }
   } catch (e) {
-    print('Defuddle error: $e');
+    web.console.warn('Defuddle error: ${e.toString()}'.toJS);
   }
 
   // Fallback to Readability
   try {
-    if (globalContext.has('Readability')) {
+    if (_hasGlobal('Readability')) {
       final readability = Readability(doc);
       final result = readability.parse();
 
@@ -98,18 +137,13 @@ Future<Article?> parseHtmlDocument(String html) async {
       );
     }
   } catch (e) {
-    print('Readability error: $e');
+    web.console.error('Readability error: ${e.toString()}'.toJS);
   }
 
   return null;
 }
 
-@JS('window')
-external JSObject get globalContext;
+@JS('window.hasOwnProperty')
+external bool _windowHasOwnProperty(String property);
 
-extension JSObjectExtension on JSObject {
-  @JS('hasOwnProperty')
-  external bool _hasOwnProperty(String property);
-
-  bool has(String property) => _hasOwnProperty(property);
-}
+bool _hasGlobal(String property) => _windowHasOwnProperty(property);

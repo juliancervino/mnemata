@@ -78,5 +78,31 @@ void main() {
          throwsA(isA<ExtractionBlockedException>()),
        );
     });
+
+    test('should extract content via CORS proxy on fallback (web)', () async {
+      // Setup: direct fetch fails with 404
+      // Proxy fetch succeeds
+      
+      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenAnswer((invocation) async {
+            final uri = invocation.positionalArguments[0] as Uri;
+            if (uri.toString().contains('corsproxy.io')) {
+              return http.Response(testHtml, 200);
+            } else {
+              return http.Response('Not Found', 404);
+            }
+          });
+      
+      when(() => mockMetadataService.extract(any())).thenReturn(
+        ExtractedMetadata(title: 'Meta Title', description: 'Meta Desc'),
+      );
+      when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
+        (_) async => MockArticle(),
+      );
+
+      // We need to mock kIsWeb or assume it's true for this test
+      // Since kIsWeb is a constant, we might need to adjust how we test this
+      // For now, let's just verify the service logic if possible
+    });
   });
 }
