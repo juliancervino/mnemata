@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -206,7 +207,7 @@ class ShareService {
     await _handleFile(sharedFile);
   }
 
-  Future<void> handleFileIngest({
+  Future<void> handleManualFileIngest({
     required String fileName,
     required Uint8List bytes,
     String? mimeType,

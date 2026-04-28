@@ -307,7 +307,7 @@ void main() {
           }) async => DuplicateResolution.keepCurrentItem,
     );
 
-    await shareService.handleFileIngest(
+    await shareService.handleManualFileIngest(
       fileName: filePath,
       bytes: Uint8List.fromList(<int>[1, 2, 3]),
     );

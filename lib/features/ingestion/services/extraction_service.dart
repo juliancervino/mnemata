@@ -95,6 +95,7 @@ class ExtractionService {
       } else {
         // Mobile Flow: Use native parse directly as it used to be
         // Fast check for blocks before native parsing
+        String? html;
         try {
           final response = await _client
               .get(Uri.parse(url), headers: {
@@ -102,27 +103,34 @@ class ExtractionService {
               })
               .timeout(const Duration(seconds: 10));
           _checkFailureHeuristics(response.statusCode, response.body);
+          if (response.statusCode == 200) {
+            html = response.body;
+          }
         } on ExtractionBlockedException {
           rethrow;
         } catch (e) {
-          // Generic errors don't block mobile flow
+          // Generic network errors don't block mobile flow
           debugPrint('Mobile direct fetch check failed: $e');
         }
 
         final result = await _effectiveWrapper.parse(url);
         if (result != null) {
-          // Attempt to find a thumbnail for mobile even if natively parsed
-          String? thumbnailUrl;
-          try {
-            final icon = await fav.FaviconFinder.getBest(url);
-            thumbnailUrl = icon?.url;
-          } catch (_) {}
+          final metadata = html != null ? _metadataService.extract(html) : null;
+          
+          // Attempt to find a thumbnail for mobile
+          String? thumbnailUrl = metadata?.image;
+          if (thumbnailUrl == null) {
+            try {
+              final icon = await fav.FaviconFinder.getBest(url);
+              thumbnailUrl = icon?.url;
+            } catch (_) {}
+          }
 
           return (
-            title: result.title ?? '',
+            title: result.title ?? metadata?.title ?? '',
             content: result.content ?? '',
             thumbnailUrl: thumbnailUrl,
-            author: null,
+            author: metadata?.author,
             initialHighlights: <String>[],
           );
         }
