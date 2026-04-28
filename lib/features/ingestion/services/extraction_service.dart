@@ -41,6 +41,7 @@ class ExtractionService {
   final ReadabilityWrapper? _wrapper;
   final MetadataExtractionService _metadataService;
   final http.Client _client;
+  final bool _isWeb;
   static const String _userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -48,23 +49,25 @@ class ExtractionService {
     ReadabilityWrapper? wrapper,
     MetadataExtractionService? metadataService,
     http.Client? client,
+    bool? isWeb,
   ]) : _wrapper = wrapper,
        _metadataService = metadataService ?? MetadataExtractionService(),
-       _client = client ?? http.Client();
+       _client = client ?? http.Client(),
+       _isWeb = isWeb ?? kIsWeb;
 
   ReadabilityWrapper get _effectiveWrapper => _wrapper ?? ReadabilityWrapper();
 
   Future<({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})?>
   extractContent(String url) async {
     try {
-      if (kIsWeb) {
+      if (_isWeb) {
         String? html;
 
         // 1. Try direct fetch
         try {
           final response = await _client
               .get(Uri.parse(url), headers: {
-                if (!kIsWeb) 'User-Agent': _userAgent,
+                if (!_isWeb) 'User-Agent': _userAgent,
               })
               .timeout(const Duration(seconds: 10));
 
@@ -88,26 +91,37 @@ class ExtractionService {
           return await processRawHtml(html, url: url);
         }
 
-        // 3. Last ditch: try browser-based extraction on web
-        final browserResult = await _effectiveWrapper.parseWithBrowser(url);
-        if (browserResult != null) {
-          return (
-            title: browserResult.title ?? '',
-            content: browserResult.content ?? '',
-            thumbnailUrl: null,
-            author: null,
-            initialHighlights: <String>[],
-          );
-        }
         return null;
       } else {
         // Mobile Flow: Use native parse directly as it used to be
+        // Fast check for blocks before native parsing
+        try {
+          final response = await _client
+              .get(Uri.parse(url), headers: {
+                if (!_isWeb) 'User-Agent': _userAgent,
+              })
+              .timeout(const Duration(seconds: 10));
+          _checkFailureHeuristics(response.statusCode, response.body);
+        } on ExtractionBlockedException {
+          rethrow;
+        } catch (e) {
+          // Generic errors don't block mobile flow
+          debugPrint('Mobile direct fetch check failed: $e');
+        }
+
         final result = await _effectiveWrapper.parse(url);
         if (result != null) {
+          // Attempt to find a thumbnail for mobile even if natively parsed
+          String? thumbnailUrl;
+          try {
+            final icon = await fav.FaviconFinder.getBest(url);
+            thumbnailUrl = icon?.url;
+          } catch (_) {}
+
           return (
             title: result.title ?? '',
             content: result.content ?? '',
-            thumbnailUrl: null,
+            thumbnailUrl: thumbnailUrl,
             author: null,
             initialHighlights: <String>[],
           );
@@ -153,46 +167,27 @@ class ExtractionService {
     final highlightMatches = highlightRegex.allMatches(content);
     for (final m in highlightMatches) {
       final text = m.group(1);
-      if (text != null && text.trim().isNotEmpty) {
-        initialHighlights.add(text.trim());
+      if (text != null && text.isNotEmpty) {
+        initialHighlights.add(text);
       }
     }
-    
-    // Remove the == marks from content
-    content = content.replaceAllMapped(highlightRegex, (m) => m.group(1)!);
 
+    // Clean up == markers
+    content = content.replaceAll('==', '');
+
+    // Parse frontmatter
     String title = '';
-    String author = '';
+    String? author;
 
-    final lines = frontmatter.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i].trim();
-      
-      if (line.startsWith('title:')) {
-        title = line.substring(6).trim();
-        // Remove quotes if present
-        if (title.length >= 2) {
-          if ((title.startsWith('"') && title.endsWith('"')) ||
-              (title.startsWith("'") && title.endsWith("'"))) {
-            title = title.substring(1, title.length - 1);
-          }
-        }
-      } else if (line.startsWith('author:')) {
-        final val = line.substring(7).trim();
-        if (val.isNotEmpty && val != '-') {
-          author = val;
-        } else if (i + 1 < lines.length) {
-          // Check next line for list item
-          final nextLine = lines[i + 1].trim();
-          if (nextLine.startsWith('-')) {
-            author = nextLine.substring(1).trim();
-          }
-        }
-      }
+    final titleMatch = RegExp(r'^title:\s*\"?(.+?)\"?$', multiLine: true).firstMatch(frontmatter);
+    if (titleMatch != null) {
+      title = titleMatch.group(1) ?? '';
     }
 
-    // Clean up author (Obsidian links [[]] and quotes)
-    if (author.isNotEmpty) {
+    final authorMatch = RegExp(r'^author:\s*\"?(.+?)\"?$', multiLine: true).firstMatch(frontmatter);
+    if (authorMatch != null) {
+      author = authorMatch.group(1) ?? '';
+      // Clean up author (Obsidian links [[]] and quotes)
       author = author
           .replaceAll('[[', '')
           .replaceAll(']]', '')
@@ -205,14 +200,15 @@ class ExtractionService {
       title: title.isNotEmpty ? title : 'Untitled Clipping',
       content: content,
       thumbnailUrl: null,
-      author: author.isNotEmpty ? author : null,
+      author: author,
       initialHighlights: initialHighlights,
     );
   }
 
   Future<String?> _fetchViaCorsProxy(String url) async {
     try {
-      final proxyUrl = 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
+      final proxyUrl =
+          'https://corsproxy.io/?${Uri.encodeComponent(url)}';
       final response = await _client
           .get(Uri.parse(proxyUrl))
           .timeout(const Duration(seconds: 15));
@@ -222,7 +218,11 @@ class ExtractionService {
       if (response.statusCode == 200) {
         return response.body;
       }
-    } catch (_) {}
+    } on ExtractionBlockedException {
+      rethrow;
+    } catch (e) {
+      debugPrint('corsproxy.io failed for $url: $e');
+    }
     return null;
   }
 
@@ -240,7 +240,11 @@ class ExtractionService {
         final data = jsonDecode(response.body);
         return data['contents'] as String?;
       }
-    } catch (_) {}
+    } on ExtractionBlockedException {
+      rethrow;
+    } catch (e) {
+      debugPrint('allorigins.win failed for $url: $e');
+    }
     return null;
   }
 
@@ -271,57 +275,42 @@ class ExtractionService {
     // Fallback to description if everything else is empty or suspiciously short
     // (e.g. less than 200 chars while description is longer)
     final description = metadata.description ?? '';
-    final lowerContent = content.toLowerCase();
-    final isPaywalled = lowerContent.contains('subscribe to read') ||
-        lowerContent.contains('register to read') ||
-        lowerContent.contains('exclusive to subscribers') ||
-        lowerContent.contains('suscriber-only content') ||
-        lowerContent.contains('este contenido es exclusivo para suscriptores');
+    final isPaywalled = html.toLowerCase().contains('paywall') ||
+        html.toLowerCase().contains('suscríbete') ||
+        html.toLowerCase().contains('este contenido es exclusivo para suscriptores');
 
     if ((content.length < 250 || isPaywalled) &&
         description.length > content.length) {
       content = description;
     }
 
-    // Extract highlights ==text== and remove the marks
-    final highlightRegex = RegExp(r'==(.+?)==');
-    final initialHighlights = <String>[];
-    
-    final highlightMatches = highlightRegex.allMatches(content);
-    for (final m in highlightMatches) {
-      final text = m.group(1);
-      if (text != null && text.trim().isNotEmpty) {
-        initialHighlights.add(text.trim());
-      }
-    }
-    
-    // Remove the == marks from content
-    content = content.replaceAllMapped(highlightRegex, (m) => m.group(1)!);
-
     return (
-      title: metadata.title ?? article?.title ?? '',
+      title: metadata.title ?? article?.title ?? 'Untitled Clipping',
       content: content,
       thumbnailUrl: thumbnailUrl,
       author: metadata.author,
-      initialHighlights: initialHighlights,
+      initialHighlights: <String>[],
     );
   }
 
   void _checkFailureHeuristics(int statusCode, String body) {
+    final lowerBody = body.toLowerCase();
+    
+    // Check for explicit blocks
     if (statusCode == 403 || statusCode == 429) {
       throw ExtractionBlockedException(statusCode: statusCode);
     }
-    
-    final lowerBody = body.toLowerCase();
-    if (lowerBody.contains('cloudflare') || 
-        lowerBody.contains('access denied') ||
-        lowerBody.contains('datadome') ||
-        lowerBody.contains('robot check') ||
-        lowerBody.contains('captcha') ||
-        lowerBody.contains('just a moment...') ||
-        lowerBody.contains('pardon our interruption') ||
-        lowerBody.contains('checking your browser')) {
-      throw ExtractionBlockedException(message: 'Blocked by anti-bot protection');
+
+    // Check for Cloudflare / WAF challenges
+    if (lowerBody.contains('cloudflare') && 
+        (lowerBody.contains('ray id') || lowerBody.contains('checking your browser'))) {
+      throw ExtractionBlockedException(message: 'Cloudflare/WAF block detected');
+    }
+
+    if (lowerBody.contains('access denied') || lowerBody.contains('permission denied')) {
+      if (statusCode >= 400) {
+        throw ExtractionBlockedException(statusCode: statusCode, message: 'Access Denied');
+      }
     }
   }
 }

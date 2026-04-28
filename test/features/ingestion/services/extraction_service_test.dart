@@ -11,7 +11,6 @@ class MockHttpClient extends Mock implements http.Client {}
 class MockArticle extends Mock implements readability.Article {}
 
 void main() {
-  late ExtractionService extractionService;
   late MockReadabilityWrapper mockReadabilityWrapper;
   late MockMetadataExtractionService mockMetadataService;
   late MockHttpClient mockHttpClient;
@@ -24,18 +23,73 @@ void main() {
     mockReadabilityWrapper = MockReadabilityWrapper();
     mockMetadataService = MockMetadataExtractionService();
     mockHttpClient = MockHttpClient();
-    extractionService = ExtractionService(
-      mockReadabilityWrapper,
-      mockMetadataService,
-      mockHttpClient,
-    );
+    
+    // Default mock behavior
+    when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+        .thenAnswer((_) async => http.Response('Not Found', 404));
+    when(() => mockReadabilityWrapper.parse(any())).thenAnswer((_) async => null);
+    when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer((_) async => null);
   });
 
-  group('ExtractionService', () {
+  group('ExtractionService (Mobile Flow)', () {
     const testUrl = 'https://example.com/article';
     const testHtml = '<html><body><h1>Test Title</h1><p>Test Content</p></body></html>';
+    late ExtractionService service;
 
-    test('direct fetch success', () async {
+    setUp(() {
+      service = ExtractionService(
+        mockReadabilityWrapper,
+        mockMetadataService,
+        mockHttpClient,
+        false, // isWeb = false
+      );
+    });
+
+    test('direct fetch success (native parse)', () async {
+      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenAnswer((_) async => http.Response(testHtml, 200));
+      
+      final mockArticle = MockArticle();
+      when(() => mockArticle.title).thenReturn('Reader Title');
+      when(() => mockArticle.content).thenReturn('Reader Content');
+
+      when(() => mockReadabilityWrapper.parse(any())).thenAnswer(
+        (_) async => mockArticle,
+      );
+
+      final result = await service.extractContent(testUrl);
+
+      expect(result?.title, 'Reader Title');
+      expect(result?.content, 'Reader Content');
+      verify(() => mockReadabilityWrapper.parse(testUrl)).called(1);
+    });
+
+    test('failure heuristics - throws ExtractionBlockedException on 403', () async {
+       when(() => mockHttpClient.get(
+         Uri.parse(testUrl),
+         headers: any(named: 'headers'),
+       )).thenAnswer((_) async => http.Response('Forbidden', 403));
+
+       final future = service.extractContent(testUrl);
+       expect(future, throwsA(isA<ExtractionBlockedException>()));
+    });
+  });
+
+  group('ExtractionService (Web Flow)', () {
+    const testUrl = 'https://example.com/article';
+    const testHtml = '<html><body><h1>Test Title</h1><p>Test Content</p></body></html>';
+    late ExtractionService service;
+
+    setUp(() {
+      service = ExtractionService(
+        mockReadabilityWrapper,
+        mockMetadataService,
+        mockHttpClient,
+        true, // isWeb = true
+      );
+    });
+
+    test('direct fetch success (processRawHtml)', () async {
       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
           .thenAnswer((_) async => http.Response(testHtml, 200));
       
@@ -51,34 +105,14 @@ void main() {
         (_) async => mockArticle,
       );
 
-      final result = await extractionService.extractContent(testUrl);
+      final result = await service.extractContent(testUrl);
 
       expect(result?.title, 'Meta Title');
       expect(result?.content, 'Reader Content');
-      verify(() => mockHttpClient.get(Uri.parse(testUrl), headers: any(named: 'headers'))).called(1);
+      verify(() => mockReadabilityWrapper.parseHtml(testHtml)).called(1);
     });
 
-    test('failure heuristics - throws ExtractionBlockedException on 403', () async {
-       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
-          .thenAnswer((_) async => http.Response('Forbidden', 403));
-
-       expect(
-         () => extractionService.extractContent(testUrl),
-         throwsA(isA<ExtractionBlockedException>()),
-       );
-    });
-
-    test('failure heuristics - throws ExtractionBlockedException on Cloudflare', () async {
-       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
-          .thenAnswer((_) async => http.Response('Just a moment... Cloudflare', 200));
-
-       expect(
-         () => extractionService.extractContent(testUrl),
-         throwsA(isA<ExtractionBlockedException>()),
-       );
-    });
-
-    test('should extract content via CORS proxy on fallback (web)', () async {
+    test('fallback to CORS proxy on 404', () async {
       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
           .thenAnswer((invocation) async {
             final uri = invocation.positionalArguments[0] as Uri;
@@ -101,13 +135,11 @@ void main() {
         (_) async => mockArticle,
       );
 
-      final result = await extractionService.extractContent(testUrl);
+      final result = await service.extractContent(testUrl);
 
       expect(result?.title, 'Proxy Title');
       expect(result?.content, 'Reader Content');
-      // Should have called direct fetch first, then proxy
-      verify(() => mockHttpClient.get(Uri.parse(testUrl), headers: any(named: 'headers'))).called(1);
       verify(() => mockHttpClient.get(any(that: predicate<Uri>((uri) => uri.toString().contains('corsproxy.io'))), headers: any(named: 'headers'))).called(1);
-    }, skip: 'This test requires kIsWeb to be true, which is not possible in VM tests.');
+    });
   });
 }

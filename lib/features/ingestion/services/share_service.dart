@@ -206,7 +206,7 @@ class ShareService {
     await _handleFile(sharedFile);
   }
 
-  Future<void> handleWebFile({
+  Future<void> handleFileIngest({
     required String fileName,
     required Uint8List bytes,
     String? mimeType,

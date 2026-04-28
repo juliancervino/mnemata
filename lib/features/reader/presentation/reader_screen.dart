@@ -465,7 +465,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   String _convertMarkdownToHtml(String markdown) {
     var html = markdown.trim();
-    
     // Remove frontmatter if present
     if (html.startsWith('---')) {
       final parts = html.split('---');
@@ -473,6 +472,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
         html = parts.sublist(2).join('---').trim();
       }
     }
+
+    // Escape HTML characters to prevent injection/rendering issues
+    html = htmlEscape.convert(html);
 
     // Very basic markdown to HTML converter that respects \n\n as paragraphs
     // and handles basic marks found in clippings
