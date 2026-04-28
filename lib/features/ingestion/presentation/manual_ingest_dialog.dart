@@ -20,7 +20,6 @@ class _ManualIngestDialogState extends State<ManualIngestDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return AlertDialog(
       title: Text('Manual Ingest', style: theme.textTheme.headlineSmall),

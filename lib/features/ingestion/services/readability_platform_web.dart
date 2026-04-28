@@ -34,74 +34,9 @@ class Article {
 
 Future<Article?> parseAsync(String url) async => null;
 
-Future<Article?> parseWithBrowser(String url) async {
-  final completer = Completer<Article?>();
-  final iframe = web.HTMLIFrameElement();
-  
-  iframe.style.display = 'none';
-  iframe.src = url;
-
-  StreamSubscription? subscription;
-  
-  void cleanup() {
-    subscription?.cancel();
-    iframe.remove();
-  }
-
-  subscription = iframe.onLoad.listen((_) async {
-    try {
-      final doc = iframe.contentDocument;
-      if (doc == null) {
-        completer.complete(null);
-        return;
-      }
-
-      // Try Defuddle first on the rendered document
-      if (_hasGlobal('Defuddle')) {
-        final defuddle = Defuddle(doc);
-        final result = defuddle.parse();
-        if (result != null && result.content != null) {
-          completer.complete(Article(
-            title: result.title,
-            content: result.content,
-          ));
-          return;
-        }
-      }
-
-      // Fallback to Readability
-      if (_hasGlobal('Readability')) {
-        final readability = Readability(doc);
-        final result = readability.parse();
-        if (result != null) {
-          completer.complete(Article(
-            title: result.title,
-            content: result.content,
-          ));
-          return;
-        }
-      }
-      
-      completer.complete(null);
-    } catch (e) {
-      web.console.error('Browser extraction error: ${e.toString()}'.toJS);
-      completer.complete(null);
-    } finally {
-      cleanup();
-    }
-  });
-
-  web.document.body?.append(iframe);
-
-  // Timeout after 20 seconds
-  return completer.future.timeout(
-    const Duration(seconds: 20),
-    onTimeout: () {
-      cleanup();
-      return null;
-    },
-  );
-}
+/// parseWithBrowser is removed as it's unreliable due to CORS security restrictions
+/// when trying to access iframe.contentDocument from a different origin.
+Future<Article?> parseWithBrowser(String url) async => null;
 
 Future<Article?> parseHtmlDocument(String html) async {
   final parser = web.DOMParser();
@@ -143,7 +78,10 @@ Future<Article?> parseHtmlDocument(String html) async {
   return null;
 }
 
-@JS('window.hasOwnProperty')
-external bool _windowHasOwnProperty(String property);
+@JS('globalThis')
+external JSObject get _globalThis;
 
-bool _hasGlobal(String property) => _windowHasOwnProperty(property);
+@JS('Reflect.has')
+external bool _reflectHas(JSObject target, String property);
+
+bool _hasGlobal(String property) => _reflectHas(_globalThis, property);

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
@@ -80,9 +79,6 @@ void main() {
     });
 
     test('should extract content via CORS proxy on fallback (web)', () async {
-      // Setup: direct fetch fails with 404
-      // Proxy fetch succeeds
-      
       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
           .thenAnswer((invocation) async {
             final uri = invocation.positionalArguments[0] as Uri;
@@ -94,15 +90,24 @@ void main() {
           });
       
       when(() => mockMetadataService.extract(any())).thenReturn(
-        ExtractedMetadata(title: 'Meta Title', description: 'Meta Desc'),
+        ExtractedMetadata(title: 'Proxy Title', description: 'Proxy Desc'),
       );
+      
+      final mockArticle = MockArticle();
+      when(() => mockArticle.title).thenReturn('Reader Title');
+      when(() => mockArticle.content).thenReturn('Reader Content');
+
       when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
-        (_) async => MockArticle(),
+        (_) async => mockArticle,
       );
 
-      // We need to mock kIsWeb or assume it's true for this test
-      // Since kIsWeb is a constant, we might need to adjust how we test this
-      // For now, let's just verify the service logic if possible
-    });
+      final result = await extractionService.extractContent(testUrl);
+
+      expect(result?.title, 'Proxy Title');
+      expect(result?.content, 'Reader Content');
+      // Should have called direct fetch first, then proxy
+      verify(() => mockHttpClient.get(Uri.parse(testUrl), headers: any(named: 'headers'))).called(1);
+      verify(() => mockHttpClient.get(any(that: predicate<Uri>((uri) => uri.toString().contains('corsproxy.io'))), headers: any(named: 'headers'))).called(1);
+    }, skip: 'This test requires kIsWeb to be true, which is not possible in VM tests.');
   });
 }

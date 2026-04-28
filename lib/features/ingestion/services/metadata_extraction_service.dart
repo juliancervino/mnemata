@@ -133,15 +133,20 @@ class MetadataExtractionService {
 
       switch (property) {
         case 'og:title':
-          results['title'] = content;
+          results['title'] ??= content;
+          break;
         case 'og:article:author':
           results['author'] ??= content;
+          break;
         case 'og:site_name':
-          results['siteName'] = content;
+          results['siteName'] ??= content;
+          break;
         case 'og:description':
-          results['description'] = content;
+          results['description'] ??= content;
+          break;
         case 'og:image':
-          results['image'] = content;
+          results['image'] ??= content;
+          break;
       }
     }
     return results;
@@ -157,15 +162,20 @@ class MetadataExtractionService {
 
       switch (name) {
         case 'twitter:title':
-          results['title'] = content;
+          results['title'] ??= content;
+          break;
         case 'twitter:creator':
           results['author'] ??= content;
+          break;
         case 'twitter:site':
           results['siteName'] ??= content;
+          break;
         case 'twitter:description':
-          results['description'] = content;
+          results['description'] ??= content;
+          break;
         case 'twitter:image':
-          results['image'] = content;
+          results['image'] ??= content;
+          break;
       }
     }
     return results;

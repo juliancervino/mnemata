@@ -534,9 +534,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
       // We use a simple string replacement for HTML.
       // We wrap it in <mark> and prepend an <anchor> for precise scrolling to the start
+      // We escape the quote to ensure safe rendering in case it contains HTML characters
+      final escapedQuote = htmlEscape.convert(quote);
       result = result.replaceFirst(
         quote,
-        '<anchor id="${annotation.id}"></anchor><mark>$quote</mark>',
+        '<anchor id="${annotation.id}"></anchor><mark>$escapedQuote</mark>',
       );
     }
     return result;

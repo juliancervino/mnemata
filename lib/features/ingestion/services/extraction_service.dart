@@ -63,7 +63,9 @@ class ExtractionService {
         // 1. Try direct fetch
         try {
           final response = await _client
-              .get(Uri.parse(url), headers: {'User-Agent': _userAgent})
+              .get(Uri.parse(url), headers: {
+                if (!kIsWeb) 'User-Agent': _userAgent,
+              })
               .timeout(const Duration(seconds: 10));
 
           _checkFailureHeuristics(response.statusCode, response.body);
@@ -119,14 +121,16 @@ class ExtractionService {
     }
   }
 
-  Future<({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})?> processRawHtml(
+  Future<({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})?>
+  processRawHtml(
     String html, {
     String? url,
   }) async {
     // Detect if this is actually Markdown with YAML frontmatter (Obsidian style)
     final trimmed = html.trim();
     if (trimmed.startsWith('---') && (trimmed.contains('\n---\n') || trimmed.contains('\n--- '))) {
-      return _processMarkdownWithFrontmatter(trimmed);
+      final mdResult = await _processMarkdownWithFrontmatter(trimmed);
+      if (mdResult != null) return mdResult;
     }
     return _processHtml(html, url);
   }
