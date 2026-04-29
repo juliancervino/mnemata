@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -207,17 +206,13 @@ class ShareService {
     await _handleFile(sharedFile);
   }
 
-  Future<void> handleManualFileIngest({
+  Future<void> handleManualFileImport({
     required String fileName,
     required Uint8List bytes,
     String? mimeType,
   }) async {
     final normalizedName = fileName.trim();
     if (normalizedName.isEmpty || bytes.isEmpty) {
-      return;
-    }
-
-    if (!kIsWeb && !normalizedName.toLowerCase().endsWith('.md')) {
       return;
     }
 
@@ -314,25 +309,29 @@ class ShareService {
       String? author;
       try {
         result = await _extractionService.extractContent(trimmedUrl);
-        if (result != null) {
-          author = result.author;
-          if (author == null || author.isEmpty) {
-            try {
-              author = await _authorExtractionService.extractAuthor(
-                url: trimmedUrl,
-                metadata: <String, String>{
-                  if (result.title.trim().isNotEmpty) 'title': result.title,
-                },
-              );
-            } catch (e) {
-              // Author extraction is additive and must never block ingestion.
-              debugPrint('Author extraction failed for $trimmedUrl: $e');
-            }
+      } on ExtractionBlockedException {
+        // Handled by while(true) loop below as result == null
+      } catch (e) {
+        debugPrint('ShareService: extraction error: $e');
+      }
+
+      if (result != null) {
+        author = result.author;
+        if (author == null || author.isEmpty) {
+          try {
+            author = await _authorExtractionService.extractAuthor(
+              url: trimmedUrl,
+              metadata: <String, String>{
+                if (result.title.trim().isNotEmpty) 'title': result.title,
+              },
+            );
+          } catch (e) {
+            // Author extraction is additive and must never block ingestion.
+            debugPrint('Author extraction failed for $trimmedUrl: $e');
           }
         }
-      } finally {
-        _hideLoadingOverlay();
       }
+      _hideLoadingOverlay();
 
       if (!kIsWeb &&
           _looksLikeJsRequiredContent(result?.content, result?.title)) {

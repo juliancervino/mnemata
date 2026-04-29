@@ -125,7 +125,8 @@ class MetadataExtractionService {
 
   Map<String, String?> _extractOpenGraph(Document document) {
     final results = <String, String?>{};
-    final metas = document.querySelectorAll('meta[property^="og:"]');
+    // Match both og: and article: properties
+    final metas = document.querySelectorAll('meta[property*=":"]');
     for (final meta in metas) {
       final property = meta.attributes['property'];
       final content = meta.attributes['content'];
@@ -136,6 +137,7 @@ class MetadataExtractionService {
           results['title'] ??= content;
           break;
         case 'og:article:author':
+        case 'article:author':
           results['author'] ??= content;
           break;
         case 'og:site_name':
@@ -146,6 +148,11 @@ class MetadataExtractionService {
           break;
         case 'og:image':
           results['image'] ??= content;
+          break;
+        case 'article:published_time':
+        case 'og:article:published_time':
+        case 'article:published':
+          results['datePublished'] ??= content;
           break;
       }
     }

@@ -80,7 +80,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
       return submitter;
     }
 
-    return (file) => GetIt.instance<ShareService>().handleManualFileIngest(
+    return (file) => GetIt.instance<ShareService>().handleManualFileImport(
           fileName: file.name,
           bytes: file.bytes,
           mimeType: file.mimeType,

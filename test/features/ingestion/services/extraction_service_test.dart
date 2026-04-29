@@ -29,6 +29,9 @@ void main() {
         .thenAnswer((_) async => http.Response('Not Found', 404));
     when(() => mockReadabilityWrapper.parse(any())).thenAnswer((_) async => null);
     when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer((_) async => null);
+    when(() => mockMetadataService.extract(any())).thenReturn(
+      ExtractedMetadata(title: 'Default Title', description: 'Default Desc'),
+    );
   });
 
   group('ExtractionService (Mobile Flow)', () {
@@ -49,19 +52,25 @@ void main() {
       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
           .thenAnswer((_) async => http.Response(testHtml, 200));
       
+      when(() => mockMetadataService.extract(any())).thenReturn(
+        ExtractedMetadata(title: 'Meta Title', description: 'Meta Desc'),
+      );
+
+      final longContent = 'A' * 300;
       final mockArticle = MockArticle();
       when(() => mockArticle.title).thenReturn('Reader Title');
-      when(() => mockArticle.content).thenReturn('Reader Content');
+      when(() => mockArticle.content).thenReturn(longContent);
 
-      when(() => mockReadabilityWrapper.parse(any())).thenAnswer(
+      // In Mobile flow, if direct fetch succeeds, it calls processRawHtml -> _processHtml -> parseHtml
+      when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
         (_) async => mockArticle,
       );
 
       final result = await service.extractContent(testUrl);
 
-      expect(result?.title, 'Reader Title');
-      expect(result?.content, 'Reader Content');
-      verify(() => mockReadabilityWrapper.parse(testUrl)).called(1);
+      expect(result?.title, 'Meta Title');
+      expect(result?.content, longContent);
+      verify(() => mockReadabilityWrapper.parseHtml(testHtml)).called(1);
     });
 
     test('failure heuristics - throws ExtractionBlockedException on 403', () async {
@@ -97,9 +106,10 @@ void main() {
         ExtractedMetadata(title: 'Meta Title', description: 'Meta Desc'),
       );
       
+      final longContent = 'A' * 300;
       final mockArticle = MockArticle();
       when(() => mockArticle.title).thenReturn('Reader Title');
-      when(() => mockArticle.content).thenReturn('Reader Content');
+      when(() => mockArticle.content).thenReturn(longContent);
 
       when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
         (_) async => mockArticle,
@@ -108,7 +118,7 @@ void main() {
       final result = await service.extractContent(testUrl);
 
       expect(result?.title, 'Meta Title');
-      expect(result?.content, 'Reader Content');
+      expect(result?.content, longContent);
       verify(() => mockReadabilityWrapper.parseHtml(testHtml)).called(1);
     });
 
@@ -127,9 +137,10 @@ void main() {
         ExtractedMetadata(title: 'Proxy Title', description: 'Proxy Desc'),
       );
       
+      final longContent = 'B' * 300;
       final mockArticle = MockArticle();
       when(() => mockArticle.title).thenReturn('Reader Title');
-      when(() => mockArticle.content).thenReturn('Reader Content');
+      when(() => mockArticle.content).thenReturn(longContent);
 
       when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
         (_) async => mockArticle,
@@ -138,7 +149,7 @@ void main() {
       final result = await service.extractContent(testUrl);
 
       expect(result?.title, 'Proxy Title');
-      expect(result?.content, 'Reader Content');
+      expect(result?.content, longContent);
       verify(() => mockHttpClient.get(any(that: predicate<Uri>((uri) => uri.toString().contains('corsproxy.io'))), headers: any(named: 'headers'))).called(1);
     });
   });

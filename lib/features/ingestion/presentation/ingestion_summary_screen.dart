@@ -123,8 +123,15 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
 
     // 3. Save auto-extracted highlights if any
     if (widget.initialHighlights.isNotEmpty && widget.content != null) {
+      final content = widget.content!;
+      // Keep track of indices already used for the same quote text 
+      // to handle multiple highlights of the same string
+      final lastIndices = <String, int>{};
+      
       for (final quote in widget.initialHighlights) {
-        final startIndex = widget.content!.indexOf(quote);
+        final startSearchAt = lastIndices[quote] ?? 0;
+        final startIndex = content.indexOf(quote, startSearchAt);
+        
         if (startIndex != -1) {
           final range = {
             'start': startIndex,
@@ -135,6 +142,8 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
             quoteText: quote,
             anchorJson: jsonEncode(range),
           );
+          // Advance the index for the next potential occurrence of the same quote
+          lastIndices[quote] = startIndex + quote.length;
         }
       }
     }

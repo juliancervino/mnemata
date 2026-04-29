@@ -21,7 +21,7 @@ class ReadabilityWrapper {
   Future<readability.Article?> parse(String url) => readability.parseAsync(url);
 
   Future<readability.Article?> parseWithBrowser(String url) =>
-      readability.parseWithBrowser(url);
+      readability.parseAsync(url); // Browser-based fallback removed
 
   Future<readability.Article?> parseHtml(String html) async {
     final normalizedHtml = _ensureHtmlDocument(html);
@@ -60,82 +60,62 @@ class ExtractionService {
   Future<({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})?>
   extractContent(String url) async {
     try {
+      String? html;
+
+      // 1. Try direct fetch (all platforms)
+      try {
+        final response = await _client
+            .get(Uri.parse(url), headers: {
+              if (!_isWeb) 'User-Agent': _userAgent,
+            })
+            .timeout(const Duration(seconds: 10));
+
+        _checkFailureHeuristics(response.statusCode, response.body);
+
+        if (response.statusCode == 200) {
+          html = response.body;
+        }
+      } catch (e) {
+        if (e is ExtractionBlockedException) rethrow;
+        debugPrint('Direct fetch failed for $url: $e');
+        // Fallback below
+      }
+
+      if (html != null) {
+        return await processRawHtml(html, url: url);
+      }
+
+      // 2. Fallbacks
       if (_isWeb) {
-        String? html;
-
-        // 1. Try direct fetch
-        try {
-          final response = await _client
-              .get(Uri.parse(url), headers: {
-                if (!_isWeb) 'User-Agent': _userAgent,
-              })
-              .timeout(const Duration(seconds: 10));
-
-          _checkFailureHeuristics(response.statusCode, response.body);
-
-          if (response.statusCode == 200) {
-            html = response.body;
-          }
-        } catch (e) {
-          if (e is ExtractionBlockedException) rethrow;
-          debugPrint('Direct fetch failed for $url: $e');
-        }
-
-        // 2. Web/CORS Fallback & processing: Tiered proxies
-        if (html == null) {
-          html = await _fetchViaCorsProxy(url);
-          html ??= await _fetchViaAllOrigins(url);
-        }
+        // Web: Tiered proxies
+        html = await _fetchViaCorsProxy(url);
+        html ??= await _fetchViaAllOrigins(url);
 
         if (html != null) {
           return await processRawHtml(html, url: url);
         }
-
-        return null;
       } else {
         // Mobile Flow: Use native parse directly as it used to be
-        // Fast check for blocks before native parsing
-        String? html;
-        try {
-          final response = await _client
-              .get(Uri.parse(url), headers: {
-                if (!_isWeb) 'User-Agent': _userAgent,
-              })
-              .timeout(const Duration(seconds: 10));
-          _checkFailureHeuristics(response.statusCode, response.body);
-          if (response.statusCode == 200) {
-            html = response.body;
-          }
-        } on ExtractionBlockedException {
-          rethrow;
-        } catch (e) {
-          // Generic network errors don't block mobile flow
-          debugPrint('Mobile direct fetch check failed: $e');
-        }
-
         final result = await _effectiveWrapper.parse(url);
         if (result != null) {
-          final metadata = html != null ? _metadataService.extract(html) : null;
-          
-          // Attempt to find a thumbnail for mobile
-          String? thumbnailUrl = metadata?.image;
-          if (thumbnailUrl == null) {
-            try {
-              final icon = await fav.FaviconFinder.getBest(url);
-              thumbnailUrl = icon?.url;
-            } catch (_) {}
-          }
+          // Attempt to find a thumbnail for mobile even if natively parsed
+          String? thumbnailUrl;
+          try {
+            final icon = await fav.FaviconFinder.getBest(url);
+            thumbnailUrl = icon?.url;
+          } catch (_) {}
 
           return (
-            title: result.title ?? metadata?.title ?? '',
+            title: result.title ?? '',
             content: result.content ?? '',
             thumbnailUrl: thumbnailUrl,
-            author: metadata?.author,
+            author: null,
             initialHighlights: <String>[],
           );
         }
-        return null;
       }
+
+      return null;
     } catch (e) {
       if (e is ExtractionBlockedException) rethrow;
       debugPrint('Extraction error for $url: $e');
