@@ -42,8 +42,6 @@ class ExtractionService {
   final MetadataExtractionService _metadataService;
   final http.Client _client;
   final bool _isWeb;
-  static const String _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
   ExtractionService([
     ReadabilityWrapper? wrapper,
@@ -62,32 +60,29 @@ class ExtractionService {
     try {
       String? html;
 
-      // 1. Try direct fetch (all platforms)
-      try {
-        final response = await _client
-            .get(Uri.parse(url), headers: {
-              if (!_isWeb) 'User-Agent': _userAgent,
-            })
-            .timeout(const Duration(seconds: 10));
-
-        _checkFailureHeuristics(response.statusCode, response.body);
-
-        if (response.statusCode == 200) {
-          html = response.body;
-        }
-      } catch (e) {
-        if (e is ExtractionBlockedException) rethrow;
-        debugPrint('Direct fetch failed for $url: $e');
-        // Fallback below
-      }
-
-      if (html != null) {
-        return await processRawHtml(html, url: url);
-      }
-
-      // 2. Fallbacks
       if (_isWeb) {
-        // Web: Tiered proxies
+        // 1. Try direct fetch (Web only)
+        try {
+          final response = await _client
+              .get(Uri.parse(url))
+              .timeout(const Duration(seconds: 10));
+
+          _checkFailureHeuristics(response.statusCode, response.body);
+
+          if (response.statusCode == 200) {
+            html = response.body;
+          }
+        } catch (e) {
+          if (e is ExtractionBlockedException) rethrow;
+          debugPrint('Direct fetch failed for $url: $e');
+          // Fallback below
+        }
+
+        if (html != null) {
+          return await processRawHtml(html, url: url);
+        }
+
+        // 2. Fallbacks (Web: Tiered proxies)
         html = await _fetchViaCorsProxy(url);
         html ??= await _fetchViaAllOrigins(url);
 

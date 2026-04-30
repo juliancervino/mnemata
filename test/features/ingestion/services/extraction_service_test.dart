@@ -36,7 +36,6 @@ void main() {
 
   group('ExtractionService (Mobile Flow)', () {
     const testUrl = 'https://example.com/article';
-    const testHtml = '<html><body><h1>Test Title</h1><p>Test Content</p></body></html>';
     late ExtractionService service;
 
     setUp(() {
@@ -48,39 +47,37 @@ void main() {
       );
     });
 
-    test('direct fetch success (native parse)', () async {
-      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
-          .thenAnswer((_) async => http.Response(testHtml, 200));
-      
-      when(() => mockMetadataService.extract(any())).thenReturn(
-        ExtractedMetadata(title: 'Meta Title', description: 'Meta Desc'),
-      );
-
-      final longContent = 'A' * 300;
+    test('mobile uses native parse directly', () async {
       final mockArticle = MockArticle();
-      when(() => mockArticle.title).thenReturn('Reader Title');
-      when(() => mockArticle.content).thenReturn(longContent);
-
-      // In Mobile flow, if direct fetch succeeds, it calls processRawHtml -> _processHtml -> parseHtml
-      when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
+      when(() => mockArticle.title).thenReturn('Native Title');
+      when(() => mockArticle.content).thenReturn('Native Content');
+      
+      when(() => mockReadabilityWrapper.parse(testUrl)).thenAnswer(
         (_) async => mockArticle,
       );
 
       final result = await service.extractContent(testUrl);
 
-      expect(result?.title, 'Meta Title');
-      expect(result?.content, longContent);
-      verify(() => mockReadabilityWrapper.parseHtml(testHtml)).called(1);
+      expect(result?.title, 'Native Title');
+      expect(result?.content, 'Native Content');
+      
+      // Verify that direct fetch was NOT called
+      verifyNever(() => mockHttpClient.get(any(), headers: any(named: 'headers')));
+      // Verify native parse WAS called
+      verify(() => mockReadabilityWrapper.parse(testUrl)).called(1);
     });
 
-    test('failure heuristics - throws ExtractionBlockedException on 403', () async {
-       when(() => mockHttpClient.get(
-         Uri.parse(testUrl),
-         headers: any(named: 'headers'),
-       )).thenAnswer((_) async => http.Response('Forbidden', 403));
+    test('mobile does not throw on 403 (it should just return null if native parse also fails)', () async {
+       // Even if we mock the client, it shouldn't be called
+       when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenAnswer((_) async => http.Response('Forbidden', 403));
+       
+       when(() => mockReadabilityWrapper.parse(testUrl)).thenAnswer((_) async => null);
 
-       final future = service.extractContent(testUrl);
-       expect(future, throwsA(isA<ExtractionBlockedException>()));
+       final result = await service.extractContent(testUrl);
+       expect(result, isNull);
+       
+       verifyNever(() => mockHttpClient.get(any(), headers: any(named: 'headers')));
     });
   });
 
