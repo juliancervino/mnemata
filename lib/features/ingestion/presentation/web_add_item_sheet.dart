@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +47,7 @@ class WebAddItemSheet extends StatefulWidget {
 
 class _WebAddItemSheetState extends State<WebAddItemSheet> {
   final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _obsidianController = TextEditingController();
 
   DropzoneViewController? _dropzoneController;
   bool _isDropHovering = false;
@@ -56,11 +55,13 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
 
   String? _urlError;
   String? _fileError;
+  String? _obsidianError;
   WebIngestFile? _selectedFile;
 
   @override
   void dispose() {
     _urlController.dispose();
+    _obsidianController.dispose();
     super.dispose();
   }
 
@@ -79,7 +80,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
       return submitter;
     }
 
-    return (file) => GetIt.instance<ShareService>().handleWebFile(
+    return (file) => GetIt.instance<ShareService>().handleManualFileImport(
           fileName: file.name,
           bytes: file.bytes,
           mimeType: file.mimeType,
@@ -268,7 +269,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Supported: PDF, JPG, JPEG, PNG, WEBP up to 25 MB',
+              'Supported: PDF, MD, JPG, JPEG, PNG, WEBP up to 25 MB',
               style: theme.textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
@@ -428,6 +429,56 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
     );
   }
 
+  Future<void> _submitObsidian() async {
+    final content = _obsidianController.text.trim();
+    if (content.isEmpty) {
+      setState(() {
+        _obsidianError = 'Please paste the Obsidian Web Clipper content.';
+      });
+      return;
+    }
+
+    setState(() {
+      _obsidianError = null;
+    });
+
+    await _runSubmit(() => GetIt.instance<ShareService>().handleManualPaste(
+          content,
+          url: '', // Will be extracted from frontmatter if possible
+        ));
+  }
+
+  Widget _buildObsidianTab(ThemeData theme, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _obsidianController,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: InputDecoration(
+                labelText: 'Obsidian Clipping',
+                hintText: '---\ntitle: "Example"\nauthor: "[[Author]]"\n---\nContent...',
+                alignLabelWithHint: true,
+                errorText: _obsidianError,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _isSubmitting ? null : _submitObsidian,
+            icon: const Icon(Icons.note_add),
+            label: const Text('Add Clipping'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -438,9 +489,9 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
         child: SizedBox(
-          height: 500,
+          height: 600,
           child: DefaultTabController(
-            length: 2,
+            length: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -461,7 +512,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Add from URL or file',
+                  'Add from URL, file, or Obsidian',
                   style: theme.textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 16),
@@ -469,6 +520,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
                   tabs: const [
                     Tab(text: 'URL'),
                     Tab(text: 'File'),
+                    Tab(text: 'Obsidian'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -477,6 +529,7 @@ class _WebAddItemSheetState extends State<WebAddItemSheet> {
                     children: [
                       _buildUrlTab(theme, cs),
                       _buildFileTab(theme, cs),
+                      _buildObsidianTab(theme, cs),
                     ],
                   ),
                 ),

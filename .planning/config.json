@@ -4,7 +4,9 @@
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "balanced",
-  "git.branching_strategy": "phase",
+  "git": {
+    "branching_strategy": "phase"
+  },
   "workflow": {
     "research": true,
     "plan_check": true,

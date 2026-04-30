@@ -8,6 +8,8 @@ typedef Article = readability_article.Article;
 
 Future<Article?> parseAsync(String url) => readability.parseAsync(url);
 
+Future<Article?> parseWithBrowser(String url) async => null;
+
 Future<Article?> parseHtmlDocument(String html) async {
   final dataUri = 'data:text/html;base64,${base64.encode(utf8.encode(html))}';
 

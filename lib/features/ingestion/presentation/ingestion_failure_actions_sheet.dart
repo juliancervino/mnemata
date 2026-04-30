@@ -3,6 +3,7 @@ import 'package:mnemata/core/theme/app_theme.dart';
 
 enum IngestionFailureAction {
   retryExtraction,
+  manualIngest,
   openOriginal,
   reportIssue,
   dismiss,
@@ -90,6 +91,15 @@ class IngestionFailureActionsSheet extends StatelessWidget {
               ),
               icon: const Icon(Icons.refresh),
               label: const Text('Retry Extraction'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(
+                context,
+                IngestionFailureAction.manualIngest,
+              ),
+              icon: const Icon(Icons.paste),
+              label: const Text('Manual Ingest (Paste HTML/Text)'),
             ),
             const SizedBox(height: 10),
             if (canOpenOriginal) ...[

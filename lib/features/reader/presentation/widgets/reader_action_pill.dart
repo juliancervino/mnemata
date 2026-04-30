@@ -9,6 +9,7 @@
 //   - Padding interno: 8, icon 40x40, gap 2
 //   - Shadow: MnemataShadows.shFloat
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
 
@@ -20,6 +21,7 @@ class ReaderActionPill extends StatelessWidget {
     this.onTag,
     this.onShare,
     this.onBookmark,
+    this.isHighlightActive = false,
   });
 
   final VoidCallback? onSummary;
@@ -27,6 +29,7 @@ class ReaderActionPill extends StatelessWidget {
   final VoidCallback? onTag;
   final VoidCallback? onShare;
   final VoidCallback? onBookmark;
+  final bool isHighlightActive;
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +52,15 @@ class ReaderActionPill extends StatelessWidget {
             onTap: onSummary,
             fg: cs.surface,
           ),
-          const SizedBox(width: 2),
-          _PillAction(
-            icon: Icons.brush_outlined,
-            tooltip: 'Highlight',
-            onTap: onHighlight,
-            fg: cs.surface,
-          ),
+          if (kIsWeb) ...[
+            const SizedBox(width: 2),
+            _PillAction(
+              icon: isHighlightActive ? Icons.brush : Icons.brush_outlined,
+              tooltip: 'Highlight',
+              onTap: onHighlight,
+              fg: isHighlightActive ? MnemataColors.accent : cs.surface,
+            ),
+          ],
           const SizedBox(width: 2),
           _PillAction(
             icon: Icons.sell_outlined,

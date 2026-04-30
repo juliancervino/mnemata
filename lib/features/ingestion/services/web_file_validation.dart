@@ -4,7 +4,7 @@ class WebFileValidation {
   static const int maxFileSizeBytes = 25 * 1024 * 1024;
 
   static const String unsupportedFileTypeMessage =
-      'Unsupported file type. Phase 19 supports PDF and image files.';
+      'Unsupported file type. Phase 19 supports PDF, MD, and image files.';
 
   static const String oversizeFileMessage =
       'File is too large. Maximum supported size is 25 MB.';
@@ -13,6 +13,7 @@ class WebFileValidation {
 
   static const Set<String> supportedExtensions = <String>{
     'pdf',
+    'md',
     'jpg',
     'jpeg',
     'png',

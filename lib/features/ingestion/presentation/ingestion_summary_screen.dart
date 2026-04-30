@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -22,6 +23,7 @@ class IngestionSummaryScreen extends StatefulWidget {
   final String? filePath;
   final String? thumbnailUrl;
   final String type; // 'url' or 'file'
+  final List<String> initialHighlights;
 
   const IngestionSummaryScreen({
     super.key,
@@ -33,6 +35,7 @@ class IngestionSummaryScreen extends StatefulWidget {
     this.filePath,
     this.thumbnailUrl,
     required this.type,
+    this.initialHighlights = const [],
   });
 
   @override
@@ -116,6 +119,33 @@ class _IngestionSummaryScreenState extends State<IngestionSummaryScreen> {
     // 2. Assign selected labels (this now includes auto-tags if selected)
     for (final labelId in _selectedLabelIds) {
       await database.assignLabelToItem(id, labelId);
+    }
+
+    // 3. Save auto-extracted highlights if any
+    if (widget.initialHighlights.isNotEmpty && widget.content != null) {
+      final content = widget.content!;
+      // Keep track of indices already used for the same quote text 
+      // to handle multiple highlights of the same string
+      final lastIndices = <String, int>{};
+      
+      for (final quote in widget.initialHighlights) {
+        final startSearchAt = lastIndices[quote] ?? 0;
+        final startIndex = content.indexOf(quote, startSearchAt);
+        
+        if (startIndex != -1) {
+          final range = {
+            'start': startIndex,
+            'end': startIndex + quote.length,
+          };
+          await database.insertAnnotation(
+            itemId: id,
+            quoteText: quote,
+            anchorJson: jsonEncode(range),
+          );
+          // Advance the index for the next potential occurrence of the same quote
+          lastIndices[quote] = startIndex + quote.length;
+        }
+      }
     }
 
     final savedItem = (await database.watchAllItems().first).firstWhere(

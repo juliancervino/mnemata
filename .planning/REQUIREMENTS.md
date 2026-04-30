@@ -13,6 +13,7 @@ Requirements for milestone v2.0 (Web Client and Multi-Device Synchronization).
 - [ ] **WEB-02**: User can browse chronological list on web with ordering, tag surfaces, and filters consistent with mobile.
 - [ ] **WEB-03**: User can read extracted content on web with reader behavior and metadata context consistent with mobile.
 - [ ] **WEB-04**: User can search on web with query semantics and empty/error states consistent with mobile.
+- [x] **WEB-05**: Robust content extraction on web including URL proxies and PDF byte handling.
 
 ### Synchronization Core (SYNC)
 
@@ -74,6 +75,7 @@ Requirements for milestone v2.0 (Web Client and Multi-Device Synchronization).
 | WEB-02 | Phase 19 | Pending |
 | WEB-03 | Phase 19 | Pending |
 | WEB-04 | Phase 19 | Pending |
+| WEB-05 | Phase 19.1 | Complete |
 | SYNC-01 | Phase 21 | Pending |
 | SYNC-02 | Phase 21 | Pending |
 | SYNC-03 | Phase 21 | Pending |

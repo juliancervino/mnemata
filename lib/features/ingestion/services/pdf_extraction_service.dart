@@ -1,25 +1,21 @@
-import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class PdfExtractionService {
-  Future<String?> extractText(String filePath) async {
+  Future<String?> extractText(Uint8List bytes) async {
+    if (bytes.isEmpty) return null;
+    PdfDocument? document;
     try {
-      final file = File(filePath);
-      if (!await file.exists()) return null;
-
-      final bytes = await file.readAsBytes();
-      final document = PdfDocument(inputBytes: bytes);
-      
+      document = PdfDocument(inputBytes: bytes);
       final extractor = PdfTextExtractor(document);
       final text = extractor.extractText();
-      
-      document.dispose();
       return text;
     } catch (e) {
-      debugPrint('PDF Extraction error for $filePath: $e');
+      debugPrint('PDF Extraction error: $e');
       return null;
+    } finally {
+      document?.dispose();
     }
   }
 }

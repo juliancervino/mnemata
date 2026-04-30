@@ -100,7 +100,7 @@ void main() {
 
     when(() => mockExtractionService.extractContent(url)).thenAnswer(
       (_) async =>
-          (title: 'Test Title', content: 'Test Content', thumbnailUrl: null),
+          (title: 'Test Title', content: 'Test Content', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
 
     await shareService.handleUrl(url);
@@ -176,7 +176,7 @@ void main() {
     );
 
     when(() => mockExtractionService.extractContent(incomingUrl)).thenAnswer(
-      (_) async => (title: 'Dup', content: 'Content', thumbnailUrl: null),
+      (_) async => (title: 'Dup', content: 'Content', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
 
     await shareService.handleUrl(incomingUrl);
@@ -251,6 +251,8 @@ void main() {
           title: 'Recovered',
           content: 'Recovered content',
           thumbnailUrl: null,
+          author: null,
+          initialHighlights: <String>[],
         );
       });
 
@@ -274,10 +276,10 @@ void main() {
     );
 
     when(() => mockExtractionService.extractContent(urlA)).thenAnswer(
-      (_) async => (title: 'A', content: 'Content A', thumbnailUrl: null),
+      (_) async => (title: 'A', content: 'Content A', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
     when(() => mockExtractionService.extractContent(urlB)).thenAnswer(
-      (_) async => (title: 'B', content: 'Content B', thumbnailUrl: null),
+      (_) async => (title: 'B', content: 'Content B', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
 
     await shareService.handleUrl(urlA);
@@ -305,7 +307,7 @@ void main() {
           }) async => DuplicateResolution.keepCurrentItem,
     );
 
-    await shareService.handleWebFile(
+    await shareService.handleManualFileImport(
       fileName: filePath,
       bytes: Uint8List.fromList(<int>[1, 2, 3]),
     );
@@ -331,7 +333,7 @@ void main() {
     );
 
     when(() => mockExtractionService.extractContent(nextUrl)).thenAnswer(
-      (_) async => (title: 'Next', content: 'Next content', thumbnailUrl: null),
+      (_) async => (title: 'Next', content: 'Next content', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
 
     await shareService.handleUrl(duplicateUrl);
@@ -365,11 +367,11 @@ void main() {
 
     when(() => mockExtractionService.extractContent(firstUrl)).thenAnswer(
       (_) async =>
-          (title: 'First', content: 'First content', thumbnailUrl: null),
+          (title: 'First', content: 'First content', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
     when(() => mockExtractionService.extractContent(secondUrl)).thenAnswer(
       (_) async =>
-          (title: 'Second', content: 'Second content', thumbnailUrl: null),
+          (title: 'Second', content: 'Second content', thumbnailUrl: null, author: null, initialHighlights: <String>[]),
     );
 
     await shareService.handleUrl(firstUrl);
