@@ -21,7 +21,7 @@ class ReadabilityWrapper {
   Future<readability.Article?> parse(String url) => readability.parseAsync(url);
 
   Future<readability.Article?> parseWithBrowser(String url) =>
-      readability.parseAsync(url); // Browser-based fallback removed
+      readability.parseWithBrowser(url);
 
   Future<readability.Article?> parseHtml(String html) async {
     final normalizedHtml = _ensureHtmlDocument(html);
