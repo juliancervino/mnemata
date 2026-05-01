@@ -246,6 +246,9 @@ class ShareService {
     try {
       String? extractedText;
       if (normalizedName.toLowerCase().endsWith('.pdf')) {
+        if (kIsWeb) {
+          debugPrint('ShareService: extracting PDF web file=$normalizedName bytes=${bytes.lengthInBytes}');
+        }
         extractedText = await _pdfExtractionService.extractText(bytes);
       }
 
@@ -259,9 +262,11 @@ class ShareService {
         ),
       );
       _handleSummaryOutcome(resultFromSummary, source: normalizedName);
-      debugPrint(
-        'ShareService: web file ingest mimeType=$mimeType bytes=${bytes.lengthInBytes}',
-      );
+      if (kIsWeb) {
+        debugPrint(
+          'ShareService: web file ingest complete mimeType=$mimeType bytes=${bytes.lengthInBytes} success=${extractedText != null}',
+        );
+      }
     } finally {
       _hideLoadingOverlay();
     }
