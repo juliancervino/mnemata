@@ -55,26 +55,42 @@ class ExtractionService {
 
   ReadabilityWrapper get _effectiveWrapper => _wrapper ?? ReadabilityWrapper();
 
+  void _webLog(String message) {
+    if (_isWeb) {
+      debugPrint('[ExtractionService/Web] $message');
+    }
+  }
+
   Future<({String title, String content, String? thumbnailUrl, String? author, List<String> initialHighlights})?>
   extractContent(String url) async {
     try {
       String? html;
 
       if (_isWeb) {
+        _webLog('Starting extraction for: $url');
         // 1. Try direct fetch (Web only)
         try {
+          _webLog('Attempting direct fetch...');
           final response = await _client
               .get(Uri.parse(url))
               .timeout(const Duration(seconds: 10));
 
+          _webLog('Direct fetch status: ${response.statusCode}');
           _checkFailureHeuristics(response.statusCode, response.body);
 
           if (response.statusCode == 200) {
+            _webLog('Direct fetch successful, processing HTML...');
             html = response.body;
           }
         } catch (e) {
-          if (e is ExtractionBlockedException) rethrow;
-          debugPrint('Direct fetch failed for $url: $e');
+          if (e is ExtractionBlockedException) {
+            // Direct fetch blocks (401, 403, 429, WAF) are common on web.
+            // We make them non-fatal to allow trying the proxy tiers.
+            _webLog('Direct fetch blocked (${e.message ?? 'status ${e.statusCode}'}), attempting fallbacks...');
+          } else {
+            _webLog('Direct fetch failed: $e');
+            debugPrint('Direct fetch failed for $url: $e');
+          }
           // Fallback below
         }
 
@@ -83,11 +99,31 @@ class ExtractionService {
         }
 
         // 2. Fallbacks (Web: Tiered proxies)
-        html = await _fetchViaCorsProxy(url);
-        html ??= await _fetchViaAllOrigins(url);
+        _webLog('Attempting fallback via CORS proxy...');
+        try {
+          html = await _fetchViaCorsProxy(url);
+        } catch (e) {
+          _webLog('CORS proxy blocked or failed: $e');
+        }
+
+        if (html == null) {
+          _webLog('CORS proxy failed, attempting AllOrigins proxy...');
+          try {
+            html = await _fetchViaAllOrigins(url);
+          } catch (e) {
+            _webLog('AllOrigins proxy blocked or failed: $e');
+          }
+        }
+
+        if (html == null) {
+          _webLog('AllOrigins proxy failed, attempting Jina Reader...');
+          html = await _fetchViaJinaReader(url);
+        }
 
         if (html != null) {
           return await processRawHtml(html, url: url);
+        } else {
+          _webLog('All fetch attempts failed for $url');
         }
       } else {
         // Mobile Flow: Use native parse directly as it used to be
@@ -227,6 +263,28 @@ class ExtractionService {
       rethrow;
     } catch (e) {
       debugPrint('allorigins.win failed for $url: $e');
+    }
+    return null;
+  }
+
+  Future<String?> _fetchViaJinaReader(String url) async {
+    try {
+      _webLog('Attempting Jina Reader fetch for: $url');
+      final proxyUrl = 'https://r.jina.ai/${Uri.encodeComponent(url)}';
+      final response = await _client.get(
+        Uri.parse(proxyUrl),
+        headers: {'Accept': 'text/html'},
+      ).timeout(const Duration(seconds: 15));
+
+      _checkFailureHeuristics(response.statusCode, response.body);
+
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+    } on ExtractionBlockedException {
+      rethrow;
+    } catch (e) {
+      _webLog('Jina Reader failed: $e');
     }
     return null;
   }

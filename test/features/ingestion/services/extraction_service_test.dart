@@ -149,5 +149,44 @@ void main() {
       expect(result?.content, longContent);
       verify(() => mockHttpClient.get(any(that: predicate<Uri>((uri) => uri.toString().contains('corsproxy.io'))), headers: any(named: 'headers'))).called(1);
     });
+
+    test('fallback to Jina Reader when first two proxies fail', () async {
+      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenAnswer((invocation) async {
+            final uri = invocation.positionalArguments[0] as Uri;
+            final headers = invocation.namedArguments[#headers] as Map<String, String>?;
+            
+            if (uri.toString().contains('corsproxy.io')) {
+              return http.Response('Not Found', 404);
+            } else if (uri.toString().contains('allorigins.win')) {
+              return http.Response('Not Found', 404);
+            } else if (uri.toString().contains('r.jina.ai')) {
+              if (headers?['Accept'] == 'text/html') {
+                 return http.Response(testHtml, 200);
+              }
+              return http.Response('Wrong Header', 400);
+            } else {
+              return http.Response('Not Found', 404);
+            }
+          });
+      
+      when(() => mockMetadataService.extract(any())).thenReturn(
+        ExtractedMetadata(title: 'Jina Title', description: 'Jina Desc'),
+      );
+      
+      final mockArticle = MockArticle();
+      when(() => mockArticle.title).thenReturn('Reader Title');
+      when(() => mockArticle.content).thenReturn('Jina Content' * 30);
+
+      when(() => mockReadabilityWrapper.parseHtml(any())).thenAnswer(
+        (_) async => mockArticle,
+      );
+
+      final result = await service.extractContent(testUrl);
+
+      expect(result?.title, 'Jina Title');
+      expect(result?.content, contains('Jina Content'));
+      verify(() => mockHttpClient.get(any(that: predicate<Uri>((uri) => uri.toString().contains('r.jina.ai'))), headers: any(named: 'headers'))).called(1);
+    });
   });
 }

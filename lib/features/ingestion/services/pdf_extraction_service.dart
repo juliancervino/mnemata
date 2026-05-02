@@ -4,6 +4,9 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class PdfExtractionService {
   Future<String?> extractText(Uint8List bytes) async {
+    if (kIsWeb) {
+      debugPrint('PdfExtractionService: extractText received bytes=${bytes.lengthInBytes}');
+    }
     if (bytes.isEmpty) return null;
     PdfDocument? document;
     try {
@@ -11,8 +14,13 @@ class PdfExtractionService {
       final extractor = PdfTextExtractor(document);
       final text = extractor.extractText();
       return text;
-    } catch (e) {
-      debugPrint('PDF Extraction error: $e');
+    } catch (e, stack) {
+      if (kIsWeb) {
+        debugPrint('PdfExtractionService: web extraction failure: $e');
+        debugPrint('PdfExtractionService: stack trace: $stack');
+      } else {
+        debugPrint('PDF Extraction error: $e');
+      }
       return null;
     } finally {
       document?.dispose();
