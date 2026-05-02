@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Ready to discuss
-last_updated: "2026-05-02T11:00:00.000Z"
+milestone: v2.0
+milestone_name: Reliability and Web Parity
+status: Ready for Phase 19.4 discussion
+last_updated: "2026-05-02T13:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 3
-  total_plans: 13
-  completed_plans: 10
-  percent: 77
+  total_phases: 8
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 11
+  percent: 79
 ---
 
 # Project State: Mnemata
@@ -18,62 +18,30 @@ progress:
 
 **Core Value**: A centralized, cross-platform repository for all knowledge and references, ensuring content is permanently saved, cleanly extracted, effortlessly discoverable through full-text search, and intuitively organized.
 
-**Current Focus**: v2.0 Phase 20 discussion kickoff
+**Current Focus**: v2.0 Phase 19.4 "Enhance web client"
 
 ## Current Position
 
-Phase: 20 (account-sessions-and-device-linking) — READY
+Phase: 19.4 (enhance-web-client) — READY
 Plan: 0 of 0
 
-- **Phase**: 20 (not started)
+- **Phase**: 19.4 (not started)
 - **Plan**: 0 of 0 plans complete
-- **Status**: Phases 19.1 and 19.2 complete; ready for Phase 20 discussion
-- **Last activity**: 2026-05-02 - Synchronized Phase 19.1 and 19.2 completion status.
-- **Progress**: [████████░░] 77% (v2.0)
+- **Status**: Phase 19.3 complete; ready for Phase 19.4 "Enhance web client" discussion
+- **Last activity**: 2026-05-02 - Inserted Phase 19.4 and synchronized Phase 19.3 completion.
+- **Progress**: [████████░░] 79% (v2.0)
 
 ## Performance Metrics
 
-- **Velocity**: Phase 19 delivered (5 plans complete); Phase 19.1 planned (4 plans)
+- **Velocity**: Phase 19.3 delivered (1 plan complete); Phase 19.4 inserted.
 - **Requirement Coverage**: 100% (14/14 mapped to phases)
-- **Phase Completion**: 1/5 (v2.0)
+- **Phase Completion**: 4/8 (v2.0)
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 19.1 inserted after Phase 19: Fix content extract problems on web version (URGENT)
-
-### Key Decisions
-
-- v2.0 remains reliability-first: deterministic sync/convergence is prioritized over visual redesign.
-- v2.0 phase mapping starts at Phase 19 to continue milestone lineage after Phase 18 completion.
-- Phase 19.1: Use client-side readability port via JS-interop on web.
-- Phase 19.1: Introduce Manual Ingest path (HTML/Text) for automated failures.
-- Phase 19.1: All extraction services and UI fallbacks must be covered by automated tests using `flutter test`.
-- Phase 19.1: ManualIngestDialog must use `MnemataTheme` tokens and follow standard navigation patterns.
-- Conflict determinism (CNF-01) is delivered together with sync core to avoid split reliability ownership.
-- Collaboration scope is limited to controlled links, invites, and basic roles only (no real-time co-editing scope).
-
-### Completed Milestones
-
-- [x] v1.0 milestone (shipped)
-- [x] v1.1 milestone (shipped 2026-04-17)
-
-### Todos
-
-- [ ] Execute `/gsd-execute-phase 19.1` once plans are reviewed.
-
-### Blockers
-
-- None
-
-## Session Continuity
-
-### Last Session Summary
-
-- Phase 19.1 planning complete: created 19.1-00 (test scaffolding), 19.1-01 (readability), 19.1-02 (tiered extraction), and 19.1-03 (manual ingest).
-- Generated 19.1-VALIDATION.md.
-
-### Next Session Guidance
-
-- Begin with `/gsd-execute-phase 19.1`.
+- Phase 19.2 inserted after Phase 19.1: Fix web extraction diagnostics (URGENT)
+- Phase 19.3 inserted after Phase 19.2: Polish UI usability and enhance content rendering (URGENT)
+- Phase 19.4 inserted after Phase 19.3: Enhance web client (URGENT)

@@ -13,6 +13,10 @@
 ## Phases
 
 - [x] **Phase 19: Web Parity Core Flows** - Web ingest, list, reader, and search behave consistently with mobile.
+- [x] **Phase 19.1: Fix content extract problems on web version** - Tiered proxies and client-side distillation.
+- [x] **Phase 19.2: Fix web extraction diagnostics** - Diagnose and fix web content extraction issues.
+- [x] **Phase 19.3: Polish UI usability and enhance content rendering** - Reader polish, paragraph spacing, and unified tag management.
+- [ ] **Phase 19.4: Enhance web client** - Further enhancements to the web client experience.
 - [ ] **Phase 20: Account Sessions and Device Linking** - Secure account identity and linked-device session management for sync trust.
 - [ ] **Phase 21: Deterministic Sync and Conflict Convergence** - Offline-safe bidirectional sync with reproducible conflict outcomes and sync diagnostics.
 - [ ] **Phase 22: Collaboration Primitive Access Model** - Controlled sharing links, collaborator invites, and basic role enforcement.
@@ -60,6 +64,21 @@ Plans:
 Plans:
 - [x] 19.2-PLAN.md — Web Extraction Diagnostics and Refinement Implementation Plan
 
+### Phase 19.3: Polish UI usability and enhance content rendering (INSERTED)
+
+**Goal:** Polish the web reader experience by improving content rendering (paragraph spacing), enabling unified tag management (manual + AI), and cleaning up UI.
+**Depends on:** Phase 19.2
+**Plans:** 1/1 plan executed
+
+Plans:
+- [x] 2026-05-02-phase-19.3-polish-implementation.md — Polish UI and Rendering Plan
+
+### Phase 19.4: Enhance web client (INSERTED)
+
+**Goal:** Further enhancements to the web client experience based on user feedback and discovered gaps.
+**Depends on:** Phase 19.3
+**Plans:** TBD
+
 ### Phase 20: Account Sessions and Device Linking
 **Goal**: Users can authenticate into stable account sessions and manage linked devices required for secure sync identity.
 **Depends on**: Phase 19
@@ -101,6 +120,8 @@ Plans:
 | 19. Web Parity Core Flows | 5/5 | Completed | 2026-04-20 |
 | 19.1 Fix content extract problems on web version | 4/4 | Completed | 2026-05-02 |
 | 19.2 Fix web extraction diagnostics | 1/1 | Completed | 2026-05-02 |
+| 19.3 Polish UI usability and enhance content rendering | 1/1 | Completed | 2026-05-02 |
+| 19.4 Enhance web client | 0/0 | Not started | - |
 | 20. Account Sessions and Device Linking | 0/0 | Not started | - |
 | 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
 | 22. Collaboration Primitive Access Model | 0/0 | Not started | - |
