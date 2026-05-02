@@ -15,6 +15,7 @@ import 'package:mnemata/features/intelligence/presentation/reader_selection_acti
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
+import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_controls_bar.dart';
 import 'package:mnemata/features/reader/presentation/reader_pdf_view.dart';
@@ -1333,7 +1334,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _manageLabels() async {
-    await LabelSelectorSheet.show(context, widget.item);
+    final suggestionService = GetIt.instance<TagSuggestionService>();
+    await LabelSelectorSheet.show(
+      context,
+      widget.item,
+      suggestionService: suggestionService,
+    );
   }
 }
 

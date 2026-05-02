@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
+import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 
 class _SheetDragHandle extends StatelessWidget {
   const _SheetDragHandle();
@@ -23,17 +24,80 @@ class _SheetDragHandle extends StatelessWidget {
   }
 }
 
-class LabelSelectorSheet extends StatelessWidget {
+class LabelSelectorSheet extends StatefulWidget {
   final MnemataItem item;
+  final TagSuggestionService? suggestionService;
 
-  const LabelSelectorSheet({super.key, required this.item});
+  const LabelSelectorSheet({
+    super.key,
+    required this.item,
+    this.suggestionService,
+  });
 
-  static Future<void> show(BuildContext context, MnemataItem item) {
+  static Future<void> show(
+    BuildContext context,
+    MnemataItem item, {
+    TagSuggestionService? suggestionService,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => LabelSelectorSheet(item: item),
+      builder: (context) => LabelSelectorSheet(
+        item: item,
+        suggestionService: suggestionService,
+      ),
     );
+  }
+
+  @override
+  State<LabelSelectorSheet> createState() => _LabelSelectorSheetState();
+}
+
+class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
+  bool _isLoadingSuggestions = false;
+  TagSuggestionResult? _suggestions;
+  final Set<int> _selectedSuggestedIds = {};
+
+  Future<void> _generateSuggestions() async {
+    if (widget.suggestionService == null) return;
+    setState(() => _isLoadingSuggestions = true);
+    try {
+      final result = await widget.suggestionService!.suggestForItem(widget.item);
+      if (mounted) {
+        setState(() {
+          _suggestions = result;
+          _isLoadingSuggestions = false;
+          if (result.isSuccess) {
+            _selectedSuggestedIds.addAll(result.suggestedLabels.map((l) => l.id));
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingSuggestions = false);
+      }
+    }
+  }
+
+  Future<void> _applySuggestions(AppDatabase database) async {
+    if (_suggestions == null || !_suggestions!.isSuccess) return;
+    final labelsToApply = _suggestions!.suggestedLabels
+        .where((l) => _selectedSuggestedIds.contains(l.id))
+        .toList();
+    
+    for (final label in labelsToApply) {
+      await database.assignLabelToItem(widget.item.id, label.id);
+    }
+    
+    if (mounted) {
+      setState(() {
+        _suggestions = null;
+        _selectedSuggestedIds.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Applied ${labelsToApply.length} suggestions')),
+      );
+    }
   }
 
   @override
@@ -51,16 +115,75 @@ class LabelSelectorSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _SheetDragHandle(),
-            Text(
-              'LABELS \u00B7 ASSIGN',
-              style: theme.textTheme.tracked(cs.secondary),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'LABELS \u00B7 MANAGE',
+                  style: theme.textTheme.tracked(cs.secondary),
+                ),
+                if (widget.suggestionService != null && _suggestions == null)
+                  TextButton.icon(
+                    onPressed: _isLoadingSuggestions ? null : _generateSuggestions,
+                    icon: _isLoadingSuggestions 
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text('IA Suggestions'),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Assign Labels',
+              'Manage Labels',
               style: theme.textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
+            
+            if (_suggestions != null) ...[
+              Text(
+                'IA SUGGESTIONS',
+                style: theme.textTheme.tracked(cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              if (!_suggestions!.isSuccess)
+                Text(_suggestions!.guidance, style: TextStyle(color: cs.error))
+              else if (_suggestions!.suggestedLabels.isEmpty)
+                const Text('No suggestions found for this content.')
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _suggestions!.suggestedLabels.map((label) {
+                    final isSelected = _selectedSuggestedIds.contains(label.id);
+                    return FilterChip(
+                      label: Text(label.name),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        setState(() {
+                          if (val) _selectedSuggestedIds.add(label.id);
+                          else _selectedSuggestedIds.remove(label.id);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _suggestions = null),
+                    child: const Text('CANCEL'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _selectedSuggestedIds.isEmpty ? null : () => _applySuggestions(database),
+                    child: const Text('APPLY'),
+                  ),
+                ],
+              ),
+              const Divider(height: 32),
+            ],
+
             Flexible(
               child: StreamBuilder<List<Label>>(
                 stream: database.watchAllLabels(),
@@ -80,7 +203,7 @@ class LabelSelectorSheet extends StatelessWidget {
                   }
 
                   return StreamBuilder<List<Label>>(
-                    stream: database.watchLabelsForItem(item.id),
+                    stream: database.watchLabelsForItem(widget.item.id),
                     builder: (context, itemLabelsSnapshot) {
                       final assignedLabelIds = (itemLabelsSnapshot.data ?? [])
                           .map((l) => l.id)
@@ -108,10 +231,10 @@ class LabelSelectorSheet extends StatelessWidget {
                             value: isAssigned,
                             onChanged: (bool? value) {
                               if (value == true) {
-                                database.assignLabelToItem(item.id, label.id);
+                                database.assignLabelToItem(widget.item.id, label.id);
                               } else {
                                 database.removeLabelFromItem(
-                                    item.id, label.id);
+                                    widget.item.id, label.id);
                               }
                             },
                           );
