@@ -276,7 +276,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     SizedBox(
                       width: _sidePanelWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 132, bottom: 24),
+                        padding: const EdgeInsets.only(top: 112, bottom: 24),
                         child: ReaderSidePanel(
                           source: source,
                           readTime: _readTime,
@@ -300,7 +300,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildPdfBody(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 132 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
       child: ReaderPdfView(
         sourceUri: _pdfSourceUri,
         onOpenOriginal: _openOriginal,
@@ -318,7 +318,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return SingleChildScrollView(
       controller: _scrollController,
       key: const Key('reader-scroll-view'),
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 132 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
       child: Container(
         key: const Key('reader-content-container'),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -559,7 +559,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 640),
-          margin: const EdgeInsets.fromLTRB(16, 132, 16, 32),
+          margin: const EdgeInsets.fromLTRB(16, 112, 16, 32),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
