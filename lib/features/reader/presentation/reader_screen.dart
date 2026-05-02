@@ -13,10 +13,8 @@ import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
 import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
-import 'package:mnemata/features/intelligence/presentation/tag_suggestion_sheet.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
-import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_controls_bar.dart';
 import 'package:mnemata/features/reader/presentation/reader_pdf_view.dart';
@@ -39,6 +37,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   static const double _desktopBreakpoint = 1024;
   static const double _sidePanelWidth = 312;
   static const int _wordsPerSectionBucket = 120;
+  static const double _webTopInset = 112;
 
   late final AppDatabase _database;
   late final AnnotationService _annotationService;
@@ -234,7 +233,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     onSummary: _openSummary,
                     onHighlight: _startHighlight,
                     isHighlightActive: _isHighlightModeActive,
-                    onTag: _openTagSuggestions,
+                    onTag: _manageLabels,
                     onShare: _shareItem,
                   ),
                 ),
@@ -276,7 +275,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     SizedBox(
                       width: _sidePanelWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 112, bottom: 24),
+                        padding: const EdgeInsets.only(top: _webTopInset, bottom: 24),
                         child: ReaderSidePanel(
                           source: source,
                           readTime: _readTime,
@@ -300,7 +299,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildPdfBody(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? _webTopInset : 16, 0, 140),
       child: ReaderPdfView(
         sourceUri: _pdfSourceUri,
         onOpenOriginal: _openOriginal,
@@ -318,7 +317,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return SingleChildScrollView(
       controller: _scrollController,
       key: const Key('reader-scroll-view'),
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? _webTopInset : 16, 0, 140),
       child: Container(
         key: const Key('reader-content-container'),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -487,7 +486,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     html = html.replaceAllMapped(RegExp(r'^(#+)\s+(.+)$', multiLine: true), (Match match) {
       final level = match.group(1)!.length;
       final text = match.group(2)!;
-      return '<h$level>$text</h$level>';
+      return '\n\n<h$level>$text</h$level>\n\n';
     });
 
     // Bold
@@ -506,7 +505,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
     // Wrap consecutive <li> in <ul> (simple approximation)
     html = html.replaceAllMapped(RegExp(r'(<li>.*?</li>)+', dotAll: true), (Match match) {
-      return '<ul>${match.group(0)}</ul>';
+      return '\n\n<ul>${match.group(0)}</ul>\n\n';
     });
 
     // Paragraphs (double newlines)
@@ -516,9 +515,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final trimmed = block.trim();
       if (trimmed.isEmpty) return '';
       // If it already starts with a block-level tag, leave it alone
-      if (trimmed.startsWith('<h') || trimmed.startsWith('<ul>') || trimmed.startsWith('<p>')) {
-        return trimmed;
-      }
+      final isBlock = RegExp(r'^<(h\d|ul|ol|li|blockquote|pre|p|div|hr)\b', caseSensitive: false).hasMatch(trimmed);
+      if (isBlock) return trimmed;
       return '<p>${trimmed.replaceAll('\n', '<br>')}</p>';
     }).join('\n');
 
@@ -1393,7 +1391,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return buffer.toString().trim();
   }
 
-  Future<void> _openTagSuggestions() async {
+  Future<void> _manageLabels() async {
     await LabelSelectorSheet.show(context, widget.item);
   }
 }
