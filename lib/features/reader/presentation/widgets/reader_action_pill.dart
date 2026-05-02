@@ -20,7 +20,6 @@ class ReaderActionPill extends StatelessWidget {
     this.onHighlight,
     this.onTag,
     this.onShare,
-    this.onBookmark,
     this.isHighlightActive = false,
   });
 
@@ -28,7 +27,6 @@ class ReaderActionPill extends StatelessWidget {
   final VoidCallback? onHighlight;
   final VoidCallback? onTag;
   final VoidCallback? onShare;
-  final VoidCallback? onBookmark;
   final bool isHighlightActive;
 
   @override
@@ -73,13 +71,6 @@ class ReaderActionPill extends StatelessWidget {
             icon: Icons.ios_share,
             tooltip: 'Share',
             onTap: onShare,
-            fg: cs.surface,
-          ),
-          const SizedBox(width: 2),
-          _PillAction(
-            icon: Icons.bookmark_outline,
-            tooltip: 'Bookmark',
-            onTap: onBookmark,
             fg: cs.surface,
           ),
         ],
