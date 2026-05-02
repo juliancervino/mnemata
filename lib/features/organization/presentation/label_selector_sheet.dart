@@ -60,7 +60,10 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
 
   Future<void> _generateSuggestions() async {
     if (widget.suggestionService == null) return;
-    setState(() => _isLoadingSuggestions = true);
+    setState(() {
+      _isLoadingSuggestions = true;
+      _selectedSuggestedIds.clear();
+    });
     try {
       final result = await widget.suggestionService!.suggestForItem(widget.item);
       if (mounted) {
@@ -72,9 +75,16 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
           }
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isLoadingSuggestions = false);
+        setState(() {
+          _isLoadingSuggestions = false;
+          _suggestions = const TagSuggestionResult(
+            status: TagSuggestionStatus.error,
+            suggestedLabels: [],
+            guidance: 'Failed to generate suggestions. Please try again.',
+          );
+        });
       }
     }
   }
@@ -128,7 +138,7 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
                     icon: _isLoadingSuggestions 
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('IA Suggestions'),
+                    label: const Text('AI Suggestions'),
                   ),
               ],
             ),
@@ -141,12 +151,23 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
             
             if (_suggestions != null) ...[
               Text(
-                'IA SUGGESTIONS',
+                'AI SUGGESTIONS',
                 style: theme.textTheme.tracked(cs.onSurfaceVariant),
               ),
               const SizedBox(height: 10),
               if (!_suggestions!.isSuccess)
-                Text(_suggestions!.guidance, style: TextStyle(color: cs.error))
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_suggestions!.guidance, style: TextStyle(color: cs.error)),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _generateSuggestions,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                )
               else if (_suggestions!.suggestedLabels.isEmpty)
                 const Text('No suggestions found for this content.')
               else
@@ -171,7 +192,10 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
               Row(
                 children: [
                   TextButton(
-                    onPressed: () => setState(() => _suggestions = null),
+                    onPressed: () => setState(() {
+                      _suggestions = null;
+                      _selectedSuggestedIds.clear();
+                    }),
                     child: const Text('CANCEL'),
                   ),
                   const Spacer(),

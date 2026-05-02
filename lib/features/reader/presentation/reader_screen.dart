@@ -483,7 +483,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
       // We use a simple string replacement for HTML.
       // We wrap it in <mark> and prepend an <anchor> for precise scrolling to the start
-      // We escape the quote because the input 'html' is already escaped by _convertMarkdownToHtml
+      // We escape the quote because the input 'html' is already escaped by MarkdownConverter
       final escapedQuote = htmlEscape.convert(quote);
       result = result.replaceFirst(
         escapedQuote,
