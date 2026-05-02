@@ -43,13 +43,22 @@ Plans:
 **Goal:** Users can reliably ingest URLs and PDFs on the web version using tiered proxies and client-side distillation, with manual fallbacks.
 **Requirements**: WEB-05
 **Depends on:** Phase 19
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans executed
 
 Plans:
 - [x] 19.1-00-PLAN.md — Extraction and Metadata Priority Test Scaffolding
-- [ ] 19.1-01-PLAN.md — Web Foundation (JS-Interop for Defuddle & Metadata priority)
-- [ ] 19.1-02-PLAN.md — Tiered Raw Proxy Pipeline (corsproxy.io, allorigins.win)
-- [ ] 19.1-03-PLAN.md — PDF Web Fix & Manual Ingest UI
+- [x] 19.1-01-PLAN.md — Web Foundation (JS-Interop for Defuddle & Metadata priority)
+- [x] 19.1-02-PLAN.md — Tiered Raw Proxy Pipeline (corsproxy.io, allorigins.win)
+- [x] 19.1-03-PLAN.md — PDF Web Fix & Manual Ingest UI
+
+### Phase 19.2: Fix web extraction diagnostics (INSERTED)
+
+**Goal:** Diagnose and fix web content extraction (URLs and PDFs) while strictly preserving stable mobile extraction logic.
+**Depends on:** Phase 19.1
+**Plans:** 1/1 plan executed
+
+Plans:
+- [x] 19.2-PLAN.md — Web Extraction Diagnostics and Refinement Implementation Plan
 
 ### Phase 20: Account Sessions and Device Linking
 **Goal**: Users can authenticate into stable account sessions and manage linked devices required for secure sync identity.
@@ -90,7 +99,8 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 19. Web Parity Core Flows | 5/5 | Completed | 2026-04-20 |
-| 19.1 Fix content extract problems on web version | 1/4 | In Progress|  |
+| 19.1 Fix content extract problems on web version | 4/4 | Completed | 2026-05-02 |
+| 19.2 Fix web extraction diagnostics | 1/1 | Completed | 2026-05-02 |
 | 20. Account Sessions and Device Linking | 0/0 | Not started | - |
 | 21. Deterministic Sync and Conflict Convergence | 0/0 | Not started | - |
 | 22. Collaboration Primitive Access Model | 0/0 | Not started | - |
