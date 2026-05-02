@@ -366,7 +366,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       // This handles basic Obsidian-style markings and respects line breaks
       var htmlContent = MarkdownConverter.convertToHtml(content);
 
-      // Inject highlights into HTML      htmlContent = _applyHighlightsToHtml(htmlContent, tone);
+      // Inject highlights into HTML
+      htmlContent = _applyHighlightsToHtml(htmlContent, tone);
 
       return Listener(
         onPointerUp: (_) {
@@ -491,6 +492,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     return result;
   }
+
   Widget _buildNoContentState(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -499,7 +501,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 640),
-          margin: const EdgeInsets.fromLTRB(16, 112, 16, 32),
+          margin: const EdgeInsets.fromLTRB(16, _webTopInset, 16, 32),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
