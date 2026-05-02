@@ -62,7 +62,7 @@ class ReaderActionPill extends StatelessWidget {
           const SizedBox(width: 2),
           _PillAction(
             icon: Icons.sell_outlined,
-            tooltip: 'Tag',
+            tooltip: 'Labels',
             onTap: onTag,
             fg: cs.surface,
           ),

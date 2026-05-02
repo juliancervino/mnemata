@@ -13,7 +13,6 @@ import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
 import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
-import 'package:mnemata/features/intelligence/presentation/tag_suggestion_sheet.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
@@ -23,6 +22,7 @@ import 'package:mnemata/features/reader/presentation/reader_pdf_view.dart';
 import 'package:mnemata/features/reader/presentation/reader_side_panel.dart';
 import 'package:mnemata/features/reader/presentation/widgets/reader_action_pill.dart';
 import 'package:mnemata/features/reader/services/reader_position_store.dart';
+import 'package:mnemata/features/reader/utils/markdown_converter.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -39,6 +39,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   static const double _desktopBreakpoint = 1024;
   static const double _sidePanelWidth = 312;
   static const int _wordsPerSectionBucket = 120;
+  static const double _webTopInset = 112;
 
   late final AppDatabase _database;
   late final AnnotationService _annotationService;
@@ -234,7 +235,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     onSummary: _openSummary,
                     onHighlight: _startHighlight,
                     isHighlightActive: _isHighlightModeActive,
-                    onTag: _openTagSuggestions,
+                    onTag: _manageLabels,
                     onShare: _shareItem,
                   ),
                 ),
@@ -276,7 +277,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     SizedBox(
                       width: _sidePanelWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 112, bottom: 24),
+                        padding: const EdgeInsets.only(top: _webTopInset, bottom: 24),
                         child: ReaderSidePanel(
                           source: source,
                           readTime: _readTime,
@@ -300,7 +301,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Widget _buildPdfBody(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? _webTopInset : 16, 0, 140),
       child: ReaderPdfView(
         sourceUri: _pdfSourceUri,
         onOpenOriginal: _openOriginal,
@@ -318,7 +319,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return SingleChildScrollView(
       controller: _scrollController,
       key: const Key('reader-scroll-view'),
-      padding: EdgeInsets.fromLTRB(0, kIsWeb ? 112 : 16, 0, 140),
+      padding: EdgeInsets.fromLTRB(0, kIsWeb ? _webTopInset : 16, 0, 140),
       child: Container(
         key: const Key('reader-content-container'),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -363,8 +364,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (kIsWeb && isMarkdown) {
       // Simple Markdown to HTML conversion for rendering with HtmlWidget
       // This handles basic Obsidian-style markings and respects line breaks
-      var htmlContent = _convertMarkdownToHtml(content);
-      
+      var htmlContent = MarkdownConverter.convertToHtml(content);
+
       // Inject highlights into HTML
       htmlContent = _applyHighlightsToHtml(htmlContent, tone);
 
@@ -467,67 +468,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return hasHeaders || hasBold || hasLists || hasFrontmatter;
   }
 
-  String _convertMarkdownToHtml(String markdown) {
-    var html = markdown.trim();
-    // Remove frontmatter if present
-    if (html.startsWith('---')) {
-      final parts = html.split('---');
-      if (parts.length >= 3) {
-        html = parts.sublist(2).join('---').trim();
-      }
-    }
-
-    // Escape HTML characters to prevent injection/rendering issues
-    html = htmlEscape.convert(html);
-
-    // Standardize newlines
-    html = html.replaceAll('\r\n', '\n');
-
-    // Headers
-    html = html.replaceAllMapped(RegExp(r'^(#+)\s+(.+)$', multiLine: true), (Match match) {
-      final level = match.group(1)!.length;
-      final text = match.group(2)!;
-      return '<h$level>$text</h$level>';
-    });
-
-    // Bold
-    html = html.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (Match match) {
-      return '<strong>${match.group(1)}</strong>';
-    });
-
-    // Italic
-    html = html.replaceAllMapped(RegExp(r'\*(.+?)\*'), (Match match) {
-      return '<em>${match.group(1)}</em>';
-    });
-
-    // Lists
-    html = html.replaceAllMapped(RegExp(r'^[*-]\s+(.+)$', multiLine: true), (Match match) {
-      return '<li>${match.group(1)}</li>';
-    });
-    // Wrap consecutive <li> in <ul> (simple approximation)
-    html = html.replaceAllMapped(RegExp(r'(<li>.*?</li>)+', dotAll: true), (Match match) {
-      return '<ul>${match.group(0)}</ul>';
-    });
-
-    // Paragraphs (double newlines)
-    // We split by double newlines and wrap each non-empty, non-block segment in <p>
-    final blocks = html.split(RegExp(r'\n\n+'));
-    html = blocks.map((block) {
-      final trimmed = block.trim();
-      if (trimmed.isEmpty) return '';
-      // If it already starts with a block-level tag, leave it alone
-      if (trimmed.startsWith('<h') || trimmed.startsWith('<ul>') || trimmed.startsWith('<p>')) {
-        return trimmed;
-      }
-      return '<p>${trimmed.replaceAll('\n', '<br>')}</p>';
-    }).join('\n');
-
-    return html;
-  }
-
   String _applyHighlightsToHtml(String html, _ReaderBodyTone tone) {
-    if (_annotations.isEmpty) return html;
-
     var result = html;
     // We sort annotations by length (descending) to avoid partial matches
     // ruining later replacements of longer strings
@@ -542,7 +483,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
       // We use a simple string replacement for HTML.
       // We wrap it in <mark> and prepend an <anchor> for precise scrolling to the start
-      // We escape the quote because the input 'html' is already escaped by _convertMarkdownToHtml
+      // We escape the quote because the input 'html' is already escaped by MarkdownConverter
       final escapedQuote = htmlEscape.convert(quote);
       result = result.replaceFirst(
         escapedQuote,
@@ -551,6 +492,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     return result;
   }
+
   Widget _buildNoContentState(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -559,7 +501,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 640),
-          margin: const EdgeInsets.fromLTRB(16, 112, 16, 32),
+          margin: const EdgeInsets.fromLTRB(16, _webTopInset, 16, 32),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: cs.surfaceContainerLow,
@@ -1393,8 +1335,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return buffer.toString().trim();
   }
 
-  Future<void> _openTagSuggestions() async {
-    await LabelSelectorSheet.show(context, widget.item);
+  Future<void> _manageLabels() async {
+    final suggestionService = GetIt.instance<TagSuggestionService>();
+    await LabelSelectorSheet.show(
+      context,
+      widget.item,
+      suggestionService: suggestionService,
+    );
   }
 }
 

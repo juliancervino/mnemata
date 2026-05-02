@@ -3,7 +3,9 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get_it/get_it.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
+import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
+import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
 
 class ItemEditorScreen extends StatefulWidget {
   final MnemataItem item;
@@ -20,6 +22,11 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   late TextEditingController _authorController;
   final Set<int> _selectedLabelIds = {};
   bool _isLoadingLabels = true;
+
+  // AI Suggestions state
+  bool _isLoadingAI = false;
+  TagSuggestionResult? _aiSuggestions;
+  final Set<int> _selectedAIIds = {};
 
   @override
   void initState() {
@@ -45,6 +52,46 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
     _urlController.dispose();
     _authorController.dispose();
     super.dispose();
+  }
+
+  Future<void> _generateAISuggestions() async {
+    final service = GetIt.instance<TagSuggestionService>();
+    setState(() {
+      _isLoadingAI = true;
+      _selectedAIIds.clear();
+    });
+    try {
+      final result = await service.suggestForItem(widget.item);
+      if (mounted) {
+        setState(() {
+          _aiSuggestions = result;
+          _isLoadingAI = false;
+          if (result.isSuccess) {
+            _selectedAIIds.addAll(result.suggestedLabels.map((l) => l.id));
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingAI = false;
+          _aiSuggestions = const TagSuggestionResult(
+            status: TagSuggestionStatus.error,
+            suggestedLabels: [],
+            guidance: 'Failed to generate suggestions. Please try again.',
+          );
+        });
+      }
+    }
+  }
+
+  void _applyAISuggestions() {
+    if (_aiSuggestions == null || !_aiSuggestions!.isSuccess) return;
+    setState(() {
+      _selectedLabelIds.addAll(_selectedAIIds);
+      _aiSuggestions = null;
+      _selectedAIIds.clear();
+    });
   }
 
   Future<void> _handleSave({bool pop = true}) async {
@@ -197,6 +244,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final database = GetIt.instance<AppDatabase>();
+    final cs = Theme.of(context).colorScheme;
 
     return PopScope(
       canPop: true,
@@ -254,13 +302,87 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                           'Labels',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        TextButton.icon(
-                          onPressed: () => _showAddTagDialog(context, database),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Tag'),
+                        Row(
+                          children: [
+                            if (_aiSuggestions == null)
+                              TextButton.icon(
+                                onPressed: _isLoadingAI ? null : _generateAISuggestions,
+                                icon: _isLoadingAI 
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.auto_awesome, size: 16),
+                                label: const Text('AI Suggestions'),
+                              ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () => _showAddTagDialog(context, database),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Tag'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
+                    if (_aiSuggestions != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(MnemataRadii.md),
+                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('AI SUGGESTIONS', style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 1)),
+                            const SizedBox(height: 8),
+                            if (!_aiSuggestions!.isSuccess)
+                              Text(_aiSuggestions!.guidance, style: TextStyle(color: Theme.of(context).colorScheme.error))
+                            else if (_aiSuggestions!.suggestedLabels.isEmpty)
+                              const Text('No suggestions found.')
+                            else
+                              Builder(
+                                builder: (context) {
+                                  final newSuggestions = _aiSuggestions!.suggestedLabels
+                                      .where((l) => !_selectedLabelIds.contains(l.id))
+                                      .toList();
+                                  if (newSuggestions.isEmpty) {
+                                    return const Text('All suggested labels are already applied.');
+                                  }
+                                  return Wrap(
+                                    spacing: 8,
+                                    children: newSuggestions.map((l) {
+                                      final isSelected = _selectedAIIds.contains(l.id);
+                                      return FilterChip(
+                                        label: Text(l.name),
+                                        selected: isSelected,
+                                        onSelected: (val) {
+                                          setState(() {
+                                            if (val) _selectedAIIds.add(l.id);
+                                            else _selectedAIIds.remove(l.id);
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
+                                  );
+                                },
+                              ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(onPressed: () => setState(() => _aiSuggestions = null), child: const Text('CANCEL')),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: _selectedAIIds.isEmpty ? null : _applyAISuggestions, 
+                                  child: const Text('APPLY'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     StreamBuilder<List<Label>>(
                       stream: database.watchAllLabels(),
@@ -269,20 +391,29 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                           return const CircularProgressIndicator();
                         }
 
-                        final labels = snapshot.data!
+                        final allLabels = snapshot.data!;
+                        final filteredLabels = allLabels
                             .where(
                               (label) =>
                                   _selectedLabelIds.contains(label.id) ||
                                   !looksLikeDomainLabel(label.name),
                             )
-                            .toList(growable: false);
-                        if (labels.isEmpty) {
+                            .toList();
+                        
+                        final assignedLabels = filteredLabels.where((l) => _selectedLabelIds.contains(l.id)).toList()
+                          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                        final unassignedLabels = filteredLabels.where((l) => !_selectedLabelIds.contains(l.id)).toList()
+                          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                        
+                        final sortedLabels = [...assignedLabels, ...unassignedLabels];
+
+                        if (sortedLabels.isEmpty) {
                           return const Text('No labels created yet.');
                         }
 
                         return Wrap(
                           spacing: 8,
-                          children: labels.map((label) {
+                          children: sortedLabels.map((label) {
                             final isSelected = _selectedLabelIds.contains(
                               label.id,
                             );
@@ -294,7 +425,7 @@ class _ItemEditorScreenState extends State<ItemEditorScreen> {
                                 size: 16,
                                 color: label.color != null
                                     ? Color(label.color!)
-                                    : Colors.blue,
+                                    : cs.primary,
                               ),
                               onSelected: (selected) {
                                 setState(() {
