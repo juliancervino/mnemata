@@ -264,7 +264,7 @@ class ShareService {
       _handleSummaryOutcome(resultFromSummary, source: normalizedName);
       if (kIsWeb) {
         debugPrint(
-          'ShareService: web file ingest complete mimeType=$mimeType bytes=${bytes.lengthInBytes} success=${extractedText != null}',
+          'ShareService: web file ingest complete mimeType=$mimeType bytes=${bytes.lengthInBytes} success=${extractedText?.trim().isNotEmpty == true}',
         );
       }
     } finally {

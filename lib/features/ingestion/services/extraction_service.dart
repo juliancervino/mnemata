@@ -84,15 +84,9 @@ class ExtractionService {
           }
         } catch (e) {
           if (e is ExtractionBlockedException) {
-            final status = e.statusCode;
-            // 401/403 are common for direct fetches on web due to CORS/Protection.
-            // We make them non-fatal here to allow trying the proxy tiers.
-            if (status == 401 || status == 403) {
-              _webLog('Direct fetch blocked (status $status), attempting fallbacks...');
-            } else {
-              _webLog('Direct fetch blocked fatally: ${e.message}');
-              rethrow;
-            }
+            // Direct fetch blocks (401, 403, 429, WAF) are common on web.
+            // We make them non-fatal to allow trying the proxy tiers.
+            _webLog('Direct fetch blocked (${e.message ?? 'status ${e.statusCode}'}), attempting fallbacks...');
           } else {
             _webLog('Direct fetch failed: $e');
             debugPrint('Direct fetch failed for $url: $e');

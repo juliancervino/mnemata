@@ -17,9 +17,9 @@ The `ExtractionService` for Web will be updated to include Jina Reader in its fa
 ### Components
 
 #### 1. `_fetchViaJinaReader(String url)`
-- **Endpoint:** `https://r.jina.ai/<url>`
+- **Endpoint:** `https://r.jina.ai/${Uri.encodeComponent(url)}`
 - **Headers:** `{'Accept': 'text/html'}` to ensure HTML output compatible with `processRawHtml`.
-- **Timeout:** 20 seconds.
+- **Timeout:** 15 seconds.
 - **Diagnostics:** Logs attempts and failures via `_webLog`.
 - **Validation:** Uses `_checkFailureHeuristics` to handle status codes and block detection.
 
