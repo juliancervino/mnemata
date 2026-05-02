@@ -17,6 +17,7 @@ import 'package:mnemata/features/intelligence/presentation/tag_suggestion_sheet.
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
+import 'package:mnemata/features/organization/presentation/label_selector_sheet.dart';
 import 'package:mnemata/features/reader/presentation/reader_controls_bar.dart';
 import 'package:mnemata/features/reader/presentation/reader_pdf_view.dart';
 import 'package:mnemata/features/reader/presentation/reader_side_panel.dart';
@@ -1387,20 +1388,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _openTagSuggestions() async {
-    final suggestionService = GetIt.instance<TagSuggestionService>();
-    await showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
-          child: TagSuggestionSheet(
-            item: widget.item,
-            service: suggestionService,
-          ),
-        ),
-      ),
-    );
+    await LabelSelectorSheet.show(context, widget.item);
   }
 }
 
