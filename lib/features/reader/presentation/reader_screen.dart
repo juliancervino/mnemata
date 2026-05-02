@@ -235,7 +235,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     isHighlightActive: _isHighlightModeActive,
                     onTag: _openTagSuggestions,
                     onShare: _shareItem,
-                    onBookmark: _togglePin,
                   ),
                 ),
               ),
@@ -860,12 +859,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
           : 'Highlight mode disabled.'),
         duration: const Duration(seconds: 2),
       ),
-    );
-  }
-
-  void _togglePin() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Bookmarks are not available yet.')),
     );
   }
 
