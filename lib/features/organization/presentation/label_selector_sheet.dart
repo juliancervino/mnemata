@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:get_it/get_it.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/features/intelligence/services/tag_suggestion_service.dart';
+import 'package:mnemata/features/intelligence/services/ai_plain_text.dart';
 
 class _SheetDragHandle extends StatelessWidget {
   const _SheetDragHandle();
@@ -110,6 +113,89 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
     }
   }
 
+  void _pickColor(
+    BuildContext context,
+    Color initialColor,
+    Function(Color) onColorChanged,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pick a color'),
+        content: SingleChildScrollView(
+          child: BlockPicker(
+            pickerColor: initialColor,
+            onColorChanged: (color) {
+              onColorChanged(color);
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddTagDialog(BuildContext context, AppDatabase database) {
+    final nameController = TextEditingController();
+    Color selectedColor = Colors.blue;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add New Tag'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Tag Name'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('Color'),
+                trailing: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selectedColor,
+                  ),
+                ),
+                onTap: () => _pickColor(context, selectedColor, (color) {
+                  setDialogState(() => selectedColor = color);
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  final id = await database.insertLabel(
+                    LabelsCompanion.insert(
+                      name: name,
+                      color: drift.Value(selectedColor.toARGB32()),
+                    ),
+                  );
+                  await database.assignLabelToItem(widget.item.id, id);
+                  if (context.mounted) Navigator.pop(context);
+                }
+              },
+              child: const Text('ADD'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -171,22 +257,34 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
               else if (_suggestions!.suggestedLabels.isEmpty)
                 const Text('No suggestions found for this content.')
               else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _suggestions!.suggestedLabels.map((label) {
-                    final isSelected = _selectedSuggestedIds.contains(label.id);
-                    return FilterChip(
-                      label: Text(label.name),
-                      selected: isSelected,
-                      onSelected: (val) {
-                        setState(() {
-                          if (val) _selectedSuggestedIds.add(label.id);
-                          else _selectedSuggestedIds.remove(label.id);
-                        });
-                      },
+                StreamBuilder<List<Label>>(
+                  stream: database.watchLabelsForItem(widget.item.id),
+                  builder: (context, snapshot) {
+                    final assignedLabelIds = (snapshot.data ?? []).map((l) => l.id).toSet();
+                    final newSuggestions = _suggestions!.suggestedLabels
+                        .where((l) => !assignedLabelIds.contains(l.id))
+                        .toList();
+                    if (newSuggestions.isEmpty) {
+                      return const Text('All suggested labels are already applied.');
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: newSuggestions.map((label) {
+                        final isSelected = _selectedSuggestedIds.contains(label.id);
+                        return FilterChip(
+                          label: Text(label.name),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            setState(() {
+                              if (val) _selectedSuggestedIds.add(label.id);
+                              else _selectedSuggestedIds.remove(label.id);
+                            });
+                          },
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
+                  },
                 ),
               const SizedBox(height: 16),
               Row(
@@ -217,14 +315,6 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
                   }
 
                   final allLabels = allLabelsSnapshot.data!;
-                  if (allLabels.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No labels created yet. Go to Label Manager to add some.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    );
-                  }
 
                   return StreamBuilder<List<Label>>(
                     stream: database.watchLabelsForItem(widget.item.id),
@@ -233,36 +323,58 @@ class _LabelSelectorSheetState extends State<LabelSelectorSheet> {
                           .map((l) => l.id)
                           .toSet();
 
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: allLabels.length,
-                        itemBuilder: (context, index) {
-                          final label = allLabels[index];
-                          final isAssigned =
-                              assignedLabelIds.contains(label.id);
+                      final assignedLabels = allLabels.where((l) => assignedLabelIds.contains(l.id)).toList()
+                        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                      final unassignedLabels = allLabels.where((l) => !assignedLabelIds.contains(l.id)).toList()
+                        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                      
+                      final sortedLabels = [...assignedLabels, ...unassignedLabels];
 
-                          return CheckboxListTile(
-                            title: Text(
-                              label.name,
-                              style: theme.textTheme.bodyLarge,
+                      return SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (sortedLabels.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: Text(
+                                  'No labels created yet.',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                children: sortedLabels.map((label) {
+                                  final isAssigned = assignedLabelIds.contains(label.id);
+                                  return FilterChip(
+                                    label: Text(label.name),
+                                    selected: isAssigned,
+                                    avatar: Icon(
+                                      Icons.label,
+                                      size: 16,
+                                      color: label.color != null
+                                          ? Color(label.color!)
+                                          : cs.primary,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) {
+                                        database.assignLabelToItem(widget.item.id, label.id);
+                                      } else {
+                                        database.removeLabelFromItem(widget.item.id, label.id);
+                                      }
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            const SizedBox(height: 16),
+                            TextButton.icon(
+                              onPressed: () => _showAddTagDialog(context, database),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Tag'),
                             ),
-                            secondary: Icon(
-                              Icons.label,
-                              color: label.color != null
-                                  ? Color(label.color!)
-                                  : cs.primary,
-                            ),
-                            value: isAssigned,
-                            onChanged: (bool? value) {
-                              if (value == true) {
-                                database.assignLabelToItem(widget.item.id, label.id);
-                              } else {
-                                database.removeLabelFromItem(
-                                    widget.item.id, label.id);
-                              }
-                            },
-                          );
-                        },
+                          ],
+                        ),
                       );
                     },
                   );
