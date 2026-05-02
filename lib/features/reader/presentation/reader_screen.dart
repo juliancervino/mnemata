@@ -401,7 +401,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
             },
             customStylesBuilder: (element) {
               if (element.localName == 'p') {
-                return {'margin-bottom': '1.2em'};
+                return {
+                  'margin-bottom': '1.5em',
+                  'margin-top': '0',
+                  'display': 'block',
+                };
               }
               if (element.localName == 'mark') {
                 final colorHex = '#${tone.highlightColor.toARGB32().toRadixString(16).substring(2)}';
@@ -476,9 +480,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     // Escape HTML characters to prevent injection/rendering issues
     html = htmlEscape.convert(html);
 
-    // Very basic markdown to HTML converter that respects \n\n as paragraphs
-    // and handles basic marks found in clippings
-    
     // Standardize newlines
     html = html.replaceAll('\r\n', '\n');
 
@@ -509,11 +510,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
 
     // Paragraphs (double newlines)
-    final paragraphs = html.split('\n\n');
-    html = paragraphs.map((p) {
-      if (p.trim().isEmpty) return '';
-      if (p.trim().startsWith('<h') || p.trim().startsWith('<ul>')) return p;
-      return '<p>${p.replaceAll('\n', '<br>')}</p>';
+    // We split by double newlines and wrap each non-empty, non-block segment in <p>
+    final blocks = html.split(RegExp(r'\n\n+'));
+    html = blocks.map((block) {
+      final trimmed = block.trim();
+      if (trimmed.isEmpty) return '';
+      // If it already starts with a block-level tag, leave it alone
+      if (trimmed.startsWith('<h') || trimmed.startsWith('<ul>') || trimmed.startsWith('<p>')) {
+        return trimmed;
+      }
+      return '<p>${trimmed.replaceAll('\n', '<br>')}</p>';
     }).join('\n');
 
     return html;
