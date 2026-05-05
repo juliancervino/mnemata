@@ -1,0 +1,18 @@
+Fichero: lib/features/reader/presentation/reader_screen.dart
+Comentario:
+Plain-text conversion only replaces `\n` with `<br>`, but leaves carriage returns (`\r` / `\r\n`) intact, which can break the “preserve carriage returns” requirement and lead to stray `\r` characters in rendered output. Consider normalizing line endings (e.g., replace `\r\n` and `\r` as well) before inserting `<br>`.
+
+------------------------
+Fichero: .vscode/settings.json
+Comentario:
+This repo now commits a VS Code setting that auto-approves terminal tool invocations for `flutter`. That’s a local/agent preference and can have security/operational implications when others open the workspace. Consider removing this file from version control (or scoping it to developer-local config) rather than enforcing auto-approval at the repository level.
+
+------------------------
+Fichero: .planning/STATE.md
+Comentario:
+The document body has been updated to Phase 19.5, but the YAML front matter still says `status: Ready for Phase 19.4 discussion` and `progress.percent: 79`, which no longer matches the updated focus/progress text below (44%). Please update the front matter fields to stay consistent with the new Phase 19.5 state.
+------------------------
+Fichero: lib/features/reader/presentation/reader_screen.dart
+Comentario:
+Calling `_saveHighlightFromText(text)` from `onPointerUp` can throw at runtime when the selected text can’t be located in `_plainContent` (e.g., due to whitespace/entity differences between HtmlWidget’s `selection.plainText` and `_extractPlainText`). In that case `_saveHighlightFromText` ends up attempting to write an invalid anchor (missing `start`/`end`), which `AnnotationService` rejects. Consider handling the “not found” case explicitly (don’t save + show feedback) or normalize/match text so valid offsets are always produced, and wrap the async save in error handling so pointer events don’t surface exceptions.
+------------------------

@@ -173,6 +173,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         context,
                         source: source,
                         showSidePanel: showSidePanel,
+                        constraints: constraints,
                       )
                     : _buildNoContentState(context),
               ),
@@ -251,13 +252,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     BuildContext context, {
     required String source,
     required bool showSidePanel,
+    required BoxConstraints constraints,
   }) {
     final tone = _bodyToneFor(context);
     final sectionLabels = _isPdfItem ? const <String>['PDF'] : _sectionLabels();
 
     final mainPane = _isPdfItem
         ? _buildPdfBody(context)
-        : _buildScrollableBody(context, source: source, tone: tone);
+        : _buildScrollableBody(
+            context,
+            source: source,
+            tone: tone,
+            constraints: constraints,
+          );
 
     return SafeArea(
       child: Align(
@@ -277,7 +284,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     SizedBox(
                       width: _sidePanelWidth,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: _webTopInset, bottom: 24),
+                        padding:
+                            const EdgeInsets.only(top: _webTopInset, bottom: 24),
                         child: ReaderSidePanel(
                           source: source,
                           readTime: _readTime,
@@ -315,14 +323,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     BuildContext context, {
     required String source,
     required _ReaderBodyTone tone,
+    required BoxConstraints constraints,
   }) {
+    final isMobile = constraints.maxWidth < 600;
+    final horizontalPadding = isMobile ? 20.0 : 24.0;
+
     return SingleChildScrollView(
       controller: _scrollController,
       key: const Key('reader-scroll-view'),
       padding: EdgeInsets.fromLTRB(0, kIsWeb ? _webTopInset : 16, 0, 140),
       child: Container(
         key: const Key('reader-content-container'),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        padding: EdgeInsets.fromLTRB(horizontalPadding, 24, horizontalPadding, 24),
         decoration: BoxDecoration(
           color: tone.surfaceColor,
           borderRadius: BorderRadius.circular(MnemataRadii.lg),
@@ -356,105 +368,114 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Widget _buildMainContent(BuildContext context, _ReaderBodyTone tone) {
-    final content = widget.item.content ?? '';
-    final isMarkdown = _looksLikeMarkdown(content);
     final theme = Theme.of(context);
     final textStyle = _contentTextStyle(theme, tone.textColor);
+    final htmlContent = _prepareHtmlContent(tone);
 
-    if (kIsWeb && isMarkdown) {
-      // Simple Markdown to HTML conversion for rendering with HtmlWidget
-      // This handles basic Obsidian-style markings and respects line breaks
-      var htmlContent = MarkdownConverter.convertToHtml(content);
-
-      // Inject highlights into HTML
-      htmlContent = _applyHighlightsToHtml(htmlContent, tone);
-
-      return Listener(
-        onPointerUp: (_) {
-          if (_isHighlightModeActive && _pendingSelectionText != null) {
-            final text = _pendingSelectionText!.trim();
-            if (text.isNotEmpty) {
-              _saveHighlightFromText(text);
-              _pendingSelectionText = null;
-            }
+    return Listener(
+      onPointerUp: (_) {
+        if (_isHighlightModeActive && _pendingSelectionText != null) {
+          final text = _pendingSelectionText!.trim();
+          if (text.isNotEmpty) {
+            _saveHighlightFromText(text);
+            _pendingSelectionText = null;
           }
+        }
+      },
+      child: SelectionArea(
+        onSelectionChanged: (selection) {
+          _pendingSelectionText = selection?.plainText;
         },
-        child: SelectionArea(
-          onSelectionChanged: (selection) {
-            if (_isHighlightModeActive) {
-              _pendingSelectionText = selection?.plainText;
-            }
-          },
-          child: HtmlWidget(
-            htmlContent,
-            textStyle: textStyle,
-            customWidgetBuilder: (element) {
-              if (element.localName == 'anchor') {
-                final idStr = element.attributes['id'];
-                if (idStr != null) {
-                  final id = int.tryParse(idStr);
-                  if (id != null) {
-                    return SizedBox(key: _annotationKeys[id], width: 0, height: 0);
+        contextMenuBuilder: (context, selectableRegionState) {
+          final buttonItems = selectableRegionState.contextMenuButtonItems;
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: selectableRegionState.contextMenuAnchors,
+            buttonItems: [
+              ContextMenuButtonItem(
+                label: 'Highlight',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  if (_pendingSelectionText != null) {
+                    _saveHighlightFromText(_pendingSelectionText!);
                   }
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Highlight + note',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  if (_pendingSelectionText != null) {
+                    _saveHighlightWithNoteFromText(_pendingSelectionText!);
+                  }
+                },
+              ),
+              ...buttonItems,
+            ],
+          );
+        },
+        child: HtmlWidget(
+          htmlContent,
+          key: const Key('reader-body-text'),
+          textStyle: textStyle,
+          customWidgetBuilder: (element) {
+            if (element.localName == 'anchor') {
+              final idStr = element.attributes['id'];
+              if (idStr != null) {
+                final id = int.tryParse(idStr);
+                if (id != null) {
+                  return SizedBox(key: _annotationKeys[id], width: 0, height: 0);
                 }
               }
-              return null;
-            },
-            customStylesBuilder: (element) {
-              if (element.localName == 'p') {
-                return {
-                  'margin-bottom': '1.5em',
-                  'margin-top': '0',
-                  'display': 'block',
-                };
-              }
-              if (element.localName == 'mark') {
-                final colorHex = '#${tone.highlightColor.toARGB32().toRadixString(16).substring(2)}';
-                return {'background-color': colorHex};
-              }
-              return null;
-            },
-          ),
+            }
+            return null;
+          },
+          customStylesBuilder: (element) {
+            if (element.localName == 'p') {
+              return {
+                'margin-bottom': '1.5em',
+                'margin-top': '0',
+                'display': 'block',
+              };
+            }
+            if (element.localName == 'mark') {
+              final colorHex =
+                  '#${tone.highlightColor.toARGB32().toRadixString(16).substring(2)}';
+              return {'background-color': colorHex};
+            }
+            return null;
+          },
         ),
-      );
+      ),
+    );
+  }
+
+  String _prepareHtmlContent(_ReaderBodyTone tone) {
+    final content = widget.item.content ?? '';
+    final isMarkdown = _looksLikeMarkdown(content);
+    final isHtml = _looksLikeHtml(content);
+
+    var html = content;
+    if (isMarkdown && !isHtml) {
+      html = MarkdownConverter.convertToHtml(content);
+    } else if (!isHtml) {
+      // Plain text: simple conversion to preserve line breaks
+      html = htmlEscape
+          .convert(content)
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .replaceAll('\n', '<br>');
+      html = '<p>$html</p>';
     }
 
-    return SelectableText.rich(
-      _buildHighlightedContentSpan(context),
-      key: const Key('reader-body-text'),
-      contextMenuBuilder: (context, editableTextState) {
-        final items = editableTextState.contextMenuButtonItems.toList();
-        items.insert(
-          0,
-          ContextMenuButtonItem(
-            label: 'Highlight',
-            onPressed: () {
-              final selection =
-                  editableTextState.textEditingValue.selection;
-              editableTextState.hideToolbar();
-              _saveHighlightOnlyFromSelection(selection);
-            },
-          ),
-        );
-        items.insert(
-          1,
-          ContextMenuButtonItem(
-            label: 'Highlight + note',
-            onPressed: () {
-              final selection =
-                  editableTextState.textEditingValue.selection;
-              editableTextState.hideToolbar();
-              _saveHighlightWithNoteFromSelection(selection);
-            },
-          ),
-        );
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: editableTextState.contextMenuAnchors,
-          buttonItems: items,
-        );
-      },
-      style: textStyle,
-    );
+    // Inject highlights
+    return _applyHighlightsToHtml(html, tone);
+  }
+
+  bool _looksLikeHtml(String text) {
+    return text.contains('<p>') ||
+        text.contains('</div>') ||
+        text.contains('<br>') ||
+        text.contains('</a>');
   }
 
   bool _looksLikeMarkdown(String text) {
@@ -933,88 +954,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return '$minutes min read';
   }
 
-  TextSpan _buildHighlightedContentSpan(BuildContext context) {
-    final tone = _bodyToneFor(context);
-    final baseStyle = _contentTextStyle(Theme.of(context), tone.textColor);
-    if (_annotations.isEmpty || _plainContent.isEmpty) {
-      return TextSpan(text: _plainContent, style: baseStyle);
-    }
-
-    final ranges =
-        _annotations
-            .map(_toRange)
-            .where((range) => range != null)
-            .cast<_AnchorRange>()
-            .toList()
-          ..sort((a, b) => a.start.compareTo(b.start));
-
-    if (ranges.isEmpty) {
-      return TextSpan(text: _plainContent, style: baseStyle);
-    }
-
-    final spans = <InlineSpan>[];
-    var cursor = 0;
-
-    for (final range in ranges) {
-      if (range.start > cursor) {
-        spans.add(
-          TextSpan(
-            text: _plainContent.substring(cursor, range.start),
-            style: baseStyle,
-          ),
-        );
-      }
-
-      _annotationKeys.putIfAbsent(range.id, () => GlobalKey());
-      spans.add(
-        WidgetSpan(
-          child: SizedBox(
-            key: _annotationKeys[range.id],
-            width: 0,
-            height: 0,
-          ),
-        ),
-      );
-
-      final start = range.start.clamp(0, _plainContent.length);
-      final end = range.end.clamp(start, _plainContent.length);
-      if (end > start) {
-        spans.add(
-          TextSpan(
-            text: _plainContent.substring(start, end),
-            style: baseStyle?.copyWith(backgroundColor: tone.highlightColor),
-          ),
-        );
-      }
-      cursor = end;
-    }
-
-    if (cursor < _plainContent.length) {
-      spans.add(
-        TextSpan(text: _plainContent.substring(cursor), style: baseStyle),
-      );
-    }
-
-    return TextSpan(children: spans, style: baseStyle);
-  }
-
-  _AnchorRange? _toRange(AnnotationRecord record) {
-    try {
-      final decoded = jsonDecode(record.anchorJson);
-      if (decoded is! Map<String, dynamic>) {
-        return null;
-      }
-      final start = (decoded['start'] as num?)?.toInt();
-      final end = (decoded['end'] as num?)?.toInt();
-      if (start == null || end == null || end <= start) {
-        return null;
-      }
-      return _AnchorRange(start: start, end: end, id: record.id);
-    } catch (_) {
-      return null;
-    }
-  }
-
   String _extractPlainText(String raw) {
     var text = raw
         .replaceAll(
@@ -1043,90 +982,91 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _saveHighlightFromText(String quote) async {
-    if (quote.isEmpty) return;
-    
+    final trimmedQuote = quote.trim();
+    if (trimmedQuote.isEmpty) return;
+
     // Check if we already have this highlight to avoid duplicates
-    if (_annotations.any((a) => a.quoteText == quote)) return;
+    if (_annotations.any((a) => a.quoteText == trimmedQuote)) return;
 
-    // Try to find the range in plain text for semantic consistency
-    final startIndex = _plainContent.indexOf(quote);
-    final range = startIndex != -1 
-      ? {'start': startIndex, 'end': startIndex + quote.length}
-      : null;
+    try {
+      // Try to find the range in plain text for semantic consistency
+      final startIndex = _plainContent.indexOf(trimmedQuote);
+      if (startIndex == -1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not locate exact position for highlight. Try a different selection.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
-    await _annotationService.createAnnotation(
-      itemId: widget.item.id,
-      quoteText: quote,
-      anchorJson: jsonEncode(range ?? {}),
-    );
+      final range = {'start': startIndex, 'end': startIndex + trimmedQuote.length};
 
-    await _reloadAnnotations();
+      await _annotationService.createAnnotation(
+        itemId: widget.item.id,
+        quoteText: trimmedQuote,
+        anchorJson: jsonEncode(range),
+      );
+
+      await _reloadAnnotations();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Highlight saved.')));
+      }
+    } catch (e) {
+      debugPrint('Error saving highlight: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to save highlight.')));
+      }
+    }
   }
 
-  Future<void> _saveHighlightOnlyFromSelection(TextSelection selection) async {
-    if (!_isSelectionInBounds(selection)) {
-      return;
-    }
+  Future<void> _saveHighlightWithNoteFromText(String quote) async {
+    final trimmedQuote = quote.trim();
+    if (trimmedQuote.isEmpty) return;
 
-    await _saveHighlightFromOffsets(selection.start, selection.end);
-  }
+    try {
+      final startIndex = _plainContent.indexOf(trimmedQuote);
+      if (startIndex == -1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not locate exact position for annotation. Try a different selection.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
-  Future<void> _saveHighlightFromOffsets(int start, int end) async {
-    final quote = _plainContent.substring(start, end).trim();
-    if (quote.isEmpty) {
-      return;
-    }
-
-    await _annotationService.createAnnotation(
-      itemId: widget.item.id,
-      quoteText: quote,
-      anchorJson: jsonEncode(<String, int>{'start': start, 'end': end}),
-    );
-
-    if (!mounted) {
-      return;
-    }
-    await _reloadAnnotations();
-    if (mounted) {
-      ScaffoldMessenger.of(
+      await ReaderSelectionActions.promptAddAnnotationFromSelection(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Highlight saved.')));
+        service: _annotationService,
+        itemId: widget.item.id,
+        selectedText: trimmedQuote,
+        selectionStart: startIndex,
+        selectionEnd: startIndex + trimmedQuote.length,
+      );
+
+      await _reloadAnnotations();
+    } catch (e) {
+      debugPrint('Error saving annotation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          const SnackBar(content: Text('Failed to save annotation.')),
+        );
+      }
     }
-  }
-
-  Future<void> _saveHighlightWithNoteFromSelection(
-    TextSelection selection,
-  ) async {
-    if (!_isSelectionInBounds(selection)) {
-      return;
-    }
-
-    final selectedText = _plainContent
-        .substring(selection.start, selection.end)
-        .trim();
-    if (selectedText.isEmpty) {
-      return;
-    }
-
-    await ReaderSelectionActions.promptAddAnnotationFromSelection(
-      context,
-      service: _annotationService,
-      itemId: widget.item.id,
-      selectedText: selectedText,
-      selectionStart: selection.start,
-      selectionEnd: selection.end,
-    );
-
-    if (!mounted) {
-      return;
-    }
-    await _reloadAnnotations();
-  }
-
-  bool _isSelectionInBounds(TextSelection selection) {
-    return selection.start >= 0 &&
-        selection.end > selection.start &&
-        selection.end <= _plainContent.length;
   }
 
   String _safeHost(String rawUrl) {
@@ -1510,12 +1450,4 @@ class _AnnotationsExpansion extends StatelessWidget {
       ],
     );
   }
-}
-
-class _AnchorRange {
-  const _AnchorRange({required this.start, required this.end, required this.id});
-
-  final int start;
-  final int end;
-  final int id;
 }
