@@ -11,6 +11,7 @@ import 'package:mnemata/core/theme/app_theme.dart';
 import 'package:mnemata/core/utils/share_utils.dart';
 import 'package:mnemata/features/ingestion/services/extraction_service.dart';
 import 'package:mnemata/features/intelligence/presentation/annotation_list_panel.dart';
+import 'package:mnemata/features/intelligence/presentation/reader_selection_actions.dart';
 import 'package:mnemata/features/intelligence/presentation/summary_panel.dart';
 import 'package:mnemata/features/intelligence/services/annotation_service.dart';
 import 'package:mnemata/features/intelligence/services/summary_service.dart';
@@ -383,9 +384,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
       },
       child: SelectionArea(
         onSelectionChanged: (selection) {
-          if (_isHighlightModeActive) {
-            _pendingSelectionText = selection?.plainText;
-          }
+          _pendingSelectionText = selection?.plainText;
+        },
+        contextMenuBuilder: (context, selectableRegionState) {
+          final buttonItems = selectableRegionState.contextMenuButtonItems;
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: selectableRegionState.contextMenuAnchors,
+            buttonItems: [
+              ContextMenuButtonItem(
+                label: 'Highlight',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  if (_pendingSelectionText != null) {
+                    _saveHighlightFromText(_pendingSelectionText!);
+                  }
+                },
+              ),
+              ContextMenuButtonItem(
+                label: 'Highlight + note',
+                onPressed: () {
+                  selectableRegionState.hideToolbar();
+                  if (_pendingSelectionText != null) {
+                    _saveHighlightWithNoteFromText(_pendingSelectionText!);
+                  }
+                },
+              ),
+              ...buttonItems,
+            ],
+          );
         },
         child: HtmlWidget(
           htmlContent,
@@ -433,7 +459,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
       html = MarkdownConverter.convertToHtml(content);
     } else if (!isHtml) {
       // Plain text: simple conversion to preserve line breaks
-      html = htmlEscape.convert(content).replaceAll('\n', '<br>');
+      html = htmlEscape
+          .convert(content)
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .replaceAll('\n', '<br>');
       html = '<p>$html</p>';
     }
 
@@ -952,24 +982,91 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _saveHighlightFromText(String quote) async {
-    if (quote.isEmpty) return;
-    
+    final trimmedQuote = quote.trim();
+    if (trimmedQuote.isEmpty) return;
+
     // Check if we already have this highlight to avoid duplicates
-    if (_annotations.any((a) => a.quoteText == quote)) return;
+    if (_annotations.any((a) => a.quoteText == trimmedQuote)) return;
 
-    // Try to find the range in plain text for semantic consistency
-    final startIndex = _plainContent.indexOf(quote);
-    final range = startIndex != -1 
-      ? {'start': startIndex, 'end': startIndex + quote.length}
-      : null;
+    try {
+      // Try to find the range in plain text for semantic consistency
+      final startIndex = _plainContent.indexOf(trimmedQuote);
+      if (startIndex == -1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not locate exact position for highlight. Try a different selection.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
-    await _annotationService.createAnnotation(
-      itemId: widget.item.id,
-      quoteText: quote,
-      anchorJson: jsonEncode(range ?? {}),
-    );
+      final range = {'start': startIndex, 'end': startIndex + trimmedQuote.length};
 
-    await _reloadAnnotations();
+      await _annotationService.createAnnotation(
+        itemId: widget.item.id,
+        quoteText: trimmedQuote,
+        anchorJson: jsonEncode(range),
+      );
+
+      await _reloadAnnotations();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Highlight saved.')));
+      }
+    } catch (e) {
+      debugPrint('Error saving highlight: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to save highlight.')));
+      }
+    }
+  }
+
+  Future<void> _saveHighlightWithNoteFromText(String quote) async {
+    final trimmedQuote = quote.trim();
+    if (trimmedQuote.isEmpty) return;
+
+    try {
+      final startIndex = _plainContent.indexOf(trimmedQuote);
+      if (startIndex == -1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not locate exact position for annotation. Try a different selection.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      await ReaderSelectionActions.promptAddAnnotationFromSelection(
+        context,
+        service: _annotationService,
+        itemId: widget.item.id,
+        selectedText: trimmedQuote,
+        selectionStart: startIndex,
+        selectionEnd: startIndex + trimmedQuote.length,
+      );
+
+      await _reloadAnnotations();
+    } catch (e) {
+      debugPrint('Error saving annotation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          const SnackBar(content: Text('Failed to save annotation.')),
+        );
+      }
+    }
   }
 
   String _safeHost(String rawUrl) {
