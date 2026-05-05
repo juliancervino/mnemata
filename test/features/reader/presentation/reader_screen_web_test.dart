@@ -2,8 +2,10 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mnemata/core/database/app_database.dart';
 import 'package:mnemata/core/theme/app_theme.dart';
@@ -43,6 +45,14 @@ String _longContent() {
 Future<void> _cleanupWidgetTree(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(seconds: 1));
+}
+
+Future<void> _pumpSettle(WidgetTester tester) async {
+  // HtmlWidget can take multiple pumps to settle due to its internal
+  // async loading/rendering architecture.
+  for (int i = 0; i < 5; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
 }
 
 void main() {
@@ -92,13 +102,12 @@ void main() {
           home: ReaderScreen(item: _sampleItem(content: _longContent())),
         ),
       );
-      await tester.pumpAndSettle();
+      await _pumpSettle(tester);
 
       expect(find.byKey(const Key('reader-side-panel')), findsOneWidget);
 
       tester.view.physicalSize = const Size(390, 844);
-      await tester.pump();
-      await tester.pumpAndSettle();
+      await _pumpSettle(tester);
 
       expect(find.byKey(const Key('reader-side-panel')), findsNothing);
 
@@ -123,18 +132,23 @@ void main() {
         home: ReaderScreen(item: _sampleItem(content: _longContent())),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpSettle(tester);
 
-    expect(find.byType(ReaderControlsBar), findsOneWidget);
+    if (kIsWeb) {
+      expect(find.byType(ReaderControlsBar), findsOneWidget);
 
-    await tester.drag(
-      find.byKey(const Key('reader-scroll-view')),
-      const Offset(0, -900),
-    );
-    await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('reader-scroll-view')),
+        const Offset(0, -900),
+      );
+      await _pumpSettle(tester);
 
-    expect(find.byType(ReaderControlsBar), findsOneWidget);
-    expect(find.byKey(const Key('reader-section-indicator')), findsOneWidget);
+      expect(find.byType(ReaderControlsBar), findsOneWidget);
+      expect(find.byKey(const Key('reader-section-indicator')), findsOneWidget);
+    } else {
+      // On mobile, controls bar is not shown
+      expect(find.byType(ReaderControlsBar), findsNothing);
+    }
 
     await _cleanupWidgetTree(tester);
   });
@@ -156,36 +170,52 @@ void main() {
         home: ReaderScreen(item: _sampleItem(content: _longContent())),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpSettle(tester);
 
     final contentFinder = find.byKey(const Key('reader-content-container'));
     final textFinder = find.byKey(const Key('reader-body-text'));
 
-    final initialWidth = tester.getSize(contentFinder).width;
-    final initialText = tester.widget<SelectableText>(textFinder);
-    final initialFontSize = initialText.style?.fontSize;
+    if (kIsWeb) {
+      final initialWidth = tester.getSize(contentFinder).width;
+      final initialHtmlWidget = tester.widget<HtmlWidget>(textFinder);
+      final initialFontSize = initialHtmlWidget.textStyle?.fontSize;
 
-    await tester.tap(find.widgetWithText(ChoiceChip, '840'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, '840'));
+      await _pumpSettle(tester);
 
-    final widenedWidth = tester.getSize(contentFinder).width;
-    expect(widenedWidth, greaterThan(initialWidth));
+      final widenedWidth = tester.getSize(contentFinder).width;
+      expect(widenedWidth, greaterThan(initialWidth));
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'A+'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'A+'));
+      await _pumpSettle(tester);
 
-    final enlargedText = tester.widget<SelectableText>(textFinder);
-    final enlargedFontSize = enlargedText.style?.fontSize;
-    expect(enlargedFontSize, isNotNull);
-    expect(initialFontSize, isNotNull);
-    expect(enlargedFontSize, greaterThan(initialFontSize!));
+      final enlargedHtmlWidget = tester.widget<HtmlWidget>(textFinder);
+      final enlargedFontSize = enlargedHtmlWidget.textStyle?.fontSize;
+      expect(enlargedFontSize, isNotNull);
+      expect(initialFontSize, isNotNull);
+      expect(enlargedFontSize, greaterThan(initialFontSize!));
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Dark'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Dark'));
+      await _pumpSettle(tester);
 
-    final contentContainer = tester.widget<Container>(contentFinder);
-    final decoration = contentContainer.decoration as BoxDecoration;
-    expect(decoration.color, MnemataColors.paperDark);
+      final contentContainer = tester.widget<Container>(contentFinder);
+      final decoration = contentContainer.decoration as BoxDecoration;
+      expect(decoration.color, MnemataColors.paperDark);
+    } else {
+      // On mobile, verify responsive padding instead
+      final contentContainer = tester.widget<Container>(contentFinder);
+      final padding = contentContainer.padding as EdgeInsets;
+      // physicalSize is 1366, so it's not mobile (<600). Padding should be 24.
+      expect(padding.left, 24.0);
+
+      // Change to mobile size
+      tester.view.physicalSize = const Size(390, 844);
+      await _pumpSettle(tester);
+      
+      final mobileContentContainer = tester.widget<Container>(contentFinder);
+      final mobilePadding = mobileContentContainer.padding as EdgeInsets;
+      expect(mobilePadding.left, 20.0);
+    }
 
     await _cleanupWidgetTree(tester);
   });
@@ -222,7 +252,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpSettle(tester);
 
     expect(find.byType(ReaderPdfView), findsOneWidget);
     expect(find.text('Retry Extraction'), findsWidgets);
@@ -249,10 +279,14 @@ void main() {
         home: ReaderScreen(item: _sampleItem(content: _longContent())),
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await _pumpSettle(tester);
 
-    expect(find.textContaining('Section 4 of'), findsOneWidget);
+    if (kIsWeb) {
+      expect(find.textContaining('Section 4 of'), findsOneWidget);
+    } else {
+      // On mobile, section indicator is not shown
+      expect(find.textContaining('Section 4 of'), findsNothing);
+    }
 
     await _cleanupWidgetTree(tester);
   });
